@@ -74,24 +74,40 @@ async function main() {
     }));
   });
 
-  await prisma.card.deleteMany();
-  await prisma.disaster.deleteMany();
-  await prisma.situation.deleteMany();
+  // Idempotent bootstrap: only seed tables that are currently empty so
+  // manual DB edits (e.g. card text tweaks) survive container restarts.
+  // Set SEED_RESET=1 to force a clean re-seed from data.md.
+  const force = process.env.SEED_RESET === "1";
 
-  await prisma.card.createMany({
-    data: cards
-  });
+  const [cardCount, disasterCount, situationCount] = await Promise.all([
+    prisma.card.count(),
+    prisma.disaster.count(),
+    prisma.situation.count()
+  ]);
 
-  await prisma.disaster.createMany({
-    data: content.disasters
-  });
+  if (force || cardCount === 0) {
+    if (force) await prisma.card.deleteMany();
+    await prisma.card.createMany({ data: cards, skipDuplicates: true });
+  }
 
-  await prisma.situation.createMany({
-    data: content.situations.map((situation) => ({
-      text: situation.text,
-      difficulty: situation.difficulty ?? Difficulty.MEDIUM
-    }))
-  });
+  if (force || disasterCount === 0) {
+    if (force) await prisma.disaster.deleteMany();
+    await prisma.disaster.createMany({
+      data: content.disasters,
+      skipDuplicates: true
+    });
+  }
+
+  if (force || situationCount === 0) {
+    if (force) await prisma.situation.deleteMany();
+    await prisma.situation.createMany({
+      data: content.situations.map((situation) => ({
+        text: situation.text,
+        difficulty: situation.difficulty ?? Difficulty.MEDIUM
+      })),
+      skipDuplicates: true
+    });
+  }
 }
 
 main()

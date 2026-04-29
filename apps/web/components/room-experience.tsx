@@ -140,22 +140,22 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     if (!sessionId || connectedRef.current) return;
 
     const socket = getSocket();
+    let isReconnect = false;
 
-    const rejoin = () => {
+    const onConnect = () => {
       socket.emit("join_room", { roomCode, sessionId });
-      // Refetch state via REST as a safety net in case any broadcasts were
-      // missed during the disconnect window.
-      void apiRequest<RoomState>(
-        `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
-      )
-        .then((s) => setRoomState(s))
-        .catch(() => {
-          // ignore — socket broadcast will recover state shortly.
-        });
+      if (isReconnect) {
+        // Recover any broadcasts missed during the disconnect window.
+        void apiRequest<RoomState>(
+          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+        )
+          .then((s) => setRoomState(s))
+          .catch(() => {
+            // ignore — server will broadcast room_state shortly.
+          });
+      }
+      isReconnect = true;
     };
-
-    socket.connect();
-    rejoin();
 
     const onState = (s: RoomState) => {
       setRoomState(s);
@@ -168,21 +168,21 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
+      // Only reconnect if the socket actually dropped — connect handler
+      // will rejoin and refetch state. Don't fire on every tab switch.
       if (!socket.connected) socket.connect();
-      rejoin();
     };
 
-    socket.on("connect", rejoin);
-    socket.on("reconnect", rejoin);
+    socket.on("connect", onConnect);
     socket.on("room_state", onState);
     socket.on("timer_update", onTimer);
     socket.on("action_error", onErr);
     document.addEventListener("visibilitychange", onVisibility);
+    socket.connect();
     connectedRef.current = true;
 
     return () => {
-      socket.off("connect", rejoin);
-      socket.off("reconnect", rejoin);
+      socket.off("connect", onConnect);
       socket.off("room_state", onState);
       socket.off("timer_update", onTimer);
       socket.off("action_error", onErr);
