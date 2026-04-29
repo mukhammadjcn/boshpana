@@ -182,6 +182,16 @@ export function buildTelegramStartappLink(startParam: string): string | null {
   return `https://t.me/${TG_BOT_USERNAME}?startapp=${param}`;
 }
 
+// Plain bot/Mini App link with no start param — used for landing-page CTAs
+// that send the user to authenticate via Telegram.
+export function buildTelegramBotLink(): string | null {
+  if (!TG_BOT_USERNAME) return null;
+  if (TG_WEB_APP_NAME) {
+    return `https://t.me/${TG_BOT_USERNAME}/${TG_WEB_APP_NAME}`;
+  }
+  return `https://t.me/${TG_BOT_USERNAME}`;
+}
+
 export function buildTelegramShareUrl(url: string, text?: string): string {
   const base = `https://t.me/share/url?url=${encodeURIComponent(url)}`;
   return text ? `${base}&text=${encodeURIComponent(text)}` : base;

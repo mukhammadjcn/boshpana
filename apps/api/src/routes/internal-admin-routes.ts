@@ -18,6 +18,11 @@ const adminModelConfig: Record<
     orderBy?: Record<string, "asc" | "desc">;
   }
 > = {
+  users: {
+    delegate: prisma.user as AdminDelegate,
+    include: undefined,
+    orderBy: { createdAt: "desc" as const }
+  },
   rooms: {
     delegate: prisma.room as AdminDelegate,
     include: { players: true, game: true, votes: true },
@@ -85,6 +90,61 @@ export async function registerInternalAdminRoutes(app: FastifyInstance) {
     return reply.send({
       models: Object.keys(adminModelConfig)
     });
+  });
+
+  app.get("/internal/admin/stats", async (_request, reply) => {
+    try {
+      const [
+        totalUsers,
+        totalRooms,
+        finishedRooms,
+        cancelledRooms,
+        playingRooms,
+        gamesStarted,
+        avgDurationGroup
+      ] = await Promise.all([
+        prisma.user.count(),
+        prisma.room.count(),
+        prisma.room.count({ where: { status: "FINISHED" } }),
+        prisma.room.count({ where: { status: "CANCELLED" } }),
+        prisma.room.count({ where: { status: "PLAYING" } }),
+        prisma.game.count({ where: { startedAt: { not: null } } }),
+        prisma.gameHistory.findMany({
+          where: {
+            durationSeconds: { not: null },
+            outcome: { not: "CANCELLED" }
+          },
+          distinct: ["roomCode", "playedAt"],
+          select: { durationSeconds: true }
+        })
+      ]);
+
+      const durations = avgDurationGroup
+        .map((row) => row.durationSeconds ?? 0)
+        .filter((n) => n > 0);
+      const avgDurationSeconds = durations.length
+        ? Math.round(
+            durations.reduce((sum, n) => sum + n, 0) / durations.length
+          )
+        : 0;
+
+      return reply.send({
+        totalUsers,
+        totalRooms,
+        finishedRooms,
+        cancelledRooms,
+        playingRooms,
+        gamesStarted,
+        avgDurationSeconds,
+        avgDurationMinutes:
+          avgDurationSeconds > 0
+            ? Math.round((avgDurationSeconds / 60) * 10) / 10
+            : 0,
+        finishedGamesCounted: durations.length
+      });
+    } catch (error) {
+      return reply.status(400).send({ message: (error as Error).message });
+    }
   });
 
   app.get<{

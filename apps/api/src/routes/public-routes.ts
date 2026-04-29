@@ -1,7 +1,7 @@
 import { CardType } from "@prisma/client";
 import { FastifyInstance } from "fastify";
 
-import { attachAuthUser, requireAuth } from "../lib/auth-decorator";
+import { requireAuth } from "../lib/auth-decorator";
 import { env } from "../lib/env";
 import { prisma } from "../lib/prisma";
 import { GameService } from "../services/game-service";
@@ -55,7 +55,7 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
     };
   }>(
     "/api/rooms/:code/join",
-    { preHandler: attachAuthUser },
+    { preHandler: requireAuth },
     async (request, reply) => {
       try {
         const result = await deps.gameService.joinRoom({

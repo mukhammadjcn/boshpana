@@ -99,14 +99,14 @@ export function DashboardHome() {
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
-      <div className="mx-auto flex min-h-screen max-w-xl flex-col px-5 pt-safe">
-        <header className="flex items-center justify-between py-3">
+      <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
+        <header className="flex items-center justify-between py-3 lg:py-5">
           <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-base font-bold text-bg-base">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-base font-bold text-bg-base lg:h-10 lg:w-10">
               B
             </span>
             <div className="leading-tight">
-              <p className="text-base font-semibold">Boshpana</p>
+              <p className="text-base font-semibold lg:text-lg">Boshpana</p>
               <p className="text-xs text-ink-muted">Bunker Online</p>
             </div>
           </div>
@@ -115,22 +115,33 @@ export function DashboardHome() {
             className="flex items-center gap-2 rounded-full border border-line-strong bg-bg-surface py-1.5 pl-1.5 pr-3 text-sm"
           >
             <Avatar user={user} />
-            <span className="max-w-[6rem] truncate text-xs font-medium">
+            <span className="max-w-[6rem] truncate text-xs font-medium lg:max-w-none lg:text-sm">
               {user?.nickname ?? user?.firstName ?? "Profil"}
             </span>
           </Link>
         </header>
 
-        <section className="mt-2 flex-1">
+        <section className="mt-2 flex-1 pb-10 lg:mt-6">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
             Salom, {greeting}
           </p>
-          <h1 className="mt-1 text-2xl font-bold leading-tight sm:text-3xl">
+          <h1 className="mt-1 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
             Bugun bunkerga kim tushadi?
           </h1>
 
-          {usage ? (
-            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
+          <div className="mt-5 grid gap-5 lg:mt-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
+            <div className="grid gap-5">
+          {!usage ? (
+            <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-20 animate-pulse rounded-full bg-bg-elevated" />
+                <div className="h-4 w-12 animate-pulse rounded-full bg-bg-elevated" />
+              </div>
+              <div className="mt-3 h-2 w-full animate-pulse rounded-full bg-bg-elevated" />
+              <div className="mt-3 h-3 w-2/3 animate-pulse rounded-full bg-bg-elevated" />
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
               <div className="flex items-center justify-between text-sm">
                 <p className="font-semibold text-ink-primary">Oylik limit</p>
                 <p
@@ -161,11 +172,11 @@ export function DashboardHome() {
                   : `Hozir ${usage.remaining} ta qoldi.`}
               </p>
             </div>
-          ) : null}
+          )}
 
           <form
             onSubmit={handleCreate}
-            className="mt-5 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
+            className="grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
           >
             <label className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
@@ -239,8 +250,12 @@ export function DashboardHome() {
               Roomga qo'shilish
             </button>
           </form>
+            </div>
 
-          <ActiveGames />
+            <div className="grid gap-5 lg:sticky lg:top-24">
+              <ActiveGames />
+            </div>
+          </div>
         </section>
       </div>
 

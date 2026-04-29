@@ -113,6 +113,43 @@ const modelDefinitions: Record<string, ModelDefinition> = {
       { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
     ]
   },
+  users: {
+    label: "Foydalanuvchilar",
+    description: "Telegram orqali ro‘yxatdan o‘tgan foydalanuvchilar.",
+    searchKeys: ["telegramUsername", "firstName", "nickname", "phone"],
+    columns: [
+      {
+        key: "user",
+        label: "Foydalanuvchi",
+        width: "w-56",
+        render: (i) => {
+          const fullName = [i.firstName, i.lastName].filter(Boolean).join(" ");
+          return (
+            i.nickname || fullName || i.telegramUsername || i.telegramId || "—"
+          );
+        }
+      },
+      {
+        key: "telegramUsername",
+        label: "Telegram",
+        width: "w-40",
+        render: (i) =>
+          i.telegramUsername ? `@${i.telegramUsername}` : String(i.telegramId ?? "—")
+      },
+      {
+        key: "phone",
+        label: "Telefon",
+        width: "w-36",
+        render: (i) => String(i.phone ?? "—")
+      },
+      {
+        key: "createdAt",
+        label: "Ro‘yxatdan o‘tgan",
+        width: "w-40",
+        render: (i) => formatDate(i.createdAt)
+      }
+    ]
+  },
   players: {
     label: "O‘yinchilar",
     description: "Room‘ga qo‘shilgan foydalanuvchilar ro‘yxati.",
@@ -240,6 +277,10 @@ export function AdminDashboard() {
     setPage(1);
     setEditingItem(null);
     setConfirmDelete(null);
+    if (selectedModel === "__stats__") {
+      setItems([]);
+      return;
+    }
     void loadItems(selectedModel);
   }, [selectedModel]);
 
@@ -370,6 +411,16 @@ export function AdminDashboard() {
     <div className="grid gap-3">
       {/* Model tabs */}
       <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
+        <button
+          onClick={() => setSelectedModel("__stats__")}
+          className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+            selectedModel === "__stats__"
+              ? "border-brand bg-brand text-bg-base"
+              : "border-line-subtle bg-bg-surface text-ink-secondary hover:border-line-strong"
+          }`}
+        >
+          Statistika
+        </button>
         {models.map((model) => {
           const def = modelDefinitions[model];
           const active = selectedModel === model;
@@ -388,6 +439,8 @@ export function AdminDashboard() {
           );
         })}
       </nav>
+
+      {selectedModel === "__stats__" ? <AdminStats /> : (<>
 
       {/* Header bar */}
       <div className="flex flex-col gap-2 rounded-xl border border-line-subtle bg-bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -679,6 +732,7 @@ export function AdminDashboard() {
           </div>
         </div>
       ) : null}
+      </>)}
     </div>
   );
 }
@@ -689,6 +743,151 @@ function Spinner() {
       className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
       aria-hidden
     />
+  );
+}
+
+type StatsResponse = {
+  totalUsers: number;
+  totalRooms: number;
+  finishedRooms: number;
+  cancelledRooms: number;
+  playingRooms: number;
+  gamesStarted: number;
+  avgDurationSeconds: number;
+  avgDurationMinutes: number;
+  finishedGamesCounted: number;
+};
+
+function AdminStats() {
+  const [data, setData] = useState<StatsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch("/api/admin/stats", { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      setData((await res.json()) as StatsResponse);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-center justify-between rounded-xl border border-line-subtle bg-bg-surface p-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-ink-primary">Statistika</h2>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            Real-time loyiha ko‘rsatkichlari.
+          </p>
+        </div>
+        <button
+          onClick={() => void load()}
+          disabled={loading}
+          className="grid h-8 w-8 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium text-ink-secondary disabled:opacity-50"
+          title="Refresh"
+          aria-label="Refresh"
+        >
+          {loading ? <Spinner /> : "↻"}
+        </button>
+      </div>
+
+      {error ? (
+        <p className="rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-xs text-bad">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          label="Foydalanuvchilar"
+          value={data?.totalUsers}
+          loading={loading}
+          hint="Telegram orqali ro‘yxatdan o‘tganlar"
+        />
+        <StatCard
+          label="Boshlangan o‘yinlar"
+          value={data?.gamesStarted}
+          loading={loading}
+          hint="startedAt belgilangan Game‘lar"
+        />
+        <StatCard
+          label="Tugagan o‘yinlar"
+          value={data?.finishedRooms}
+          loading={loading}
+          hint="status = FINISHED"
+        />
+        <StatCard
+          label="O‘rtacha vaqt"
+          value={
+            data?.avgDurationMinutes != null
+              ? `${data.avgDurationMinutes} daq`
+              : undefined
+          }
+          loading={loading}
+          hint={
+            data?.finishedGamesCounted
+              ? `${data.finishedGamesCounted} ta o‘yin asosida`
+              : "Ma'lumot yo‘q"
+          }
+        />
+        <StatCard
+          label="Hozir o‘ynalmoqda"
+          value={data?.playingRooms}
+          loading={loading}
+          hint="status = PLAYING"
+        />
+        <StatCard
+          label="Bekor qilingan"
+          value={data?.cancelledRooms}
+          loading={loading}
+          hint="24 soatdan keyin avto-bekor"
+        />
+        <StatCard
+          label="Jami room'lar"
+          value={data?.totalRooms}
+          loading={loading}
+          hint="Lobby ham, tugaganlar ham"
+        />
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+  loading
+}: {
+  label: string;
+  value: number | string | undefined;
+  hint?: string;
+  loading: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
+      <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+        {label}
+      </p>
+      {loading || value === undefined ? (
+        <div className="mt-2 h-8 w-24 animate-pulse rounded-lg bg-bg-elevated" />
+      ) : (
+        <p className="mt-1 text-2xl font-bold text-ink-primary">{value}</p>
+      )}
+      {hint ? <p className="mt-1 text-xs text-ink-muted">{hint}</p> : null}
+    </div>
   );
 }
 

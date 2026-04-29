@@ -14,8 +14,9 @@ import { ConfirmModal } from "@/components/confirm-modal";
 import { HostControls } from "@/components/host-controls";
 import { PlayerCard } from "@/components/player-card";
 import { Timer } from "@/components/timer";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthToken, getAuthUser } from "@/lib/auth";
 import {
+  buildTelegramBotLink,
   buildTelegramShareUrl,
   buildTelegramStartappLink,
   isInsideTelegram,
@@ -593,6 +594,51 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
             >
               Bosh sahifa
             </button>
+          </div>
+        </main>
+      );
+    }
+
+    if (!getAuthToken()) {
+      const deepLink =
+        buildTelegramStartappLink(`room_${roomCode}`) ?? buildTelegramBotLink();
+      return (
+        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+          <div className="mx-auto max-w-md pt-6">
+            <p className="text-xs font-medium uppercase tracking-wider text-brand">
+              Taklif
+            </p>
+            <h1 className="mt-1 text-2xl font-bold">
+              Roomga kirish uchun Telegramda kiring
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary">
+              Roomga qo'shilish uchun bot orqali bir martalik avtorizatsiya
+              kerak. Avtorizatsiyadan keyin to'g'ridan-to'g'ri shu xonaga
+              tushasiz.
+            </p>
+
+            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
+              <p className="text-xs text-ink-muted">Room code</p>
+              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
+                {roomCode}
+              </p>
+            </div>
+
+            {deepLink ? (
+              <a
+                href={deepLink}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
+              >
+                <span aria-hidden>✈</span>
+                Telegramda ochish
+              </a>
+            ) : (
+              <p className="mt-5 rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
+                Bot ulanmagan. Administratorga murojaat qiling.
+              </p>
+            )}
           </div>
         </main>
       );

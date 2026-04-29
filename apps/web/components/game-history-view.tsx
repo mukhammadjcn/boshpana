@@ -99,7 +99,7 @@ export function GameHistoryView() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-xl px-4 pt-6 pb-safe">
+    <main className="mx-auto min-h-screen max-w-xl px-4 pt-safe pb-safe">
       <header>
         <p className="text-xs font-medium uppercase tracking-wider text-brand">
           Tarix
@@ -118,9 +118,23 @@ export function GameHistoryView() {
             Tarixni ko‘rish uchun avval Telegram orqali tizimga kiring.
           </div>
         ) : loading ? (
-          <div className="rounded-2xl border border-line-subtle bg-bg-surface p-5 text-sm text-ink-secondary">
-            Yuklanmoqda...
-          </div>
+          <ul className="grid gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <li
+                key={i}
+                className="rounded-2xl border border-line-subtle bg-bg-surface p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-3 w-28 animate-pulse rounded-full bg-bg-elevated" />
+                    <div className="h-4 w-3/4 animate-pulse rounded-full bg-bg-elevated" />
+                    <div className="h-3 w-1/2 animate-pulse rounded-full bg-bg-elevated" />
+                  </div>
+                  <div className="h-6 w-20 shrink-0 animate-pulse rounded-full bg-bg-elevated" />
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : error ? (
           <div className="rounded-2xl border border-bad/40 bg-bad/10 p-5 text-sm text-bad">
             {error}

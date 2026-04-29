@@ -72,7 +72,29 @@ export function ActiveGames() {
     }
   }
 
-  if (loading || !items.length) return null;
+  if (loading) {
+    return (
+      <section className="mt-6">
+        <div className="h-3 w-24 animate-pulse rounded-full bg-bg-elevated" />
+        <ul className="mt-2 grid gap-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <li
+              key={i}
+              className="flex items-center justify-between gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-3"
+            >
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-4 w-2/3 animate-pulse rounded-full bg-bg-elevated" />
+                <div className="h-3 w-1/2 animate-pulse rounded-full bg-bg-elevated" />
+              </div>
+              <div className="h-9 w-20 shrink-0 animate-pulse rounded-xl bg-bg-elevated" />
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
+  if (!items.length) return null;
 
   return (
     <section className="mt-6">
