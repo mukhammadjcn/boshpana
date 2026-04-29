@@ -14,6 +14,7 @@ import { ConfirmModal } from "@/components/confirm-modal";
 import { HostControls } from "@/components/host-controls";
 import { PlayerCard } from "@/components/player-card";
 import { Timer } from "@/components/timer";
+import { getAuthUser } from "@/lib/auth";
 import {
   buildTelegramShareUrl,
   buildTelegramStartappLink,
@@ -80,6 +81,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
   const [winnerModalOpen, setWinnerModalOpen] = useState(false);
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [kickTarget, setKickTarget] = useState<{
     id: string;
     name: string;
@@ -148,6 +150,20 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       active = false;
     };
   }, [roomCode, sessionId, setError, setRoomState]);
+
+  // Prefill the join form from the cached auth profile so the user only
+  // needs to confirm — they don't have to type the name from scratch.
+  useEffect(() => {
+    if (joinName) return;
+    const authUser = getAuthUser();
+    const fallback =
+      authUser?.nickname ??
+      authUser?.firstName ??
+      authUser?.telegramUsername ??
+      "";
+    if (fallback) setJoinName(fallback);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Socket
   useEffect(() => {
@@ -389,19 +405,23 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   });
 
   // Helpers
+  async function joinWithName(name: string) {
+    await apiRequest(`/api/rooms/${roomCode}/join`, {
+      method: "POST",
+      body: JSON.stringify({ name, sessionId })
+    });
+    const socket = getSocket();
+    socket.emit("join_room", { roomCode, sessionId });
+    const state = await apiRequest<RoomState>(
+      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+    );
+    setRoomState(state);
+  }
+
   async function handleJoin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      await apiRequest(`/api/rooms/${roomCode}/join`, {
-        method: "POST",
-        body: JSON.stringify({ name: joinName, sessionId })
-      });
-      const socket = getSocket();
-      socket.emit("join_room", { roomCode, sessionId });
-      const state = await apiRequest<RoomState>(
-        `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
-      );
-      setRoomState(state);
+      await joinWithName(joinName.trim());
     } catch (nextError) {
       setError((nextError as Error).message);
     }
@@ -724,9 +744,18 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           </section>
 
           {!me.isHost ? (
-            <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
-              Host o‘yinni boshlashini kuting...
-            </p>
+            <>
+              <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
+                Host o‘yinni boshlashini kuting...
+              </p>
+              <button
+                type="button"
+                onClick={() => setLeaveConfirmOpen(true)}
+                className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.99]"
+              >
+                Roomdan chiqish
+              </button>
+            </>
           ) : null}
 
           {error ? (
@@ -1309,6 +1338,21 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           setKickTarget(null);
         }}
         onClose={() => setKickTarget(null)}
+      />
+
+      <ConfirmModal
+        open={leaveConfirmOpen}
+        title="Roomdan chiqasizmi?"
+        description="Siz xonadan chiqasiz va o‘yin boshlanganda ishtirok etmaysiz. Xohlasangiz keyin link orqali yana qo‘shilishingiz mumkin."
+        confirmLabel="Ha, chiqish"
+        cancelLabel="Bekor qilish"
+        tone="danger"
+        onConfirm={() => {
+          emit("leave_room");
+          setLeaveConfirmOpen(false);
+          router.push("/");
+        }}
+        onClose={() => setLeaveConfirmOpen(false)}
       />
 
       {/* Floating announcement */}

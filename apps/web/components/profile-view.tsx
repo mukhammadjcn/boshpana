@@ -2,17 +2,22 @@
 
 import type { Route } from "next";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { BottomNav } from "@/components/bottom-nav";
 import { apiRequest } from "@/lib/api";
 import {
   type AuthUser,
+  clearAuthToken,
   getAuthToken,
   getAuthUser,
   setAuthUser
 } from "@/lib/auth";
+import { isInsideTelegram } from "@/lib/telegram";
 
 export function ProfileView() {
+  const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [nickname, setNickname] = useState("");
   const [saving, setSaving] = useState(false);
@@ -21,6 +26,18 @@ export function ProfileView() {
     text: string;
   } | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [canLogout, setCanLogout] = useState(false);
+
+  useEffect(() => {
+    setCanLogout(!isInsideTelegram());
+  }, []);
+
+  function handleLogout() {
+    if (!confirm("Tizimdan chiqishni xohlaysizmi?")) return;
+    clearAuthToken();
+    router.replace("/" as Route);
+    if (typeof window !== "undefined") window.location.reload();
+  }
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -80,19 +97,11 @@ export function ProfileView() {
 
   return (
     <main className="mx-auto min-h-screen max-w-xl px-4 pt-6 pb-safe">
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-brand">
-            Profil
-          </p>
-          <h1 className="mt-1 text-2xl font-bold">Mening profilim</h1>
-        </div>
-        <Link
-          href="/"
-          className="rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-xs font-medium text-ink-secondary"
-        >
-          Bosh sahifa
-        </Link>
+      <header>
+        <p className="text-xs font-medium uppercase tracking-wider text-brand">
+          Profil
+        </p>
+        <h1 className="mt-1 text-2xl font-bold">Mening profilim</h1>
       </header>
 
       {!authReady ? (
@@ -167,14 +176,26 @@ export function ProfileView() {
 
           <section className="mt-4">
             <Link
-              href={"/games" as Route}
+              href={"/dashboard/games" as Route}
               className="flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-elevated text-sm font-semibold"
             >
               Mening o'yinlarim →
             </Link>
           </section>
+
+          {canLogout ? (
+            <section className="mt-6">
+              <button
+                onClick={handleLogout}
+                className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.99]"
+              >
+                Tizimdan chiqish
+              </button>
+            </section>
+          ) : null}
         </>
       )}
+      <BottomNav />
     </main>
   );
 }

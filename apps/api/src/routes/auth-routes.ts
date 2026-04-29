@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
+import { env } from "../lib/env";
 import { prisma } from "../lib/prisma";
 import {
   AuthError,
@@ -72,6 +73,24 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         return reply.status(401).send({ message: "Avtorizatsiya talab qilinadi." });
       }
       return reply.send({ user: publicUser(user) });
+    }
+  );
+
+  app.get(
+    "/api/me/usage",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const user = request.authUser!;
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const used = await prisma.room.count({
+        where: { hostUserId: user.id, createdAt: { gte: since } }
+      });
+      const limit = env.roomCreationLimit;
+      return reply.send({
+        roomsCreatedLast30d: used,
+        roomCreationLimit: limit,
+        remaining: Math.max(0, limit - used)
+      });
     }
   );
 

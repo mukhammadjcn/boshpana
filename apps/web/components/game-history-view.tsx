@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { BottomNav } from "@/components/bottom-nav";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
 
@@ -100,19 +100,11 @@ export function GameHistoryView() {
 
   return (
     <main className="mx-auto min-h-screen max-w-xl px-4 pt-6 pb-safe">
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-brand">
-            Profil
-          </p>
-          <h1 className="mt-1 text-2xl font-bold">Mening o‘yinlarim</h1>
-        </div>
-        <Link
-          href="/"
-          className="rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-xs font-medium text-ink-secondary"
-        >
-          Bosh sahifa
-        </Link>
+      <header>
+        <p className="text-xs font-medium uppercase tracking-wider text-brand">
+          Tarix
+        </p>
+        <h1 className="mt-1 text-2xl font-bold">Mening o‘yinlarim</h1>
       </header>
 
       <p className="mt-2 text-sm text-ink-secondary">
@@ -179,6 +171,7 @@ export function GameHistoryView() {
           </button>
         ) : null}
       </section>
+      <BottomNav />
     </main>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import Script from "next/script";
 
+import { SafeAreaBlur } from "@/components/safe-area-blur";
 import { TelegramBootstrap } from "@/components/telegram-bootstrap";
 
 import "./globals.css";
@@ -91,6 +92,7 @@ export default function RootLayout({
         />
         <TelegramBootstrap />
         {children}
+        <SafeAreaBlur />
       </body>
     </html>
   );

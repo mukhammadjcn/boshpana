@@ -469,6 +469,23 @@ export class GameService {
     await this.beginNextRound(input.code);
   }
 
+  async leaveRoom(input: RoomCodeAction) {
+    const room = await prisma.room.findUnique({
+      where: { code: input.code.toUpperCase() },
+      include: { players: true }
+    });
+    if (!room) throw new Error("Room topilmadi.");
+    if (room.status !== RoomStatus.LOBBY) {
+      throw new Error("O'yin boshlanganidan keyin chiqib bo'lmaydi.");
+    }
+    const me = room.players.find((p) => p.sessionId === input.sessionId);
+    if (!me) throw new Error("O'yinchi topilmadi.");
+    if (me.isHost) {
+      throw new Error("Host xonadan chiqa olmaydi. O'yinni tugating yoki bekor qiling.");
+    }
+    await prisma.player.delete({ where: { id: me.id } });
+  }
+
   async kickPlayer(input: RoomCodeAction & { targetPlayerId: string }) {
     const room = await this.requireHostRoom(input);
 

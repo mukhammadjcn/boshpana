@@ -1,14 +1,34 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
 import type { Route } from "next";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-import { ActiveGames } from "@/components/active-games";
 import { JoinRoomModal } from "@/components/join-room-modal";
+import { getAuthToken } from "@/lib/auth";
 
 export function HomePage() {
+  const router = useRouter();
   const [joinOpen, setJoinOpen] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+
+  useEffect(() => {
+    if (getAuthToken()) {
+      setRedirecting(true);
+      router.replace("/dashboard" as Route);
+    }
+  }, [router]);
+
+  if (redirecting) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+          Yuklanmoqda...
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
@@ -19,8 +39,8 @@ export function HomePage() {
               B
             </span>
             <div className="leading-tight">
-              <p className="text-base font-semibold">Bunker Online</p>
-              <p className="text-xs text-ink-muted">Real-time party game</p>
+              <p className="text-base font-semibold">Boshpana</p>
+              <p className="text-xs text-ink-muted">Bunker Online</p>
             </div>
           </div>
         </header>
@@ -31,38 +51,33 @@ export function HomePage() {
             <span className="text-brand">kim qoladi?</span>
           </h1>
           <p className="mt-4 text-base leading-7 text-ink-secondary">
-            6 ta yashirin atribut, ovoz berish va eliminatsiya. Telefoningizdan
-            do‘stlaringiz bilan birga o‘ynang.
+            6 ta yashirin atribut, ovoz berish va eliminatsiya.
+            Telefoningizdan do'stlaringiz bilan birga o'ynang.
           </p>
 
           <div className="mt-6 grid gap-3">
-            <Link
-              href={"/create" as Route}
-              className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              O‘yin yaratish
-            </Link>
             <button
               type="button"
               onClick={() => setJoinOpen(true)}
-              className="flex h-14 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface text-base font-semibold text-ink-primary transition active:scale-[0.98]"
+              className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
-              Roomga qo‘shilish
+              Roomga qo'shilish
             </button>
+            <p className="text-center text-xs text-ink-muted">
+              Yangi o'yin yaratish uchun Telegram orqali tizimga kiring.
+            </p>
           </div>
-
-          <ActiveGames />
 
           <ol className="mt-8 grid gap-3">
             <Step
               n={1}
-              title="Yaratasiz yoki qo‘shilasiz"
+              title="Yaratasiz yoki qo'shilasiz"
               text="Host yaratadi, qolganlar kod yoki link orqali kiradi."
             />
             <Step
               n={2}
               title="Karta ochib, gaplashasiz"
-              text="Har round bitta karta ochiladi va 2 daqiqada o‘zingizni himoya qilasiz."
+              text="Har round bitta karta ochiladi va 2 daqiqada o'zingizni himoya qilasiz."
             />
             <Step
               n={3}
@@ -73,7 +88,7 @@ export function HomePage() {
         </section>
 
         <footer className="mt-8 pb-2 text-center text-xs text-ink-dim">
-          3–10 o‘yinchi · Mobile-first · Login kerak emas
+          3–10 o'yinchi · Mobile-first · Telegram orqali kirish
         </footer>
       </div>
 

@@ -139,6 +139,16 @@ export class RealtimeHub {
         }
       );
 
+      socket.on("leave_room", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          await this.gameService.leaveRoom({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
       socket.on("next_phase", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
           await this.gameService.nextPhase({

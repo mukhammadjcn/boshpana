@@ -28,8 +28,9 @@ function resolveStartParamPath(): string | null {
 
 function navigateAfterAuth() {
   if (typeof window === "undefined") return;
-  const target = resolveStartParamPath() ?? "/";
-  // Use replace so the user can't "back" into /telegram.
+  // Authenticated users always land inside the dashboard shell — never
+  // back on the public landing page.
+  const target = resolveStartParamPath() ?? "/dashboard";
   window.location.replace(target);
 }
 
