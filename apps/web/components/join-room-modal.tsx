@@ -12,7 +12,11 @@ type JoinRoomModalProps = {
   defaultCode?: string;
 };
 
-export function JoinRoomModal({ open, onClose, defaultCode = "" }: JoinRoomModalProps) {
+export function JoinRoomModal({
+  open,
+  onClose,
+  defaultCode = ""
+}: JoinRoomModalProps) {
   const router = useRouter();
   const [joinName, setJoinName] = useState("");
   const [joinCode, setJoinCode] = useState(defaultCode);
@@ -25,6 +29,17 @@ export function JoinRoomModal({ open, onClose, defaultCode = "" }: JoinRoomModal
       setError(null);
     }
   }, [defaultCode, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
 
   async function handleJoin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,53 +72,75 @@ export function JoinRoomModal({ open, onClose, defaultCode = "" }: JoinRoomModal
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onClose} />
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center"
+    >
+      <button
+        type="button"
+        aria-label="Yopish"
+        className="absolute inset-0"
+        onClick={onClose}
+      />
       <form
         onSubmit={handleJoin}
-        className="relative z-10 w-full max-w-md rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,15,30,0.98),rgba(2,6,23,0.98))] p-6 shadow-2xl shadow-black/40"
+        className="relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border"
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
+
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-sky-200/70">Join game</p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">Roomga qo‘shilish</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Link bo‘lsa room avtomatik tanlanadi, siz faqat nickname yozasiz.
+            <p className="text-xs font-medium uppercase tracking-wider text-brand">
+              Roomga qo‘shilish
             </p>
+            <h2 className="mt-1 text-xl font-semibold">Kod va nickname</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300"
+            aria-label="Yopish"
+            className="-mr-1 grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-elevated text-ink-secondary"
           >
-            Yopish
+            ×
           </button>
         </div>
 
-        <div className="mt-6 grid gap-4">
+        <div className="mt-5 grid gap-3">
           <input
             value={joinCode}
-            onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+            onChange={(event) =>
+              setJoinCode(event.target.value.toUpperCase().slice(0, 8))
+            }
             required
-            className="h-14 rounded-[1.25rem] border border-white/10 bg-slate-950/75 px-4 uppercase text-white outline-none"
+            inputMode="text"
+            autoCapitalize="characters"
+            spellCheck={false}
+            className="h-14 rounded-2xl border border-line-strong bg-bg-base px-4 font-mono text-base uppercase tracking-[0.3em] text-ink-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
             placeholder="ROOM CODE"
           />
           <input
             value={joinName}
             onChange={(event) => setJoinName(event.target.value)}
             required
-            className="h-14 rounded-[1.25rem] border border-white/10 bg-slate-950/75 px-4 text-white outline-none"
+            maxLength={20}
+            className="h-14 rounded-2xl border border-line-strong bg-bg-base px-4 text-base text-ink-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
             placeholder="Nickname"
           />
-          <button
-            disabled={joinLoading}
-            className="h-14 rounded-full bg-sky-400 px-5 text-base font-semibold text-slate-950 transition hover:bg-sky-300 disabled:opacity-60"
-          >
-            {joinLoading ? "Kirilmoqda..." : "Roomga kirish"}
-          </button>
         </div>
 
-        {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
+        {error ? (
+          <p className="mt-3 rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
+            {error}
+          </p>
+        ) : null}
+
+        <button
+          disabled={joinLoading || !joinCode.trim() || !joinName.trim()}
+          className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+        >
+          {joinLoading ? "Kirilmoqda..." : "Roomga kirish"}
+        </button>
       </form>
     </div>
   );

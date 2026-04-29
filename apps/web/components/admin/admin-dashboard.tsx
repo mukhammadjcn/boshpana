@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type AdminSchemaResponse = {
   models: string[];
@@ -22,13 +22,18 @@ type FieldConfig = {
   options?: Array<{ label: string; value: string }>;
 };
 
+type Column = {
+  key: string;
+  label: string;
+  width?: string;
+  render: (item: AdminItem) => string;
+};
+
 type ModelDefinition = {
   label: string;
   description: string;
-  listFields: Array<{
-    label: string;
-    render: (item: AdminItem) => string;
-  }>;
+  columns: Column[];
+  searchKeys?: string[];
   createFields?: FieldConfig[];
   editFields?: FieldConfig[];
   allowDelete?: boolean;
@@ -38,7 +43,7 @@ type FormState = Record<string, string | number | boolean>;
 
 const cardTypeOptions = [
   { label: "Kasb", value: "PROFESSION" },
-  { label: "Sog'liq", value: "HEALTH" },
+  { label: "Sog‘liq", value: "HEALTH" },
   { label: "Xarakter", value: "CHARACTER" },
   { label: "Skill", value: "SKILL" },
   { label: "Bagaj", value: "BAGGAGE" },
@@ -51,10 +56,13 @@ const difficultyOptions = [
   { label: "Hard", value: "HARD" }
 ];
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
 const modelDefinitions: Record<string, ModelDefinition> = {
   cards: {
     label: "Kartalar",
-    description: "Kasb, sog'liq, xarakter va boshqa o'yin kartalari.",
+    description: "Kasb, sog‘liq, xarakter va boshqa o‘yin kartalari.",
+    searchKeys: ["text", "type"],
     createFields: [
       { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
       { key: "text", label: "Matn", type: "textarea", required: true }
@@ -64,14 +72,15 @@ const modelDefinitions: Record<string, ModelDefinition> = {
       { key: "text", label: "Matn", type: "textarea", required: true }
     ],
     allowDelete: true,
-    listFields: [
-      { label: "Turi", render: (item) => formatCardType(item.type) },
-      { label: "Matn", render: (item) => String(item.text ?? "") }
+    columns: [
+      { key: "type", label: "Turi", width: "w-32", render: (i) => formatCardType(i.type) },
+      { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
     ]
   },
   disasters: {
     label: "Falokatlar",
-    description: "O'yin boshidagi global disaster ssenariylari.",
+    description: "O‘yin boshidagi global disaster ssenariylari.",
+    searchKeys: ["name", "description"],
     createFields: [
       { key: "name", label: "Nomi", type: "text", required: true },
       { key: "description", label: "Tavsif", type: "textarea", required: true }
@@ -81,96 +90,103 @@ const modelDefinitions: Record<string, ModelDefinition> = {
       { key: "description", label: "Tavsif", type: "textarea", required: true }
     ],
     allowDelete: true,
-    listFields: [
-      { label: "Nomi", render: (item) => String(item.name ?? "") },
-      { label: "Tavsif", render: (item) => String(item.description ?? "") }
+    columns: [
+      { key: "name", label: "Nomi", width: "w-48", render: (i) => String(i.name ?? "") },
+      { key: "description", label: "Tavsif", render: (i) => String(i.description ?? "") }
     ]
   },
   situations: {
-    label: "Situation'lar",
+    label: "Situation’lar",
     description: "Round boshida chiqadigan vaziyat kartalari.",
+    searchKeys: ["text", "difficulty"],
     createFields: [
       { key: "text", label: "Matn", type: "textarea", required: true },
-      {
-        key: "difficulty",
-        label: "Daraja",
-        type: "select",
-        required: true,
-        options: difficultyOptions
-      }
+      { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions }
     ],
     editFields: [
       { key: "text", label: "Matn", type: "textarea", required: true },
-      {
-        key: "difficulty",
-        label: "Daraja",
-        type: "select",
-        required: true,
-        options: difficultyOptions
-      }
+      { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions }
     ],
     allowDelete: true,
-    listFields: [
-      { label: "Daraja", render: (item) => String(item.difficulty ?? "") },
-      { label: "Matn", render: (item) => String(item.text ?? "") }
+    columns: [
+      { key: "difficulty", label: "Daraja", width: "w-24", render: (i) => String(i.difficulty ?? "") },
+      { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
     ]
   },
   players: {
-    label: "O'yinchilar",
-    description: "Room'ga qo'shilgan foydalanuvchilar ro'yxati.",
+    label: "O‘yinchilar",
+    description: "Room‘ga qo‘shilgan foydalanuvchilar ro‘yxati.",
+    searchKeys: ["name", "roomId"],
     editFields: [
       { key: "name", label: "Nickname", type: "text", required: true },
       { key: "isHost", label: "Host", type: "checkbox" },
       { key: "isAlive", label: "Tirik", type: "checkbox" }
     ],
-    listFields: [
-      { label: "Nickname", render: (item) => String(item.name ?? "") },
-      { label: "Room", render: (item) => String(item.roomId ?? "") },
-      { label: "Holat", render: (item) => (item.isAlive ? "Tirik" : "Chiqqan") },
-      { label: "Roli", render: (item) => (item.isHost ? "Host" : "Player") }
+    columns: [
+      { key: "name", label: "Nickname", width: "w-40", render: (i) => String(i.name ?? "") },
+      { key: "roomId", label: "Room", width: "w-40", render: (i) => String(i.roomId ?? "") },
+      { key: "isAlive", label: "Holat", width: "w-24", render: (i) => (i.isAlive ? "Tirik" : "Chiqqan") },
+      { key: "isHost", label: "Roli", width: "w-24", render: (i) => (i.isHost ? "Host" : "Player") }
     ]
   },
   rooms: {
-    label: "Room'lar",
+    label: "Room’lar",
     description: "Aktiv va tugagan xonalar holati.",
-    listFields: [
-      { label: "Code", render: (item) => String(item.code ?? "") },
-      { label: "Status", render: (item) => String(item.status ?? "") },
+    searchKeys: ["code", "status"],
+    columns: [
+      { key: "code", label: "Code", width: "w-28", render: (i) => String(i.code ?? "") },
+      { key: "status", label: "Status", width: "w-28", render: (i) => String(i.status ?? "") },
       {
+        key: "playerCount",
         label: "Playerlar",
-        render: (item) => String(Array.isArray(item.players) ? item.players.length : 0)
+        width: "w-24",
+        render: (i) => String(Array.isArray(i.players) ? i.players.length : 0)
       },
-      { label: "Finish", render: (item) => `${String(item.winnerTarget ?? "-")} kishi` }
+      { key: "winnerTarget", label: "Finish", width: "w-24", render: (i) => `${String(i.winnerTarget ?? "-")} kishi` },
+      {
+        key: "createdAt",
+        label: "Yaratilgan",
+        width: "w-40",
+        render: (i) => formatDate(i.createdAt)
+      }
     ]
   },
   games: {
-    label: "O'yinlar",
+    label: "O‘yinlar",
     description: "Game state va round jarayonlari.",
-    listFields: [
-      { label: "Phase", render: (item) => String(item.phase ?? "") },
-      { label: "Round", render: (item) => String(item.roundNumber ?? 0) },
-      { label: "Falokat", render: (item) => String(item.disaster?.name ?? "-") },
-      { label: "Situation", render: (item) => String(item.currentSituation?.text ?? "-") }
+    searchKeys: ["phase"],
+    columns: [
+      { key: "phase", label: "Phase", width: "w-32", render: (i) => String(i.phase ?? "") },
+      { key: "roundNumber", label: "Round", width: "w-20", render: (i) => String(i.roundNumber ?? 0) },
+      { key: "disaster", label: "Falokat", width: "w-40", render: (i) => String(i.disaster?.name ?? "-") },
+      { key: "situation", label: "Situation", render: (i) => String(i.currentSituation?.text ?? "-") }
     ]
   },
   playerAttributes: {
     label: "Player kartalari",
-    description: "Har bir player'ga tushgan atributlar.",
-    listFields: [
-      { label: "Player", render: (item) => String(item.player?.name ?? "") },
-      { label: "Kasb", render: (item) => String(item.profession ?? "") },
-      { label: "Sog'liq", render: (item) => String(item.health ?? "") },
-      { label: "Xarakter", render: (item) => String(item.character ?? "") }
+    description: "Har bir player‘ga tushgan atributlar.",
+    columns: [
+      { key: "player", label: "Player", width: "w-32", render: (i) => String(i.player?.name ?? "") },
+      { key: "profession", label: "Kasb", width: "w-32", render: (i) => String(i.profession ?? "") },
+      { key: "health", label: "Sog‘liq", width: "w-32", render: (i) => String(i.health ?? "") },
+      { key: "character", label: "Xarakter", width: "w-32", render: (i) => String(i.character ?? "") },
+      { key: "skill", label: "Skill", render: (i) => String(i.skill ?? "") }
     ]
   },
   votes: {
     label: "Ovozlar",
-    description: "Round bo'yicha berilgan ovozlar.",
-    listFields: [
-      { label: "Round", render: (item) => String(item.roundNumber ?? 0) },
-      { label: "Kim berdi", render: (item) => String(item.voterPlayer?.name ?? "") },
-      { label: "Kimga", render: (item) => String(item.targetPlayer?.name ?? "") },
-      { label: "Room", render: (item) => String(item.room?.code ?? "") }
+    description: "Round bo‘yicha berilgan ovozlar.",
+    columns: [
+      { key: "roundNumber", label: "Round", width: "w-20", render: (i) => String(i.roundNumber ?? 0) },
+      { key: "voter", label: "Kim berdi", width: "w-40", render: (i) => String(i.voterPlayer?.name ?? "") },
+      { key: "target", label: "Kimga", width: "w-40", render: (i) => String(i.targetPlayer?.name ?? "") },
+      { key: "room", label: "Room", width: "w-28", render: (i) => String(i.room?.code ?? "") },
+      {
+        key: "createdAt",
+        label: "Vaqt",
+        width: "w-40",
+        render: (i) => formatDate(i.createdAt)
+      }
     ]
   }
 };
@@ -179,307 +195,519 @@ export function AdminDashboard() {
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [items, setItems] = useState<AdminItem[]>([]);
-  const [createState, setCreateState] = useState<FormState>({});
-  const [editState, setEditState] = useState<FormState>({});
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createState, setCreateState] = useState<FormState>({});
+
+  const [editingItem, setEditingItem] = useState<AdminItem | null>(null);
+  const [editState, setEditState] = useState<FormState>({});
+
+  const [confirmDelete, setConfirmDelete] = useState<AdminItem | null>(null);
 
   const definition = modelDefinitions[selectedModel];
   const createFields = definition?.createFields ?? [];
   const editFields = definition?.editFields ?? [];
 
+  // Load model list
   useEffect(() => {
-    async function loadSchema() {
-      const response = await fetch("/api/admin/schema", { cache: "no-store" });
-      const data = (await response.json()) as AdminSchemaResponse;
-      setModels(data.models);
-      setSelectedModel((current) => current || data.models[0] || "");
-    }
-
-    void loadSchema();
+    void (async () => {
+      try {
+        const response = await fetch("/api/admin/schema", { cache: "no-store" });
+        const data = (await response.json()) as AdminSchemaResponse;
+        setModels(data.models);
+        setSelectedModel((current) => current || data.models[0] || "");
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    })();
   }, []);
 
+  // Reset state on model change
   useEffect(() => {
-    if (!selectedModel) {
-      return;
-    }
-
-    setEditingId(null);
+    if (!selectedModel) return;
     setError(null);
     setMessage(null);
-    setCreateState(buildInitialState(createFields));
-    setEditState(buildInitialState(editFields));
+    setSearch("");
+    setPage(1);
+    setEditingItem(null);
+    setConfirmDelete(null);
     void loadItems(selectedModel);
   }, [selectedModel]);
 
+  // Auto-clear message
+  useEffect(() => {
+    if (!message) return;
+    const t = window.setTimeout(() => setMessage(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [message]);
+
   async function loadItems(model: string) {
     try {
+      setLoading(true);
       setError(null);
       const response = await fetch(`/api/admin/${model}`, { cache: "no-store" });
       const data = (await response.json()) as AdminListResponse;
       setItems(data.items);
-    } catch (nextError) {
-      setError((nextError as Error).message);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
     }
   }
 
   async function createItem() {
-    if (!definition?.createFields?.length) {
-      return;
-    }
-
+    if (!definition?.createFields?.length) return;
     try {
       setError(null);
-      setMessage(null);
-      await fetch(`/api/admin/${selectedModel}`, {
+      const res = await fetch(`/api/admin/${selectedModel}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(serializeState(createFields, createState))
-      }).then(assertOk);
-
+      });
+      await assertOk(res);
+      setMessage("Yangi yozuv qo‘shildi.");
+      setCreateOpen(false);
       setCreateState(buildInitialState(createFields));
-      setMessage("Yangi yozuv qo'shildi.");
       await loadItems(selectedModel);
-    } catch (nextError) {
-      setError((nextError as Error).message);
+    } catch (e) {
+      setError((e as Error).message);
     }
   }
 
   async function updateItem() {
-    if (!editingId || !definition?.editFields?.length) {
-      return;
-    }
-
+    if (!editingItem || !definition?.editFields?.length) return;
     try {
       setError(null);
-      setMessage(null);
-      await fetch(`/api/admin/${selectedModel}/${editingId}`, {
+      const res = await fetch(`/api/admin/${selectedModel}/${editingItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(serializeState(editFields, editState))
-      }).then(assertOk);
-
+      });
+      await assertOk(res);
       setMessage("Yozuv saqlandi.");
+      setEditingItem(null);
       await loadItems(selectedModel);
-    } catch (nextError) {
-      setError((nextError as Error).message);
+    } catch (e) {
+      setError((e as Error).message);
     }
   }
 
-  async function deleteItem(id: string) {
+  async function deleteItem(item: AdminItem) {
     try {
       setError(null);
-      setMessage(null);
-      await fetch(`/api/admin/${selectedModel}/${id}`, {
+      const res = await fetch(`/api/admin/${selectedModel}/${item.id}`, {
         method: "DELETE"
-      }).then(assertOk);
-
-      if (editingId === id) {
-        setEditingId(null);
-        setEditState(buildInitialState(editFields));
-      }
-
-      setMessage("Yozuv o'chirildi.");
+      });
+      await assertOk(res);
+      setMessage("Yozuv o‘chirildi.");
+      setConfirmDelete(null);
       await loadItems(selectedModel);
-    } catch (nextError) {
-      setError((nextError as Error).message);
+    } catch (e) {
+      setError((e as Error).message);
     }
   }
 
-  function startEditing(item: AdminItem) {
-    if (!definition?.editFields?.length || !item.id) {
-      return;
-    }
+  function openCreate() {
+    setCreateState(buildInitialState(createFields));
+    setCreateOpen(true);
+  }
 
-    setEditingId(String(item.id));
+  function openEdit(item: AdminItem) {
+    if (!editFields.length || !item.id) return;
     setEditState(buildStateFromItem(editFields, item));
+    setEditingItem(item);
   }
+
+  // Filtering + pagination
+  const filteredItems = useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.trim().toLowerCase();
+    const keys = definition?.searchKeys ?? [];
+    return items.filter((item) => {
+      if (keys.length) {
+        return keys.some((k) =>
+          String(item[k] ?? "").toLowerCase().includes(q)
+        );
+      }
+      return Object.values(item).some((v) =>
+        String(v ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [items, search, definition?.searchKeys]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = useMemo(
+    () =>
+      filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredItems, safePage, pageSize]
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, pageSize, selectedModel]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-      <aside className="rounded-[2rem] border border-white/10 bg-white/5 p-4">
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Tablelar</p>
-        <div className="mt-4 grid gap-2">
-          {models.map((model) => (
+    <div className="grid gap-3">
+      {/* Model tabs */}
+      <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
+        {models.map((model) => {
+          const def = modelDefinitions[model];
+          const active = selectedModel === model;
+          return (
             <button
               key={model}
               onClick={() => setSelectedModel(model)}
-              className={`rounded-2xl px-4 py-3 text-left text-sm font-medium ${
-                selectedModel === model
-                  ? "bg-orange-500 text-slate-950"
-                  : "bg-slate-950/40 text-slate-200"
+              className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                active
+                  ? "border-brand bg-brand text-bg-base"
+                  : "border-line-subtle bg-bg-surface text-ink-secondary hover:border-line-strong"
               }`}
             >
-              {modelDefinitions[model]?.label ?? model}
+              {def?.label ?? model}
             </button>
-          ))}
-        </div>
-      </aside>
+          );
+        })}
+      </nav>
 
-      <section className="space-y-6">
-        <div className="rounded-[2rem] border border-white/10 bg-slate-950/40 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-orange-200/70">
-                Admin panel
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">
-                {definition?.label ?? selectedModel}
-              </h1>
-              {definition?.description ? (
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                  {definition.description}
-                </p>
-              ) : null}
-            </div>
+      {/* Header bar */}
+      <div className="flex flex-col gap-2 rounded-xl border border-line-subtle bg-bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-ink-primary">
+            {definition?.label ?? selectedModel}
+            <span className="ml-2 text-xs font-normal text-ink-muted">
+              {filteredItems.length} ta
+            </span>
+          </h2>
+          {definition?.description ? (
+            <p className="mt-0.5 truncate text-xs text-ink-muted">
+              {definition.description}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Qidirish..."
+            className="h-8 flex-1 rounded-lg border border-line-strong bg-bg-base px-3 text-xs text-ink-primary outline-none focus:border-brand sm:w-48 sm:flex-none"
+          />
+          <button
+            onClick={() => void loadItems(selectedModel)}
+            disabled={loading}
+            className="h-8 rounded-lg border border-line-strong bg-bg-elevated px-2.5 text-xs font-medium text-ink-secondary disabled:opacity-50"
+            title="Refresh"
+          >
+            {loading ? "..." : "↻"}
+          </button>
+          {createFields.length ? (
             <button
-              onClick={() => void loadItems(selectedModel)}
-              className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm text-white"
+              onClick={openCreate}
+              className="h-8 rounded-lg bg-brand px-3 text-xs font-semibold text-bg-base"
             >
-              Refresh
+              + Qo‘shish
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Notifications */}
+      {message ? (
+        <p className="rounded-lg border border-ok/40 bg-ok/10 px-3 py-1.5 text-xs text-ok">
+          {message}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="rounded-lg border border-bad/40 bg-bad/10 px-3 py-1.5 text-xs text-bad">
+          {error}
+        </p>
+      ) : null}
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-xl border border-line-subtle bg-bg-surface">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-line-subtle bg-bg-elevated/60">
+                {definition?.columns.map((col) => (
+                  <th
+                    key={col.key}
+                    className={`px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-ink-muted ${col.width ?? ""}`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+                {(editFields.length || definition?.allowDelete) && (
+                  <th className="w-20 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                    {""}
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {pageItems.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={
+                      (definition?.columns.length ?? 0) +
+                      (editFields.length || definition?.allowDelete ? 1 : 0)
+                    }
+                    className="px-3 py-8 text-center text-xs text-ink-muted"
+                  >
+                    {loading
+                      ? "Yuklanmoqda..."
+                      : search
+                        ? "Hech narsa topilmadi."
+                        : "Bo‘sh."}
+                  </td>
+                </tr>
+              ) : (
+                pageItems.map((item, index) => (
+                  <tr
+                    key={String(item.id ?? index)}
+                    className="border-b border-line-subtle/50 last:border-0 hover:bg-bg-elevated/30"
+                  >
+                    {definition?.columns.map((col) => {
+                      const value = col.render(item) || "—";
+                      return (
+                        <td
+                          key={col.key}
+                          className={`px-3 py-2 align-top text-ink-primary ${col.width ?? ""}`}
+                        >
+                          <div
+                            className="line-clamp-2 leading-5"
+                            title={value}
+                          >
+                            {value}
+                          </div>
+                        </td>
+                      );
+                    })}
+                    {(editFields.length || definition?.allowDelete) && (
+                      <td className="w-20 px-3 py-2 text-right">
+                        <div className="flex justify-end gap-1">
+                          {editFields.length && item.id ? (
+                            <button
+                              onClick={() => openEdit(item)}
+                              className="rounded-md border border-line-strong bg-bg-elevated px-2 py-1 text-[11px] font-medium text-ink-secondary hover:text-ink-primary"
+                            >
+                              Edit
+                            </button>
+                          ) : null}
+                          {definition?.allowDelete && item.id ? (
+                            <button
+                              onClick={() => setConfirmDelete(item)}
+                              className="rounded-md border border-bad/30 bg-bad/10 px-2 py-1 text-[11px] font-medium text-bad"
+                            >
+                              ×
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination footer */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-subtle bg-bg-elevated/40 px-3 py-2 text-xs">
+          <div className="flex items-center gap-2 text-ink-muted">
+            <span>Sahifada</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none"
+            >
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <span>
+              {filteredItems.length === 0
+                ? "0"
+                : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filteredItems.length)}`}
+              {" / "}
+              {filteredItems.length}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-ink-secondary disabled:opacity-40"
+            >
+              ←
+            </button>
+            <span className="px-2 text-ink-secondary">
+              {safePage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-ink-secondary disabled:opacity-40"
+            >
+              →
             </button>
           </div>
-
-          {message ? <p className="mt-4 text-sm text-emerald-300">{message}</p> : null}
-          {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}
         </div>
+      </div>
 
-        {createFields.length || editFields.length ? (
-          <div className="grid gap-6 xl:grid-cols-2">
-            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5">
-              <h2 className="text-xl font-semibold text-white">Yangi yozuv</h2>
-              {createFields.length ? (
-                <>
-                  <div className="mt-4 grid gap-4">
-                    {createFields.map((field) => (
-                      <FieldInput
-                        key={field.key}
-                        field={field}
-                        value={createState[field.key]}
-                        onChange={(value) =>
-                          setCreateState((current) => ({ ...current, [field.key]: value }))
-                        }
-                      />
-                    ))}
-                  </div>
-                  <button
-                    onClick={createItem}
-                    className="mt-4 rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-slate-950"
-                  >
-                    Qo'shish
-                  </button>
-                </>
-              ) : (
-                <p className="mt-4 text-sm text-slate-400">
-                  Bu jadval uchun create form kerak emas.
-                </p>
-              )}
-            </div>
+      {/* Create modal */}
+      {createOpen ? (
+        <FormModal
+          title={`${definition?.label ?? selectedModel} — yangi`}
+          onClose={() => setCreateOpen(false)}
+          onSubmit={createItem}
+          submitLabel="Qo‘shish"
+        >
+          {createFields.map((field) => (
+            <FieldInput
+              key={field.key}
+              field={field}
+              value={createState[field.key]}
+              onChange={(value) =>
+                setCreateState((c) => ({ ...c, [field.key]: value }))
+              }
+            />
+          ))}
+        </FormModal>
+      ) : null}
 
-            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5">
-              <h2 className="text-xl font-semibold text-white">Tahrirlash</h2>
-              {editFields.length ? (
-                <>
-                  {editingId ? (
-                    <div className="mt-4 grid gap-4">
-                      {editFields.map((field) => (
-                        <FieldInput
-                          key={field.key}
-                          field={field}
-                          value={editState[field.key]}
-                          onChange={(value) =>
-                            setEditState((current) => ({ ...current, [field.key]: value }))
-                          }
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-4 text-sm text-slate-400">
-                      Pastdagi ro'yxatdan kerakli yozuvni tanlang.
-                    </p>
-                  )}
+      {/* Edit modal */}
+      {editingItem ? (
+        <FormModal
+          title={`Tahrirlash`}
+          subtitle={`ID: ${String(editingItem.id ?? "")}`}
+          onClose={() => setEditingItem(null)}
+          onSubmit={updateItem}
+          submitLabel="Saqlash"
+        >
+          {editFields.map((field) => (
+            <FieldInput
+              key={field.key}
+              field={field}
+              value={editState[field.key]}
+              onChange={(value) =>
+                setEditState((c) => ({ ...c, [field.key]: value }))
+              }
+            />
+          ))}
+        </FormModal>
+      ) : null}
 
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      onClick={updateItem}
-                      disabled={!editingId}
-                      className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
-                    >
-                      Saqlash
-                    </button>
-                    {editingId ? (
-                      <p className="self-center text-xs uppercase tracking-[0.2em] text-slate-400">
-                        Tanlangan ID: {editingId}
-                      </p>
-                    ) : null}
-                  </div>
-                </>
-              ) : (
-                <p className="mt-4 text-sm text-slate-400">
-                  Bu jadval read-only ko'rinishda.
-                </p>
-              )}
+      {/* Delete confirm */}
+      {confirmDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay backdrop-blur-sm px-4">
+          <button
+            aria-label="Yopish"
+            className="absolute inset-0"
+            onClick={() => setConfirmDelete(null)}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line-subtle bg-bg-surface p-5">
+            <h3 className="text-sm font-semibold text-ink-primary">
+              O‘chirish tasdiqlansinmi?
+            </h3>
+            <p className="mt-1 text-xs text-ink-muted">
+              ID: {String(confirmDelete.id)}
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="h-9 flex-1 rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium"
+              >
+                Bekor
+              </button>
+              <button
+                onClick={() => void deleteItem(confirmDelete)}
+                className="h-9 flex-1 rounded-lg bg-bad text-xs font-semibold text-white"
+              >
+                O‘chirish
+              </button>
             </div>
           </div>
-        ) : null}
-
-        <div className="grid gap-4">
-          {items.map((item, index) => (
-            <article
-              key={String(item.id ?? index)}
-              className="rounded-[1.75rem] border border-white/10 bg-slate-950/50 p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-white">
-                    {resolveItemTitle(selectedModel, item, index)}
-                  </p>
-                  {item.id ? (
-                    <p className="mt-1 text-xs uppercase tracking-[0.22em] text-slate-500">
-                      {String(item.id)}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex gap-2">
-                  {editFields.length && item.id ? (
-                    <button
-                      onClick={() => startEditing(item)}
-                      className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold text-white"
-                    >
-                      Edit
-                    </button>
-                  ) : null}
-                  {definition?.allowDelete && item.id ? (
-                    <button
-                      onClick={() => void deleteItem(String(item.id))}
-                      className="rounded-full border border-red-300/20 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-200"
-                    >
-                      Delete
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {definition?.listFields.map((field) => (
-                  <div
-                    key={field.label}
-                    className="rounded-[1.2rem] border border-white/8 bg-white/[0.03] p-4"
-                  >
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
-                      {field.label}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-100">
-                      {field.render(item) || "-"}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
         </div>
-      </section>
+      ) : null}
+    </div>
+  );
+}
+
+function FormModal({
+  title,
+  subtitle,
+  onClose,
+  onSubmit,
+  submitLabel,
+  children
+}: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  onSubmit: () => void;
+  submitLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center sm:px-4">
+      <button
+        aria-label="Yopish"
+        className="absolute inset-0"
+        onClick={onClose}
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit();
+        }}
+        className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border-t border-line-subtle bg-bg-surface p-4 pb-safe sm:rounded-2xl sm:border"
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-ink-primary">{title}</h3>
+            {subtitle ? (
+              <p className="mt-0.5 font-mono text-[11px] text-ink-muted">
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-7 w-7 place-items-center rounded-full border border-line-strong bg-bg-elevated text-xs"
+          >
+            ×
+          </button>
+        </div>
+        <div className="grid gap-3">{children}</div>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 flex-1 rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium"
+          >
+            Bekor
+          </button>
+          <button
+            type="submit"
+            className="h-10 flex-1 rounded-lg bg-brand text-xs font-semibold text-bg-base"
+          >
+            {submitLabel}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -493,18 +721,18 @@ function FieldInput({
   value: string | number | boolean | undefined;
   onChange: (value: string | number | boolean) => void;
 }) {
-  const commonClassName =
-    "w-full rounded-[1.25rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none";
+  const baseClass =
+    "w-full rounded-lg border border-line-strong bg-bg-base px-3 py-2 text-xs text-ink-primary outline-none focus:border-brand";
 
   if (field.type === "textarea") {
     return (
-      <label className="grid gap-2 text-sm text-slate-300">
-        {field.label}
+      <label className="grid gap-1 text-xs">
+        <span className="text-ink-muted">{field.label}</span>
         <textarea
           required={field.required}
           value={String(value ?? "")}
-          onChange={(event) => onChange(event.target.value)}
-          className={`${commonClassName} min-h-[128px]`}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${baseClass} min-h-[96px] leading-5`}
         />
       </label>
     );
@@ -512,13 +740,13 @@ function FieldInput({
 
   if (field.type === "select") {
     return (
-      <label className="grid gap-2 text-sm text-slate-300">
-        {field.label}
+      <label className="grid gap-1 text-xs">
+        <span className="text-ink-muted">{field.label}</span>
         <select
           required={field.required}
           value={String(value ?? field.options?.[0]?.value ?? "")}
-          onChange={(event) => onChange(event.target.value)}
-          className={commonClassName}
+          onChange={(e) => onChange(e.target.value)}
+          className={baseClass}
         >
           {field.options?.map((option) => (
             <option key={option.value} value={option.value}>
@@ -532,105 +760,61 @@ function FieldInput({
 
   if (field.type === "checkbox") {
     return (
-      <label className="flex items-center justify-between rounded-[1.25rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-slate-300">
-        <span>{field.label}</span>
+      <label className="flex items-center justify-between rounded-lg border border-line-strong bg-bg-base px-3 py-2 text-xs">
+        <span className="text-ink-secondary">{field.label}</span>
         <input
           type="checkbox"
           checked={Boolean(value)}
-          onChange={(event) => onChange(event.target.checked)}
-          className="h-4 w-4"
+          onChange={(e) => onChange(e.target.checked)}
+          className="h-4 w-4 accent-brand"
         />
       </label>
     );
   }
 
   return (
-    <label className="grid gap-2 text-sm text-slate-300">
-      {field.label}
+    <label className="grid gap-1 text-xs">
+      <span className="text-ink-muted">{field.label}</span>
       <input
         type={field.type === "number" ? "number" : "text"}
         required={field.required}
         value={String(value ?? "")}
-        onChange={(event) =>
-          onChange(field.type === "number" ? Number(event.target.value) : event.target.value)
+        onChange={(e) =>
+          onChange(field.type === "number" ? Number(e.target.value) : e.target.value)
         }
-        className={commonClassName}
+        className={baseClass}
       />
     </label>
   );
 }
 
 function buildInitialState(fields: FieldConfig[]) {
-  return fields.reduce<FormState>((accumulator, field) => {
-    if (field.type === "checkbox") {
-      accumulator[field.key] = false;
-    } else if (field.type === "number") {
-      accumulator[field.key] = 0;
-    } else if (field.type === "select") {
-      accumulator[field.key] = field.options?.[0]?.value ?? "";
-    } else {
-      accumulator[field.key] = "";
-    }
-
-    return accumulator;
+  return fields.reduce<FormState>((acc, field) => {
+    if (field.type === "checkbox") acc[field.key] = false;
+    else if (field.type === "number") acc[field.key] = 0;
+    else if (field.type === "select") acc[field.key] = field.options?.[0]?.value ?? "";
+    else acc[field.key] = "";
+    return acc;
   }, {});
 }
 
 function buildStateFromItem(fields: FieldConfig[], item: AdminItem) {
-  return fields.reduce<FormState>((accumulator, field) => {
-    if (field.type === "checkbox") {
-      accumulator[field.key] = Boolean(item[field.key]);
-    } else if (field.type === "number") {
-      accumulator[field.key] = Number(item[field.key] ?? 0);
-    } else {
-      accumulator[field.key] = String(item[field.key] ?? "");
-    }
-
-    return accumulator;
+  return fields.reduce<FormState>((acc, field) => {
+    if (field.type === "checkbox") acc[field.key] = Boolean(item[field.key]);
+    else if (field.type === "number") acc[field.key] = Number(item[field.key] ?? 0);
+    else acc[field.key] = String(item[field.key] ?? "");
+    return acc;
   }, {});
 }
 
 function serializeState(fields: FieldConfig[], state: FormState) {
-  return fields.reduce<Record<string, string | number | boolean>>((accumulator, field) => {
-    accumulator[field.key] = state[field.key];
-    return accumulator;
-  }, {});
-}
-
-function resolveItemTitle(model: string, item: AdminItem, index: number) {
-  if (model === "cards") {
-    return `${formatCardType(item.type)} kartasi`;
-  }
-
-  if (model === "disasters") {
-    return String(item.name ?? `Falokat ${index + 1}`);
-  }
-
-  if (model === "situations") {
-    return `Situation ${index + 1}`;
-  }
-
-  if (model === "players") {
-    return String(item.name ?? `Player ${index + 1}`);
-  }
-
-  if (model === "rooms") {
-    return `Room ${String(item.code ?? index + 1)}`;
-  }
-
-  if (model === "games") {
-    return `Game ${index + 1}`;
-  }
-
-  if (model === "playerAttributes") {
-    return String(item.player?.name ?? `Atribut ${index + 1}`);
-  }
-
-  if (model === "votes") {
-    return `Vote ${index + 1}`;
-  }
-
-  return String(item.id ?? `${model}-${index}`);
+  return fields.reduce<Record<string, string | number | boolean>>(
+    (acc, field) => {
+      acc[field.key] = state[field.key];
+      return acc;
+    },
+    {}
+  );
 }
 
 function formatCardType(type: unknown) {
@@ -638,7 +822,7 @@ function formatCardType(type: unknown) {
     case "PROFESSION":
       return "Kasb";
     case "HEALTH":
-      return "Sog'liq";
+      return "Sog‘liq";
     case "CHARACTER":
       return "Xarakter";
     case "SKILL":
@@ -652,11 +836,25 @@ function formatCardType(type: unknown) {
   }
 }
 
-async function assertOk(response: Response) {
-  if (response.ok) {
-    return response;
+function formatDate(value: unknown) {
+  if (!value) return "—";
+  try {
+    const d = new Date(String(value));
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString("uz-UZ", {
+      year: "2-digit",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return "—";
   }
+}
 
+async function assertOk(response: Response) {
+  if (response.ok) return response;
   const payload = await response.json().catch(() => ({ message: "Xatolik yuz berdi." }));
   throw new Error(payload.message ?? "Xatolik yuz berdi.");
 }

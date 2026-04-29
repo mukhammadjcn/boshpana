@@ -8,25 +8,35 @@ export default function AdminProtectedLayout({
   children: React.ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#08111f_0%,#020617_100%)] px-4 py-6 text-white">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/10 bg-white/5 p-5">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-orange-200/70">Bunker CMS</p>
-            <h1 className="mt-2 text-2xl font-semibold">Admin boshqaruv paneli</h1>
+    <main className="min-h-screen bg-bg-base text-ink-primary">
+      <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-brand text-xs font-bold text-bg-base">
+              B
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
+                Bunker CMS
+              </p>
+              <p className="truncate text-xs font-semibold text-ink-primary">
+                Admin panel
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
             <Link
               href="/"
-              className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white"
+              className="h-8 rounded-lg border border-line-strong bg-bg-elevated px-3 text-xs font-medium text-ink-secondary leading-8"
             >
-              Public app
+              Public
             </Link>
             <AdminLogoutButton />
           </div>
-        </header>
-        {children}
-      </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-3 py-3 sm:px-4">{children}</div>
     </main>
   );
 }

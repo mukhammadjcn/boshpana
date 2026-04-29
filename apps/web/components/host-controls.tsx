@@ -35,65 +35,59 @@ export function HostControls({
     return null;
   }
 
+  const primary = canStartGame
+    ? { label: "O‘yinni boshlash", onClick: onStartGame }
+    : canStartRound
+      ? { label: "1-roundni boshlash", onClick: onStartRound }
+      : canAdvanceTurn
+        ? { label: advanceTurnLabel, onClick: onAdvanceTurn }
+        : canStartVoting
+          ? { label: "Ovoz berishni boshlash", onClick: onStartVoting }
+          : null;
+
+  const secondary = canSkipVoting && !canStartVoting
+    ? { label: "Keyingi roundga", onClick: onSkipVoting }
+    : canStartVoting && canSkipVoting
+      ? { label: "Roundni o‘tkazib yuborish", onClick: onSkipVoting }
+      : null;
+
   return (
-    <div className="rounded-[1.75rem] border border-orange-300/15 bg-white/[0.03] p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.3em] text-orange-100/70">
-            Host panel
-          </p>
-          <p className="mt-2 text-sm text-slate-400">
-            Faqat kerakli action’lar hozir ko‘rinadi.
-          </p>
-        </div>
+    <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-medium text-ink-muted">Host paneli</p>
         <button
+          type="button"
           onClick={onEndGame}
-          className="rounded-full border border-red-300/20 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-100"
+          className="text-xs font-medium text-bad hover:underline"
         >
           O‘yinni tugatish
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        {canStartGame ? (
-          <ActionButton label="O‘yinni boshlash" onClick={onStartGame} primary />
-        ) : null}
-        {canStartRound ? (
-          <ActionButton label="1-round boshlash" onClick={onStartRound} primary />
-        ) : null}
-        {canAdvanceTurn ? (
-          <ActionButton label={advanceTurnLabel} onClick={onAdvanceTurn} />
-        ) : null}
-        {canStartVoting ? (
-          <ActionButton label="Ovoz berishni boshlash" onClick={onStartVoting} />
-        ) : null}
-        {canSkipVoting ? (
-          <ActionButton label="Keyingi roundga o‘tish" onClick={onSkipVoting} />
-        ) : null}
-      </div>
+      {primary || secondary ? (
+        <div className="flex flex-wrap gap-2">
+          {primary ? (
+            <button
+              onClick={primary.onClick}
+              className="flex h-12 flex-1 min-w-[180px] items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              {primary.label}
+            </button>
+          ) : null}
+          {secondary ? (
+            <button
+              onClick={secondary.onClick}
+              className="flex h-12 items-center justify-center rounded-xl border border-line-strong bg-bg-elevated px-4 text-sm font-semibold text-ink-primary"
+            >
+              {secondary.label}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-sm text-ink-muted">
+          Hozir host uchun action yo‘q. Keyingi fazani kuting.
+        </p>
+      )}
     </div>
-  );
-}
-
-function ActionButton({
-  label,
-  onClick,
-  primary = false
-}: {
-  label: string;
-  onClick: () => void;
-  primary?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full px-4 py-3 text-sm font-semibold transition ${
-        primary
-          ? "bg-orange-500 text-slate-950 hover:bg-orange-400"
-          : "border border-white/10 bg-white/8 text-white hover:bg-white/12"
-      }`}
-    >
-      {label}
-    </button>
   );
 }

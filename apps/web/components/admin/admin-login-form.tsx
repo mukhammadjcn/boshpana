@@ -39,35 +39,52 @@ export function AdminLoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950/60 p-6 text-white shadow-2xl"
+      className="w-full max-w-sm rounded-2xl border border-line-subtle bg-bg-surface p-5 shadow-card"
     >
-      <p className="text-xs uppercase tracking-[0.35em] text-orange-200/70">Admin access</p>
-      <h1 className="mt-3 text-3xl font-semibold">Kirish</h1>
-      <div className="mt-6 grid gap-4">
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="h-12 rounded-2xl border border-white/10 bg-slate-900/80 px-4 outline-none"
-          placeholder="admin@bunker.local"
-        />
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="h-12 rounded-2xl border border-white/10 bg-slate-900/80 px-4 outline-none"
-          placeholder="ChangeMe123!"
-        />
-        <button
-          disabled={loading}
-          className="h-12 rounded-full bg-orange-500 font-semibold text-slate-950 disabled:opacity-60"
-        >
-          Kirish
-        </button>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
+        Admin
+      </p>
+      <h1 className="mt-1 text-xl font-semibold text-ink-primary">Kirish</h1>
+
+      <div className="mt-4 grid gap-2.5">
+        <label className="grid gap-1 text-xs">
+          <span className="text-ink-muted">Email</span>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="h-10 rounded-lg border border-line-strong bg-bg-base px-3 text-sm text-ink-primary outline-none focus:border-brand"
+            placeholder="admin@bunker.local"
+            autoComplete="email"
+          />
+        </label>
+        <label className="grid gap-1 text-xs">
+          <span className="text-ink-muted">Parol</span>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="h-10 rounded-lg border border-line-strong bg-bg-base px-3 text-sm text-ink-primary outline-none focus:border-brand"
+            placeholder="••••••••"
+            autoComplete="current-password"
+          />
+        </label>
       </div>
-      {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
+
+      <button
+        disabled={loading}
+        className="mt-4 flex h-10 w-full items-center justify-center rounded-lg bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+      >
+        {loading ? "Tekshirilmoqda..." : "Kirish"}
+      </button>
+
+      {error ? (
+        <p className="mt-3 rounded-lg border border-bad/40 bg-bad/10 px-3 py-1.5 text-xs text-bad">
+          {error}
+        </p>
+      ) : null}
     </form>
   );
 }
