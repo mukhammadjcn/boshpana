@@ -1,0 +1,17 @@
+{
+  "name": "bunker-online",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace web",
+    "dev:api": "npm run dev --workspace api",
+    "build": "npm run build --workspace api && npm run build --workspace web",
+    "lint": "npm run lint --workspace web && npm run lint --workspace api",
+    "prisma:generate": "npm run prisma:generate --workspace api",
+    "prisma:migrate": "npm run prisma:migrate --workspace api",
+    "prisma:seed": "npm run prisma:seed --workspace api"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "api",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "env XDG_CACHE_HOME=../../.cache prisma generate && tsc -p tsconfig.json",
+    "start": "env XDG_CACHE_HOME=../../.cache prisma db push && env XDG_CACHE_HOME=../../.cache prisma db seed && node dist/src/index.js",
+    "lint": "tsc --noEmit",
+    "prisma:generate": "env XDG_CACHE_HOME=../../.cache prisma generate",
+    "prisma:migrate": "env XDG_CACHE_HOME=../../.cache prisma migrate dev",
+    "prisma:seed": "env XDG_CACHE_HOME=../../.cache prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@prisma/client": "^6.19.3",
+    "@types/node": "^25.6.0",
+    "fastify": "^5.8.5",
+    "prisma": "^6.19.3",
+    "socket.io": "^4.8.3",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}

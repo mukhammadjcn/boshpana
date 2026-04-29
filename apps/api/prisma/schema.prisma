@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  LOBBY
+  PLAYING
+  FINISHED
+}
+
+enum GamePhase {
+  LOBBY
+  DISCUSSION
+  REVEAL
+  VOTING
+  FINISHED
+}
+
+enum CardType {
+  PROFESSION
+  HEALTH
+  CHARACTER
+  SKILL
+  BAGGAGE
+  FACT
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Room {
+  id            String      @id @default(cuid())
+  code          String      @unique
+  hostSessionId String
+  status        RoomStatus  @default(LOBBY)
+  winnerTarget  Int         @default(1)
+  maxPlayers    Int         @default(10)
+  round         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  players       Player[]
+  game          Game?
+  votes         Vote[]
+}
+
+model Player {
+  id            String          @id @default(cuid())
+  roomId        String
+  room          Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sessionId     String
+  name          String
+  isHost        Boolean         @default(false)
+  isAlive       Boolean         @default(true)
+  seatOrder     Int
+  joinedAt      DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  attributes    PlayerAttribute?
+  votesCast     Vote[]          @relation("VotesCast")
+  votesReceived Vote[]          @relation("VotesReceived")
+
+  @@unique([roomId, sessionId])
+}
+
+model Game {
+  id                 String           @id @default(cuid())
+  roomId             String           @unique
+  room               Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  disasterId         String?
+  disaster           Disaster?        @relation(fields: [disasterId], references: [id], onDelete: SetNull)
+  currentSituationId String?
+  currentSituation   Situation?       @relation(fields: [currentSituationId], references: [id], onDelete: SetNull)
+  phase              GamePhase        @default(LOBBY)
+  timerEndsAt        DateTime?
+  roundNumber        Int              @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  playerAttributes   PlayerAttribute[]
+}
+
+model PlayerAttribute {
+  id         String   @id @default(cuid())
+  playerId    String   @unique
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  profession String
+  health     String
+  character  String
+  skill      String
+  baggage    String
+  fact       String
+  revealed   CardType[] @default([])
+}
+
+model Vote {
+  id            String   @id @default(cuid())
+  roomId         String
+  room           Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roundNumber    Int
+  voterPlayerId  String
+  voterPlayer    Player   @relation("VotesCast", fields: [voterPlayerId], references: [id], onDelete: Cascade)
+  targetPlayerId String
+  targetPlayer   Player   @relation("VotesReceived", fields: [targetPlayerId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@unique([roomId, roundNumber, voterPlayerId])
+}
+
+model Card {
+  id        String   @id @default(cuid())
+  type      CardType
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, text])
+}
+
+model Disaster {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  games       Game[]
+}
+
+model Situation {
+  id        String     @id @default(cuid())
+  text      String     @unique
+  difficulty Difficulty @default(MEDIUM)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  games     Game[]
+}

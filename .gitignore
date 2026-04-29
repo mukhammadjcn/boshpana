@@ -1,0 +1,12 @@
+node_modules
+.cache
+.next
+dist
+.turbo
+.env
+.env.local
+apps/api/prisma/dev.db
+apps/api/generated
+coverage
+npm-debug.log*
+Dockerfile*.local
