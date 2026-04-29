@@ -27,6 +27,7 @@ export type PublicRoomState = {
     lastRevealedPlayerId: string | null;
     lastRevealedCardType: CardType | null;
     lastEliminatedPlayerId: string | null;
+    tiebreakCandidateIds: string[];
     disaster: {
       name: string;
       description: string;

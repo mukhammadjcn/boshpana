@@ -810,6 +810,18 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
             </div>
           ) : null}
 
+          {!me.isHost &&
+          game.phase === "ROUND_PITCH" &&
+          game.currentTurnPlayerId === me.id ? (
+            <button
+              type="button"
+              onClick={() => emit("advance_turn")}
+              className="mb-2 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              Pitchni tugatish
+            </button>
+          ) : null}
+
           <button
             type="button"
             onClick={() => setMyCardsOpen(true)}
@@ -906,20 +918,9 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
               {game.disaster.description}
             </p>
             <div className="mt-5 grid gap-2">
-              {me.isHost && game.phase === "INTRO" ? (
-                <button
-                  onClick={() => {
-                    setIntroOpen(false);
-                    emit("start_round");
-                  }}
-                  className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-                >
-                  1-roundni boshlash
-                </button>
-              ) : null}
               <button
                 onClick={() => setIntroOpen(false)}
-                className="flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold"
+                className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
               >
                 Tushundim
               </button>
@@ -1001,6 +1002,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
             visibleCards: p.visibleCards
           }))}
           meId={me.id}
+          tiebreakCandidateIds={game.tiebreakCandidateIds}
           onVote={(targetPlayerId) => emit("vote", { targetPlayerId })}
         />
       ) : null}

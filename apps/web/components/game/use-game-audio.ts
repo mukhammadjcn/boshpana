@@ -214,6 +214,14 @@ export function useGameAudio({
     if (!audioEnabled) stopAll();
   }, [audioEnabled, stopAll]);
 
+  // Stop everything on unmount so orphaned loops don't survive route changes
+  // (e.g. /room/CODE → /game/CODE when the game starts).
+  useEffect(() => {
+    return () => {
+      stopAll();
+    };
+  }, [stopAll]);
+
   // Resume loops on user gesture (mobile autoplay policy).
   // Only retry if the loop slot is currently empty — never re-trigger
   // a loop that the user/state has already requested to stop.

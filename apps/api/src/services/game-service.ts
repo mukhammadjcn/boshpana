@@ -174,6 +174,7 @@ export class GameService {
         lastRevealedPlayerId: room.game.lastRevealedPlayerId,
         lastRevealedCardType: room.game.lastRevealedCardType,
         lastEliminatedPlayerId: room.game.lastEliminatedPlayerId,
+        tiebreakCandidateIds: room.game.tiebreakCandidateIds,
         disaster: room.game.disaster
           ? {
               name: room.game.disaster.name,
@@ -339,7 +340,8 @@ export class GameService {
         data: {
           phase: GamePhase.VOTING,
           timerEndsAt: new Date(Date.now() + 45_000),
-          currentTurnPlayerId: null
+          currentTurnPlayerId: null,
+          tiebreakCandidateIds: []
         }
       })
     ]);
@@ -481,6 +483,18 @@ export class GameService {
       throw new Error("O'zingizga ovoz bera olmaysiz.");
     }
 
+    const tiebreakCandidates = room.game.tiebreakCandidateIds;
+    const tiebreakActive = tiebreakCandidates.length > 0;
+
+    if (tiebreakActive) {
+      if (tiebreakCandidates.includes(me.id)) {
+        throw new Error("Tenglikdagi nomzodlar ovoz bera olmaydi.");
+      }
+      if (!tiebreakCandidates.includes(target.id)) {
+        throw new Error("Faqat tenglikdagi nomzodlardan birini tanlang.");
+      }
+    }
+
     await prisma.vote.upsert({
       where: {
         roomId_roundNumber_voterPlayerId: {
@@ -501,6 +515,9 @@ export class GameService {
     });
 
     const alivePlayers = room.players.filter((player) => player.isAlive);
+    const expectedVoters = tiebreakActive
+      ? alivePlayers.filter((p) => !tiebreakCandidates.includes(p.id)).length
+      : alivePlayers.length;
     const roundVotes = await prisma.vote.count({
       where: {
         roomId: room.id,
@@ -508,7 +525,7 @@ export class GameService {
       }
     });
 
-    if (roundVotes >= alivePlayers.length) {
+    if (roundVotes >= expectedVoters) {
       await this.resolveVoting(room.code);
     }
   }
@@ -700,7 +717,8 @@ export class GameService {
           where: { id: room.game.id },
           data: {
             phase: GamePhase.ROUND_COMPLETE,
-            timerEndsAt: null
+            timerEndsAt: null,
+            tiebreakCandidateIds: []
           }
         });
         this.stopTimer(room.code);
@@ -722,7 +740,41 @@ export class GameService {
       const candidates = [...score.entries()]
         .filter(([, value]) => value === topScore)
         .map(([playerId]) => playerId);
-      eliminatedId = candidates[randomInt(candidates.length)];
+
+      if (candidates.length > 1) {
+        // Tie — enter (or repeat) a tiebreak vote. Eligible voters are alive
+        // players not in the tied set; if none exist we have no choice but
+        // to fall back to a random pick.
+        const eligibleVoters = aliveBeforeVote.filter(
+          (p) => !candidates.includes(p.id)
+        );
+
+        if (eligibleVoters.length > 0) {
+          this.stopTimer(room.code);
+          await prisma.$transaction([
+            prisma.vote.deleteMany({
+              where: {
+                roomId: room.id,
+                roundNumber: room.game.roundNumber
+              }
+            }),
+            prisma.game.update({
+              where: { id: room.game.id },
+              data: {
+                phase: GamePhase.VOTING,
+                timerEndsAt: new Date(Date.now() + 45_000),
+                tiebreakCandidateIds: candidates
+              }
+            })
+          ]);
+          this.startTimer(room.code);
+          return;
+        }
+
+        eliminatedId = candidates[randomInt(candidates.length)];
+      } else {
+        eliminatedId = candidates[0];
+      }
     }
 
     const eliminatedPlayer = room.players.find((player) => player.id === eliminatedId);
@@ -761,7 +813,8 @@ export class GameService {
             phase: GamePhase.FINISHED,
             timerEndsAt: null,
             currentTurnPlayerId: null,
-            lastEliminatedPlayerId: eliminatedId
+            lastEliminatedPlayerId: eliminatedId,
+            tiebreakCandidateIds: []
           }
         });
         return;
@@ -773,7 +826,8 @@ export class GameService {
           phase: GamePhase.ROUND_COMPLETE,
           timerEndsAt: null,
           currentTurnPlayerId: null,
-          lastEliminatedPlayerId: eliminatedId
+          lastEliminatedPlayerId: eliminatedId,
+          tiebreakCandidateIds: []
         }
       });
     });

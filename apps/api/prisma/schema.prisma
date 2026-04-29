@@ -88,6 +88,7 @@ model Game {
   lastRevealedPlayerId String?
   lastRevealedCardType CardType?
   lastEliminatedPlayerId String?
+  tiebreakCandidateIds String[]       @default([])
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   playerAttributes   PlayerAttribute[]
