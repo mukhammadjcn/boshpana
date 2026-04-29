@@ -23,6 +23,10 @@ export type PublicRoomState = {
     roundNumber: number;
     timerEndsAt: string | null;
     remainingSeconds: number;
+    currentTurnPlayerId: string | null;
+    lastRevealedPlayerId: string | null;
+    lastRevealedCardType: CardType | null;
+    lastEliminatedPlayerId: string | null;
     disaster: {
       name: string;
       description: string;
@@ -47,6 +51,7 @@ export type PublicRoomState = {
     isHost: boolean;
     isAlive: boolean;
     seatOrder: number;
+    visibleCards: Partial<Record<string, string>>;
     revealedCards: Partial<Record<string, string>>;
     revealedCount: number;
   }>;

@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 
 export function AdminLoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@bunker.local");
+  const [password, setPassword] = useState("ChangeMe123!");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,7 +58,7 @@ export function AdminLoginForm() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="h-12 rounded-2xl border border-white/10 bg-slate-900/80 px-4 outline-none"
-          placeholder="Parol"
+          placeholder="ChangeMe123!"
         />
         <button
           disabled={loading}

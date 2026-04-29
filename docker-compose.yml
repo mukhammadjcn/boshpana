@@ -45,6 +45,9 @@ services:
       NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:4000}
       NEXT_PUBLIC_ADMIN_PATH: ${NEXT_PUBLIC_ADMIN_PATH:-admin}
       API_INTERNAL_URL: http://api:4000
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bunker.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe123!}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-super-secret-admin-jwt}
     depends_on:
       api:
         condition: service_started

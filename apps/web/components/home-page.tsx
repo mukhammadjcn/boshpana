@@ -1,169 +1,139 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 
-import { apiRequest } from "@/lib/api";
-import { getOrCreateSessionId } from "@/lib/storage";
-
-type CreateRoomResponse = {
-  roomCode: string;
-  playerId: string;
-};
+import { JoinRoomModal } from "@/components/join-room-modal";
 
 export function HomePage() {
-  const router = useRouter();
-  const [hostName, setHostName] = useState("");
-  const [winnerTarget, setWinnerTarget] = useState(2);
-  const [joinName, setJoinName] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const sessionId = getOrCreateSessionId();
-      const response = await apiRequest<CreateRoomResponse>("/api/rooms/create", {
-        method: "POST",
-        body: JSON.stringify({
-          hostName,
-          sessionId,
-          winnerTarget
-        })
-      });
-      router.push(`/room/${response.roomCode}`);
-    } catch (nextError) {
-      setError((nextError as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleJoin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const sessionId = getOrCreateSessionId();
-      await apiRequest(`/api/rooms/${joinCode.toUpperCase()}/join`, {
-        method: "POST",
-        body: JSON.stringify({
-          name: joinName,
-          sessionId
-        })
-      });
-      router.push(`/room/${joinCode.toUpperCase()}`);
-    } catch (nextError) {
-      setError((nextError as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [joinOpen, setJoinOpen] = useState(false);
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.16),transparent_35%),linear-gradient(180deg,#07111f_0%,#020617_100%)] px-4 py-8 text-white">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-[2rem] border border-white/10 bg-slate-950/40 p-6 shadow-2xl shadow-orange-950/20 backdrop-blur">
-          <p className="text-sm uppercase tracking-[0.4em] text-orange-200/70">
-            Bunker Online
-          </p>
-          <h1 className="mt-4 max-w-xl text-4xl font-bold leading-tight sm:text-6xl">
-            Real-time, bir joyda o‘ynaladigan psixologik party game.
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-            Host xona yaratadi, odamlar link bilan kiradi, kartalar ochiladi va har round
-            oxirida kim bunkerda qolishi kerakligi uchun ovoz beriladi.
-          </p>
+    <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(251,146,60,0.16),transparent_24%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.14),transparent_28%),linear-gradient(180deg,#07101c_0%,#020617_100%)] px-4 py-8 text-white sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(251,146,60,0.08),transparent)]" />
+      <div className="mx-auto max-w-6xl">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="rounded-full border border-orange-300/20 bg-orange-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.45em] text-orange-100/80">
+              Bunker Online
+            </span>
+            <span className="rounded-full border border-sky-300/15 bg-sky-400/10 px-4 py-2 text-xs text-sky-100/80">
+              Real-time party game
+            </span>
+          </div>
+          {/* <Link
+            href="/admin/login"
+            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200"
+          >
+            Admin panel
+          </Link> */}
+        </header>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            {[
-              "Public join link",
-              "Host tanlaydigan finish sharti",
-              "Admin panel orqali kontent boshqaruvi"
-            ].map((item) => (
-              <div key={item} className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm text-slate-200">{item}</p>
+        <section className="mt-8 rounded-[2.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.82),rgba(2,6,23,0.96))] p-7 shadow-2xl shadow-orange-950/10 sm:p-10">
+          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+            <div>
+              <p className="text-xs uppercase tracking-[0.38em] text-orange-200/70">
+                Psixologik strategiya o‘yini
+              </p>
+              <h1 className="mt-5 max-w-4xl text-5xl font-bold leading-[0.96] tracking-tight text-white sm:text-6xl">
+                Halokatdan keyin bunkerda kim qolishi kerakligini birga hal
+                qilasiz.
+              </h1>
+              <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
+                Har bir o‘yinchi yashirin atributlarga ega bo‘ladi: kasb,
+                sog‘liq, xarakter, skill, bagaj va fakt. Har roundda kimdir o‘z
+                kartasini ochadi, jamoa bahslashadi, keyin esa kim qolishi
+                kerakligi bo‘yicha qaror yaqinlashadi.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href={"/create" as Route}
+                  className="rounded-full bg-orange-500 px-6 py-3 text-base font-semibold text-slate-950 transition hover:bg-orange-400"
+                >
+                  O‘yinni boshlash
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setJoinOpen(true)}
+                  className="rounded-full border border-white/15 bg-white/8 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/12"
+                >
+                  O‘yinga qo‘shilish
+                </button>
               </div>
-            ))}
+            </div>
+
+            <div className="grid gap-4">
+              <HighlightCard
+                eyebrow="Qanday ishlaydi"
+                title="Host yaratadi, link ulashadi, keyin o‘yinni boshqaradi."
+              />
+              <HighlightCard
+                eyebrow="Nima uchun qiziq"
+                title="Har ochilgan karta qarorni o‘zgartiradi va hech kim boshidan kuchli emas."
+              />
+              <HighlightCard
+                eyebrow="MVP imkoniyatlari"
+                title="Admin paneldan kartalar, falokatlar va situation’larni to‘ldirish mumkin."
+              />
+            </div>
           </div>
         </section>
 
-        <section className="grid gap-6">
-          <form
-            onSubmit={handleCreate}
-            className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur"
-          >
-            <h2 className="text-2xl font-semibold">Room yaratish</h2>
-            <div className="mt-5 grid gap-4">
-              <label className="grid gap-2 text-sm text-slate-300">
-                Host nickname
-                <input
-                  value={hostName}
-                  onChange={(event) => setHostName(event.target.value)}
-                  required
-                  className="h-12 rounded-2xl border border-white/10 bg-slate-950/60 px-4 text-white outline-none ring-orange-400/40 transition focus:ring"
-                  placeholder="Masalan, Sardor"
-                />
-              </label>
-
-              <label className="grid gap-2 text-sm text-slate-300">
-                O'yin nechta odam qolganda tugaydi?
-                <select
-                  value={winnerTarget}
-                  onChange={(event) => setWinnerTarget(Number(event.target.value))}
-                  className="h-12 rounded-2xl border border-white/10 bg-slate-950/60 px-4 text-white outline-none"
-                >
-                  <option value={1}>1 kishi</option>
-                  <option value={2}>2 kishi</option>
-                  <option value={3}>3 kishi</option>
-                </select>
-              </label>
-
-              <button
-                disabled={loading}
-                className="mt-2 h-12 rounded-full bg-orange-500 px-5 text-base font-semibold text-slate-950 disabled:opacity-60"
-              >
-                Room yaratish
-              </button>
-            </div>
-          </form>
-
-          <form
-            onSubmit={handleJoin}
-            className="rounded-[2rem] border border-white/10 bg-slate-950/40 p-6"
-          >
-            <h2 className="text-2xl font-semibold">Roomga qo‘shilish</h2>
-            <div className="mt-5 grid gap-4">
-              <input
-                value={joinCode}
-                onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-                required
-                className="h-12 rounded-2xl border border-white/10 bg-slate-950/60 px-4 uppercase text-white outline-none"
-                placeholder="ROOM CODE"
-              />
-              <input
-                value={joinName}
-                onChange={(event) => setJoinName(event.target.value)}
-                required
-                className="h-12 rounded-2xl border border-white/10 bg-slate-950/60 px-4 text-white outline-none"
-                placeholder="Nickname"
-              />
-              <button
-                disabled={loading}
-                className="h-12 rounded-full border border-white/15 bg-white/10 px-5 text-base font-semibold text-white disabled:opacity-60"
-              >
-                Roomga kirish
-              </button>
-            </div>
-            {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
-          </form>
+        <section className="mt-6 grid gap-6 lg:grid-cols-3">
+          <FeatureCard
+            step="01"
+            title="Falokat va rol"
+            description="O‘yin boshida umumiy falokat ko‘rsatiladi. Har bir o‘yinchi esa o‘ziga tushgan 6 ta atributni ko‘radi."
+          />
+          <FeatureCard
+            step="02"
+            title="Navbat bilan reveal"
+            description="Kasb avtomatik ochiladi, qolgan kartalar esa round davomida navbat bilan tanlab ochiladi."
+          />
+          <FeatureCard
+            step="03"
+            title="Ovoz va eliminatsiya"
+            description="Har round oxirida host voting ochishi mumkin. Ovozlar tugagach bitta odam o‘yindan chiqadi, lekin kuzatib turadi."
+          />
         </section>
       </div>
+
+      <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />
     </main>
+  );
+}
+
+function HighlightCard({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5">
+      <p className="text-[11px] uppercase tracking-[0.35em] text-slate-500">
+        {eyebrow}
+      </p>
+      <p className="mt-3 text-lg font-semibold leading-7 text-slate-100">
+        {title}
+      </p>
+    </div>
+  );
+}
+
+function FeatureCard({
+  step,
+  title,
+  description,
+}: {
+  step: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-[1.9rem] border border-white/10 bg-white/[0.04] p-6">
+      <p className="text-xs uppercase tracking-[0.32em] text-orange-200/70">
+        {step}
+      </p>
+      <h2 className="mt-3 text-2xl font-semibold text-white">{title}</h2>
+      <p className="mt-4 text-sm leading-7 text-slate-300">{description}</p>
+    </div>
   );
 }

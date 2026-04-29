@@ -1,72 +1,97 @@
 import { CardType, Difficulty, PrismaClient } from "@prisma/client";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const prisma = new PrismaClient();
 
-const cards: Array<{ type: CardType; text: string }> = [
-  { type: CardType.PROFESSION, text: "Shifokor" },
-  { type: CardType.PROFESSION, text: "Muhandis" },
-  { type: CardType.HEALTH, text: "Sog'lom" },
-  { type: CardType.HEALTH, text: "Astma bilan yashaydi" },
-  { type: CardType.CHARACTER, text: "Bosiq va vazmin" },
-  { type: CardType.CHARACTER, text: "Juda tez asabiylashadi" },
-  { type: CardType.SKILL, text: "Birinchi yordamni mukammal biladi" },
-  { type: CardType.SKILL, text: "Elektr tizimlarini tuzata oladi" },
-  { type: CardType.BAGGAGE, text: "Ko'p funksiyali pichoq" },
-  { type: CardType.BAGGAGE, text: "Quyosh batareyali fonar" },
-  { type: CardType.FACT, text: "Bir yil tog'da yolg'iz yashagan" },
-  { type: CardType.FACT, text: "Oziq-ovqat allergiyasi bor" }
-];
+const cardTypeMap: Record<string, CardType> = {
+  kasb: CardType.PROFESSION,
+  soglik: CardType.HEALTH,
+  xarakter: CardType.CHARACTER,
+  skill: CardType.SKILL,
+  bagaj: CardType.BAGGAGE,
+  fakt: CardType.FACT
+};
 
-const disasters = [
-  {
-    name: "Global sovuq to'lqin",
-    description: "Yer yuzida harorat keskin tushib ketdi, tashqarida uzoq yashab bo'lmaydi."
-  },
-  {
-    name: "Kimyoviy avariya",
-    description: "Havoga zaharli modda tarqalgan, bunker ichidagi resurslar cheklangan."
-  }
-];
+type SeedContent = {
+  cards: Record<string, string[]>;
+  disasters: Array<{ name: string; description: string }>;
+  situations: Array<{ text: string; difficulty?: Difficulty }>;
+};
 
-const situations = [
-  {
-    text: "Bunker ichidagi ichimlik suvi zahirasi kutilganidan ancha kam ekan.",
-    difficulty: Difficulty.MEDIUM
-  },
-  {
-    text: "Elektr generatori ishlamay qoldi, kim uni tezda tiklay olishini isbotlashi kerak.",
-    difficulty: Difficulty.HARD
-  },
-  {
-    text: "Bunker eshigi tashqaridan nimadir urayotgan ovozlar bilan titray boshladi.",
-    difficulty: Difficulty.EASY
+function loadSeedContent(): SeedContent {
+  const candidates = [
+    resolve(process.cwd(), "../../data.md"),
+    resolve(process.cwd(), "data.md")
+  ];
+
+  const filePath = candidates.find((candidate) => existsSync(candidate));
+
+  if (!filePath) {
+    throw new Error("data.md topilmadi. Seed uchun loyiha root'idagi fayl kerak.");
   }
-];
+
+  const raw = readFileSync(filePath, "utf8");
+  const blocks = raw
+    .split(/\n\s*\n(?=\{)/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => JSON.parse(block) as Record<string, unknown>);
+
+  const cardBlock = blocks.find((block) => "cards" in block) as
+    | { cards: Record<string, string[]> }
+    | undefined;
+  const disasterBlock = blocks.find((block) => "disasters" in block) as
+    | { disasters: Array<{ name: string; description: string }> }
+    | undefined;
+  const situationBlock = blocks.find((block) => "situations" in block) as
+    | { situations: Array<{ text: string; difficulty?: Difficulty }> }
+    | undefined;
+
+  if (!cardBlock || !disasterBlock || !situationBlock) {
+    throw new Error("data.md ichidagi cards, disasters va situations bloklari topilmadi.");
+  }
+
+  return {
+    cards: cardBlock.cards,
+    disasters: disasterBlock.disasters,
+    situations: situationBlock.situations
+  };
+}
 
 async function main() {
-  for (const card of cards) {
-    await prisma.card.upsert({
-      where: { type_text: { type: card.type, text: card.text } },
-      create: card,
-      update: {}
-    });
-  }
+  const content = loadSeedContent();
+  const cards = Object.entries(content.cards).flatMap(([key, values]) => {
+    const type = cardTypeMap[key];
 
-  for (const disaster of disasters) {
-    await prisma.disaster.upsert({
-      where: { name: disaster.name },
-      create: disaster,
-      update: { description: disaster.description }
-    });
-  }
+    if (!type) {
+      return [];
+    }
 
-  for (const situation of situations) {
-    await prisma.situation.upsert({
-      where: { text: situation.text },
-      create: situation,
-      update: { difficulty: situation.difficulty }
-    });
-  }
+    return values.map((text) => ({
+      type,
+      text
+    }));
+  });
+
+  await prisma.card.deleteMany();
+  await prisma.disaster.deleteMany();
+  await prisma.situation.deleteMany();
+
+  await prisma.card.createMany({
+    data: cards
+  });
+
+  await prisma.disaster.createMany({
+    data: content.disasters
+  });
+
+  await prisma.situation.createMany({
+    data: content.situations.map((situation) => ({
+      text: situation.text,
+      difficulty: situation.difficulty ?? Difficulty.MEDIUM
+    }))
+  });
 }
 
 main()

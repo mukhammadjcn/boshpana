@@ -17,6 +17,10 @@ enum GamePhase {
   LOBBY
   DISCUSSION
   REVEAL
+  INTRO
+  ROUND_REVEAL
+  ROUND_PITCH
+  ROUND_COMPLETE
   VOTING
   FINISHED
 }
@@ -80,6 +84,10 @@ model Game {
   phase              GamePhase        @default(LOBBY)
   timerEndsAt        DateTime?
   roundNumber        Int              @default(0)
+  currentTurnPlayerId String?
+  lastRevealedPlayerId String?
+  lastRevealedCardType CardType?
+  lastEliminatedPlayerId String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   playerAttributes   PlayerAttribute[]

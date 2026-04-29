@@ -37,6 +37,16 @@ export class RealtimeHub {
         });
       });
 
+      socket.on("start_round", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          await this.gameService.startRound({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
       socket.on(
         "reveal_card",
         async (payload: SocketActionPayload & { cardType: CardType }) => {
@@ -64,6 +74,46 @@ export class RealtimeHub {
           });
         }
       );
+
+      socket.on("advance_turn", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          await this.gameService.advanceTurn({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
+      socket.on("start_voting", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          await this.gameService.startVoting({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
+      socket.on("skip_voting", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          await this.gameService.skipVoting({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
+      socket.on("end_game", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          await this.gameService.endGame({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
 
       socket.on("next_phase", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {

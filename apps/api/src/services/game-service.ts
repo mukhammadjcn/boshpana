@@ -35,6 +35,26 @@ type VoteInput = RoomCodeAction & {
   targetPlayerId: string;
 };
 
+type RoomWithState = Prisma.RoomGetPayload<{
+  include: {
+    players: {
+      include: {
+        attributes: true;
+      };
+      orderBy: {
+        seatOrder: "asc";
+      };
+    };
+    game: {
+      include: {
+        disaster: true;
+        currentSituation: true;
+      };
+    };
+    votes: true;
+  };
+}>;
+
 const noopRealtime: RealtimePublisher = {
   broadcastRoomState: async () => undefined,
   broadcastTimer: () => undefined
@@ -126,25 +146,7 @@ export class GameService {
   }
 
   async getRoomState(code: string, sessionId: string): Promise<PublicRoomState> {
-    const room = await prisma.room.findUnique({
-      where: { code: code.toUpperCase() },
-      include: {
-        players: {
-          include: {
-            attributes: true
-          },
-          orderBy: { seatOrder: "asc" }
-        },
-        game: {
-          include: {
-            disaster: true,
-            currentSituation: true,
-            playerAttributes: true
-          }
-        },
-        votes: true
-      }
-    });
+    const room = await this.getRoomWithState(code);
 
     if (!room || !room.game) {
       throw new Error("Room state topilmadi.");
@@ -152,6 +154,7 @@ export class GameService {
 
     const me = room.players.find((player) => player.sessionId === sessionId) ?? null;
     const remainingSeconds = this.getRemainingSeconds(room.game.timerEndsAt);
+    const currentRoundNumber = room.game.roundNumber;
 
     return {
       room: {
@@ -167,6 +170,10 @@ export class GameService {
         roundNumber: room.game.roundNumber,
         timerEndsAt: room.game.timerEndsAt ? room.game.timerEndsAt.toISOString() : null,
         remainingSeconds,
+        currentTurnPlayerId: room.game.currentTurnPlayerId,
+        lastRevealedPlayerId: room.game.lastRevealedPlayerId,
+        lastRevealedCardType: room.game.lastRevealedCardType,
+        lastEliminatedPlayerId: room.game.lastEliminatedPlayerId,
         disaster: room.game.disaster
           ? {
               name: room.game.disaster.name,
@@ -197,15 +204,17 @@ export class GameService {
         isHost: player.isHost,
         isAlive: player.isAlive,
         seatOrder: player.seatOrder,
+        visibleCards: player.isAlive
+          ? this.extractRevealedCards(player.attributes)
+          : this.extractCards(player.attributes),
         revealedCards: this.extractRevealedCards(player.attributes),
         revealedCount: player.attributes?.revealed.length ?? 0
       })),
       votes: {
-        total: room.votes.filter((vote) => vote.roundNumber === room.game?.roundNumber).length,
+        total: room.votes.filter((vote) => vote.roundNumber === currentRoundNumber).length,
         submittedByMe: me
           ? room.votes.some(
-              (vote) =>
-                vote.roundNumber === room.game?.roundNumber && vote.voterPlayerId === me.id
+              (vote) => vote.roundNumber === currentRoundNumber && vote.voterPlayerId === me.id
             )
           : false
       }
@@ -219,19 +228,17 @@ export class GameService {
       throw new Error("O'yinni boshlash uchun kamida 3 o'yinchi kerak.");
     }
 
-    const [disasters, situations, cards] = await Promise.all([
+    const [disasters, cards] = await Promise.all([
       prisma.disaster.findMany(),
-      prisma.situation.findMany(),
       prisma.card.findMany()
     ]);
 
-    if (!disasters.length || !situations.length || !cards.length) {
+    if (!disasters.length || !cards.length) {
       throw new Error("Seed ma'lumotlari topilmadi.");
     }
 
     const selectedDisaster = disasters[randomInt(disasters.length)];
-    const selectedSituation = situations[randomInt(situations.length)];
-    const roomRound = 1;
+    const introEndsAt = new Date(Date.now() + 120_000);
 
     await prisma.$transaction(async (tx) => {
       if (room.game) {
@@ -244,20 +251,23 @@ export class GameService {
             where: { id: room.game.id },
             data: {
               disasterId: selectedDisaster.id,
-              currentSituationId: selectedSituation.id,
-              phase: GamePhase.DISCUSSION,
-              timerEndsAt: new Date(Date.now() + 120_000),
-              roundNumber: roomRound
+              currentSituationId: null,
+              phase: GamePhase.INTRO,
+              timerEndsAt: introEndsAt,
+              roundNumber: 0,
+              currentTurnPlayerId: null,
+              lastRevealedPlayerId: null,
+              lastRevealedCardType: null,
+              lastEliminatedPlayerId: null
             }
           })
         : await tx.game.create({
             data: {
               roomId: room.id,
               disasterId: selectedDisaster.id,
-              currentSituationId: selectedSituation.id,
-              phase: GamePhase.DISCUSSION,
-              timerEndsAt: new Date(Date.now() + 120_000),
-              roundNumber: roomRound
+              phase: GamePhase.INTRO,
+              timerEndsAt: introEndsAt,
+              roundNumber: 0
             }
           });
 
@@ -277,7 +287,7 @@ export class GameService {
             skill: this.pickRandomCard(cards, CardType.SKILL),
             baggage: this.pickRandomCard(cards, CardType.BAGGAGE),
             fact: this.pickRandomCard(cards, CardType.FACT),
-            revealed: []
+            revealed: [CardType.PROFESSION]
           }
         });
       }
@@ -286,12 +296,79 @@ export class GameService {
         where: { id: room.id },
         data: {
           status: RoomStatus.PLAYING,
-          round: roomRound
+          round: 0
         }
       });
     });
 
     this.startTimer(room.code);
+  }
+
+  async startRound(input: RoomCodeAction) {
+    await this.requireHostRoom(input);
+    await this.beginNextRound(input.code);
+  }
+
+  async advanceTurn(input: RoomCodeAction) {
+    await this.requireHostRoom(input);
+    await this.advanceTurnForRoom(input.code);
+  }
+
+  async startVoting(input: RoomCodeAction) {
+    const room = await this.requireHostRoom(input);
+
+    if (!room.game || room.game.phase !== GamePhase.ROUND_COMPLETE) {
+      throw new Error("Hozir voting boshlash mumkin emas.");
+    }
+
+    await prisma.$transaction([
+      prisma.vote.deleteMany({
+        where: {
+          roomId: room.id,
+          roundNumber: room.game.roundNumber
+        }
+      }),
+      prisma.game.update({
+        where: { id: room.game.id },
+        data: {
+          phase: GamePhase.VOTING,
+          timerEndsAt: new Date(Date.now() + 45_000),
+          currentTurnPlayerId: null
+        }
+      })
+    ]);
+
+    this.startTimer(room.code);
+  }
+
+  async skipVoting(input: RoomCodeAction) {
+    await this.requireHostRoom(input);
+    await this.beginNextRound(input.code);
+  }
+
+  async endGame(input: RoomCodeAction) {
+    const room = await this.requireHostRoom(input);
+
+    if (!room.game) {
+      throw new Error("O'yin state topilmadi.");
+    }
+
+    this.stopTimer(room.code);
+
+    await prisma.$transaction([
+      prisma.room.update({
+        where: { id: room.id },
+        data: { status: RoomStatus.FINISHED }
+      }),
+      prisma.game.update({
+        where: { id: room.game.id },
+        data: {
+          phase: GamePhase.FINISHED,
+          timerEndsAt: null,
+          currentTurnPlayerId: null
+        }
+      })
+    ]);
   }
 
   async nextPhase(input: RoomCodeAction) {
@@ -301,27 +378,13 @@ export class GameService {
       throw new Error("O'yin state topilmadi.");
     }
 
-    if (room.game.phase === GamePhase.DISCUSSION) {
-      await prisma.game.update({
-        where: { id: room.game.id },
-        data: {
-          phase: GamePhase.REVEAL,
-          timerEndsAt: null
-        }
-      });
-      this.stopTimer(room.code);
+    if (room.game.phase === GamePhase.INTRO || room.game.phase === GamePhase.ROUND_COMPLETE) {
+      await this.beginNextRound(room.code);
       return;
     }
 
-    if (room.game.phase === GamePhase.REVEAL) {
-      await prisma.game.update({
-        where: { id: room.game.id },
-        data: {
-          phase: GamePhase.VOTING,
-          timerEndsAt: new Date(Date.now() + 45_000)
-        }
-      });
-      this.startTimer(room.code);
+    if (room.game.phase === GamePhase.ROUND_PITCH) {
+      await this.advanceTurnForRoom(room.code);
       return;
     }
 
@@ -331,71 +394,53 @@ export class GameService {
   }
 
   async revealCard(input: RevealInput) {
-    const room = await prisma.room.findUnique({
-      where: { code: input.code.toUpperCase() },
-      include: {
-        game: true,
-        players: {
-          include: { attributes: true }
-        }
-      }
-    });
+    const room = await this.getRoomWithState(input.code);
 
-    if (!room || !room.game) {
+    if (!room?.game) {
       throw new Error("Room topilmadi.");
     }
 
-    if (room.game.phase !== GamePhase.REVEAL) {
-      throw new Error("Hozir reveal bosqichi emas.");
+    if (room.game.phase !== GamePhase.ROUND_REVEAL) {
+      throw new Error("Hozir kartani ochish bosqichi emas.");
     }
 
     const me = room.players.find((player) => player.sessionId === input.sessionId);
 
     if (!me || !me.attributes || !me.isAlive) {
-      throw new Error("Reveal qilish uchun aktiv o'yinchi bo'lish kerak.");
+      throw new Error("Kartani ochish uchun aktiv o'yinchi bo'lish kerak.");
+    }
+
+    if (room.game.currentTurnPlayerId !== me.id) {
+      throw new Error("Hozir navbat sizda emas.");
+    }
+
+    if (input.cardType === CardType.PROFESSION) {
+      throw new Error("Kasb kartasi avtomatik ochilgan.");
     }
 
     if (me.attributes.revealed.includes(input.cardType)) {
       throw new Error("Bu karta allaqachon ochilgan.");
     }
 
-    if (me.attributes.revealed.length >= room.game.roundNumber) {
-      throw new Error("Bu round uchun faqat bitta karta ochish mumkin.");
-    }
-
-    await prisma.playerAttribute.update({
-      where: { id: me.attributes.id },
-      data: {
-        revealed: [...me.attributes.revealed, input.cardType]
-      }
-    });
-
-    const refreshed = await prisma.room.findUnique({
-      where: { id: room.id },
-      include: {
-        game: true,
-        players: {
-          include: { attributes: true }
-        }
-      }
-    });
-
-    const alivePlayers =
-      refreshed?.players.filter((player) => player.isAlive && player.attributes) ?? [];
-    const everyoneRevealed = alivePlayers.every(
-      (player) => (player.attributes?.revealed.length ?? 0) >= (refreshed?.game?.roundNumber ?? 0)
-    );
-
-    if (everyoneRevealed && refreshed?.game) {
-      await prisma.game.update({
-        where: { id: refreshed.game.id },
+    await prisma.$transaction([
+      prisma.playerAttribute.update({
+        where: { id: me.attributes.id },
         data: {
-          phase: GamePhase.VOTING,
-          timerEndsAt: new Date(Date.now() + 45_000)
+          revealed: [...me.attributes.revealed, input.cardType]
         }
-      });
-      this.startTimer(room.code);
-    }
+      }),
+      prisma.game.update({
+        where: { id: room.game.id },
+        data: {
+          phase: GamePhase.ROUND_PITCH,
+          timerEndsAt: new Date(Date.now() + 120_000),
+          lastRevealedPlayerId: me.id,
+          lastRevealedCardType: input.cardType
+        }
+      })
+    ]);
+
+    this.startTimer(room.code);
   }
 
   async submitVote(input: VoteInput) {
@@ -496,15 +541,87 @@ export class GameService {
     return room;
   }
 
-  private async resolveVoting(roomCode: string) {
-    const room = await prisma.room.findUnique({
-      where: { code: roomCode.toUpperCase() },
-      include: {
-        game: true,
-        players: true,
-        votes: true
-      }
+  private async beginNextRound(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+
+    if (!room?.game) {
+      throw new Error("Room topilmadi.");
+    }
+
+    if (
+      room.game.phase !== GamePhase.INTRO &&
+      room.game.phase !== GamePhase.ROUND_COMPLETE
+    ) {
+      throw new Error("Hozir yangi round boshlash mumkin emas.");
+    }
+
+    const nextRound = room.round + 1;
+    const nextSituation = await this.pickSituation(room.game.currentSituationId ?? undefined);
+    const currentTurn = this.findNextRevealPlayer(room.players, nextRound, 0);
+
+    if (!currentTurn) {
+      throw new Error("Reveal uchun aktiv o'yinchi topilmadi.");
+    }
+
+    this.stopTimer(room.code);
+
+    await prisma.$transaction([
+      prisma.room.update({
+        where: { id: room.id },
+        data: { round: nextRound }
+      }),
+      prisma.game.update({
+        where: { id: room.game.id },
+        data: {
+          roundNumber: nextRound,
+          currentSituationId: nextSituation.id,
+          phase: GamePhase.ROUND_REVEAL,
+          timerEndsAt: null,
+          currentTurnPlayerId: currentTurn.id,
+          lastEliminatedPlayerId: null
+        }
+      })
+    ]);
+  }
+
+  private async advanceTurnForRoom(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+
+    if (!room?.game) {
+      throw new Error("Room topilmadi.");
+    }
+
+    if (
+      room.game.phase !== GamePhase.ROUND_PITCH &&
+      room.game.phase !== GamePhase.ROUND_REVEAL
+    ) {
+      throw new Error("Hozir keyingi o'yinchiga o'tish mumkin emas.");
+    }
+
+    const currentSeat =
+      room.players.find((player) => player.id === room.game?.currentTurnPlayerId)?.seatOrder ?? 0;
+    const nextTurn = this.findNextRevealPlayer(room.players, room.game.roundNumber, currentSeat);
+
+    this.stopTimer(room.code);
+
+    await prisma.game.update({
+      where: { id: room.game.id },
+      data: nextTurn
+        ? {
+            phase: GamePhase.ROUND_REVEAL,
+            timerEndsAt: null,
+            currentTurnPlayerId: nextTurn.id
+          }
+        : {
+            phase: GamePhase.ROUND_COMPLETE,
+            timerEndsAt: null,
+            currentTurnPlayerId: null
+          }
     });
+  }
+
+  private async resolveVoting(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
 
     if (!room || !room.game) {
       throw new Error("Room topilmadi.");
@@ -518,7 +635,7 @@ export class GameService {
       await prisma.game.update({
         where: { id: room.game.id },
         data: {
-          phase: GamePhase.REVEAL,
+          phase: GamePhase.ROUND_COMPLETE,
           timerEndsAt: null
         }
       });
@@ -537,59 +654,100 @@ export class GameService {
       .filter(([, value]) => value === topScore)
       .map(([playerId]) => playerId);
     const eliminatedId = candidates[randomInt(candidates.length)];
-
-    await prisma.player.update({
-      where: { id: eliminatedId },
-      data: { isAlive: false }
-    });
-
-    const aliveCount = await prisma.player.count({
-      where: {
-        roomId: room.id,
-        isAlive: true
-      }
-    });
+    const eliminatedPlayer = room.players.find((player) => player.id === eliminatedId);
+    const gameId = room.game.id;
 
     this.stopTimer(room.code);
 
-    if (aliveCount <= room.winnerTarget) {
-      await prisma.$transaction([
-        prisma.room.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.player.update({
+        where: { id: eliminatedId },
+        data: { isAlive: false }
+      });
+
+      if (eliminatedPlayer?.attributes) {
+        await tx.playerAttribute.update({
+          where: { id: eliminatedPlayer.attributes.id },
+          data: { revealed: CARD_TYPES.slice() as CardType[] }
+        });
+      }
+
+      const aliveCount = await tx.player.count({
+        where: {
+          roomId: room.id,
+          isAlive: true
+        }
+      });
+
+      if (aliveCount <= room.winnerTarget) {
+        await tx.room.update({
           where: { id: room.id },
-          data: {
-            status: RoomStatus.FINISHED
-          }
-        }),
-        prisma.game.update({
-          where: { id: room.game.id },
+          data: { status: RoomStatus.FINISHED }
+        });
+        await tx.game.update({
+          where: { id: gameId },
           data: {
             phase: GamePhase.FINISHED,
-            timerEndsAt: null
+            timerEndsAt: null,
+            currentTurnPlayerId: null,
+            lastEliminatedPlayerId: eliminatedId
           }
-        })
-      ]);
-      return;
-    }
+        });
+        return;
+      }
 
-    const nextSituation = await this.pickSituation(room.game.currentSituationId ?? undefined);
-
-    await prisma.$transaction([
-      prisma.room.update({
-        where: { id: room.id },
-        data: { round: room.round + 1 }
-      }),
-      prisma.game.update({
-        where: { id: room.game.id },
+      await tx.game.update({
+        where: { id: gameId },
         data: {
-          roundNumber: room.game.roundNumber + 1,
-          currentSituationId: nextSituation.id,
-          phase: GamePhase.DISCUSSION,
-          timerEndsAt: new Date(Date.now() + 120_000)
+          phase: GamePhase.ROUND_COMPLETE,
+          timerEndsAt: null,
+          currentTurnPlayerId: null,
+          lastEliminatedPlayerId: eliminatedId
         }
-      })
-    ]);
+      });
+    });
+  }
 
-    this.startTimer(room.code);
+  private findNextRevealPlayer(
+    players: RoomWithState["players"],
+    roundNumber: number,
+    afterSeatOrder: number
+  ) {
+    const targetRevealCount = roundNumber + 1;
+    const ordered = players.filter((player) => player.isAlive && player.attributes);
+
+    const next =
+      ordered.find(
+        (player) =>
+          player.seatOrder > afterSeatOrder &&
+          (player.attributes?.revealed.length ?? 0) < targetRevealCount
+      ) ??
+      ordered.find(
+        (player) => (player.attributes?.revealed.length ?? 0) < targetRevealCount
+      );
+
+    return next ?? null;
+  }
+
+  private async getRoomWithState(code: string) {
+    return prisma.room.findUnique({
+      where: { code: code.toUpperCase() },
+      include: {
+        players: {
+          include: {
+            attributes: true
+          },
+          orderBy: { seatOrder: "asc" }
+        },
+        game: {
+          include: {
+            disaster: true,
+            currentSituation: true
+          }
+        },
+        votes: true
+      }
+    });
   }
 
   private async pickSituation(excludeId?: string) {
@@ -699,14 +857,10 @@ export class GameService {
 
         this.stopTimer(roomCode);
 
-        if (room.game.phase === GamePhase.DISCUSSION) {
-          await prisma.game.update({
-            where: { id: room.game.id },
-            data: {
-              phase: GamePhase.REVEAL,
-              timerEndsAt: null
-            }
-          });
+        if (room.game.phase === GamePhase.INTRO) {
+          await this.beginNextRound(roomCode);
+        } else if (room.game.phase === GamePhase.ROUND_PITCH) {
+          await this.advanceTurnForRoom(roomCode);
         } else if (room.game.phase === GamePhase.VOTING) {
           await this.resolveVoting(roomCode);
         }
