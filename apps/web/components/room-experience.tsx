@@ -140,8 +140,22 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     if (!sessionId || connectedRef.current) return;
 
     const socket = getSocket();
+
+    const rejoin = () => {
+      socket.emit("join_room", { roomCode, sessionId });
+      // Refetch state via REST as a safety net in case any broadcasts were
+      // missed during the disconnect window.
+      void apiRequest<RoomState>(
+        `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+      )
+        .then((s) => setRoomState(s))
+        .catch(() => {
+          // ignore — socket broadcast will recover state shortly.
+        });
+    };
+
     socket.connect();
-    socket.emit("join_room", { roomCode, sessionId });
+    rejoin();
 
     const onState = (s: RoomState) => {
       setRoomState(s);
@@ -152,15 +166,27 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     };
     const onErr = ({ message }: { message: string }) => setError(message);
 
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!socket.connected) socket.connect();
+      rejoin();
+    };
+
+    socket.on("connect", rejoin);
+    socket.on("reconnect", rejoin);
     socket.on("room_state", onState);
     socket.on("timer_update", onTimer);
     socket.on("action_error", onErr);
+    document.addEventListener("visibilitychange", onVisibility);
     connectedRef.current = true;
 
     return () => {
+      socket.off("connect", rejoin);
+      socket.off("reconnect", rejoin);
       socket.off("room_state", onState);
       socket.off("timer_update", onTimer);
       socket.off("action_error", onErr);
+      document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
   }, [patchTimer, roomCode, sessionId, setError, setRoomState]);
