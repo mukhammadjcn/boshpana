@@ -317,7 +317,31 @@ export class GameService {
   }
 
   async advanceTurn(input: RoomCodeAction) {
-    await this.requireHostRoom(input);
+    const room = await prisma.room.findUnique({
+      where: { code: input.code.toUpperCase() },
+      include: { game: true, players: true }
+    });
+
+    if (!room) {
+      throw new Error("Room topilmadi.");
+    }
+
+    const me = room.players.find(
+      (player) => player.sessionId === input.sessionId
+    );
+
+    if (!me) {
+      throw new Error("O'yinchi topilmadi.");
+    }
+
+    const isCurrentPitcher =
+      room.game?.phase === GamePhase.ROUND_PITCH &&
+      room.game.currentTurnPlayerId === me.id;
+
+    if (!me.isHost && !isCurrentPitcher) {
+      throw new Error("Bu amal faqat host yoki pitch qilayotgan o'yinchi uchun.");
+    }
+
     await this.advanceTurnForRoom(input.code);
   }
 
