@@ -1,4 +1,10 @@
-import { CardType, GamePhase, Prisma, RoomStatus } from "@prisma/client";
+import {
+  CardType,
+  GameOutcome,
+  GamePhase,
+  Prisma,
+  RoomStatus
+} from "@prisma/client";
 import { randomBytes, randomInt } from "node:crypto";
 
 import { prisma } from "../lib/prisma";
@@ -14,12 +20,14 @@ type CreateRoomInput = {
   sessionId: string;
   winnerTarget: number;
   maxPlayers?: number;
+  hostUserId?: string;
 };
 
 type JoinRoomInput = {
   code: string;
   name: string;
   sessionId: string;
+  userId?: string;
 };
 
 type RoomCodeAction = {
@@ -65,8 +73,63 @@ export class GameService {
 
   private readonly timers = new Map<string, NodeJS.Timeout>();
 
+  private cleanupTimer: NodeJS.Timeout | null = null;
+
   setRealtime(publisher: RealtimePublisher) {
     this.realtime = publisher;
+  }
+
+  // Periodic janitor:
+  //   1. Auto-cancel rooms that were created >24h ago but never finished
+  //      (host abandoned, etc.) — record CANCELLED history snapshot.
+  //   2. Delete FINISHED/CANCELLED rooms that are older than ageMs so DB
+  //      doesn't grow unbounded. History rows survive (separate table).
+  startCleanupSweeper(
+    intervalMs = 10 * 60 * 1000,
+    ageMs = 30 * 60 * 1000,
+    cancelAfterMs = 24 * 60 * 60 * 1000
+  ) {
+    if (this.cleanupTimer) return;
+    const sweep = async () => {
+      try {
+        // Step 1: cancel stale rooms.
+        const cancelCutoff = new Date(Date.now() - cancelAfterMs);
+        const stale = await prisma.room.findMany({
+          where: {
+            status: { in: [RoomStatus.LOBBY, RoomStatus.PLAYING] },
+            createdAt: { lt: cancelCutoff }
+          },
+          select: { id: true, game: { select: { id: true } } }
+        });
+        for (const r of stale) {
+          await this.saveGameHistory(r.id, "cancelled");
+          await prisma.room.update({
+            where: { id: r.id },
+            data: { status: RoomStatus.CANCELLED }
+          });
+          if (r.game) {
+            await prisma.game.update({
+              where: { id: r.game.id },
+              data: { phase: GamePhase.FINISHED, timerEndsAt: null }
+            });
+          }
+          this.stopTimer(r.id);
+        }
+
+        // Step 2: purge old finished/cancelled rooms.
+        const deleteCutoff = new Date(Date.now() - ageMs);
+        await prisma.room.deleteMany({
+          where: {
+            status: { in: [RoomStatus.FINISHED, RoomStatus.CANCELLED] },
+            updatedAt: { lt: deleteCutoff }
+          }
+        });
+      } catch (error) {
+        console.error("cleanup sweep failed", error);
+      }
+    };
+    this.cleanupTimer = setInterval(sweep, intervalMs);
+    void sweep();
   }
 
   async createRoom(input: CreateRoomInput) {
@@ -78,12 +141,14 @@ export class GameService {
       data: {
         code,
         hostSessionId: input.sessionId,
+        hostUserId: input.hostUserId ?? null,
         winnerTarget,
         maxPlayers,
         players: {
           create: {
             name: input.hostName.trim(),
             sessionId: input.sessionId,
+            userId: input.hostUserId ?? null,
             isHost: true,
             seatOrder: 1
           }
@@ -123,9 +188,31 @@ export class GameService {
       throw new Error("O'yin boshlanganidan keyin yangi o'yinchi qo'shila olmaydi.");
     }
 
-    const existing = room.players.find((player) => player.sessionId === input.sessionId);
+    // If the user is authenticated and already in this room from another
+    // device, transfer their Player record to the current sessionId.
+    if (input.userId) {
+      const byUser = room.players.find((p) => p.userId === input.userId);
+      if (byUser && byUser.sessionId !== input.sessionId) {
+        const updated = await prisma.player.update({
+          where: { id: byUser.id },
+          data: { sessionId: input.sessionId }
+        });
+        return { roomCode: room.code, playerId: updated.id };
+      }
+    }
+
+    const existing = room.players.find(
+      (player) => player.sessionId === input.sessionId
+    );
 
     if (existing) {
+      // Backfill userId if newly authenticated since join.
+      if (input.userId && !existing.userId) {
+        await prisma.player.update({
+          where: { id: existing.id },
+          data: { userId: input.userId }
+        });
+      }
       return { roomCode: room.code, playerId: existing.id };
     }
 
@@ -138,6 +225,7 @@ export class GameService {
         roomId: room.id,
         name: input.name.trim(),
         sessionId: input.sessionId,
+        userId: input.userId ?? null,
         seatOrder: room.players.length + 1
       }
     });
@@ -251,6 +339,7 @@ export class GameService {
         await tx.playerAttribute.deleteMany({ where: { gameId: room.game.id } });
       }
 
+      const startedAt = new Date();
       const game = room.game
         ? await tx.game.update({
             where: { id: room.game.id },
@@ -259,6 +348,7 @@ export class GameService {
               currentSituationId: null,
               phase: GamePhase.INTRO,
               timerEndsAt: introEndsAt,
+              startedAt,
               roundNumber: 0,
               currentTurnPlayerId: null,
               lastRevealedPlayerId: null,
@@ -272,6 +362,7 @@ export class GameService {
               disasterId: selectedDisaster.id,
               phase: GamePhase.INTRO,
               timerEndsAt: introEndsAt,
+              startedAt,
               roundNumber: 0
             }
           });
@@ -378,6 +469,90 @@ export class GameService {
     await this.beginNextRound(input.code);
   }
 
+  async kickPlayer(input: RoomCodeAction & { targetPlayerId: string }) {
+    const room = await this.requireHostRoom(input);
+
+    if (!room.game) {
+      throw new Error("O'yin state topilmadi.");
+    }
+
+    const target = room.players.find((p) => p.id === input.targetPlayerId);
+    if (!target) {
+      throw new Error("O'yinchi topilmadi.");
+    }
+    if (target.isHost) {
+      throw new Error("Hostni chiqarib bo'lmaydi.");
+    }
+    if (!target.isAlive) {
+      throw new Error("Bu o'yinchi allaqachon chiqib ketgan.");
+    }
+
+    const targetAttributes = await prisma.playerAttribute.findUnique({
+      where: { playerId: target.id }
+    });
+    const wasCurrentTurn = room.game.currentTurnPlayerId === target.id;
+    const gameId = room.game.id;
+    const roomId = room.id;
+
+    let didFinish = false;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.player.update({
+        where: { id: target.id },
+        data: { isAlive: false }
+      });
+      if (targetAttributes) {
+        await tx.playerAttribute.update({
+          where: { id: targetAttributes.id },
+          data: { revealed: CARD_TYPES.slice() as CardType[] }
+        });
+      }
+
+      const aliveCount = await tx.player.count({
+        where: { roomId, isAlive: true }
+      });
+
+      if (aliveCount <= room.winnerTarget) {
+        await tx.room.update({
+          where: { id: roomId },
+          data: { status: RoomStatus.FINISHED }
+        });
+        await tx.game.update({
+          where: { id: gameId },
+          data: {
+            phase: GamePhase.FINISHED,
+            timerEndsAt: null,
+            currentTurnPlayerId: null,
+            lastEliminatedPlayerId: target.id,
+            tiebreakCandidateIds: []
+          }
+        });
+        didFinish = true;
+        return;
+      }
+
+      await tx.game.update({
+        where: { id: gameId },
+        data: {
+          lastEliminatedPlayerId: target.id,
+          ...(wasCurrentTurn ? { currentTurnPlayerId: null } : {})
+        }
+      });
+    });
+
+    if (didFinish) {
+      this.stopTimer(room.code);
+      await this.saveGameHistory(roomId, "manualEnd");
+      return;
+    }
+
+    // If we just removed the player whose turn it was, push the round
+    // forward so the game doesn't get stuck waiting on them.
+    if (wasCurrentTurn) {
+      await this.advanceTurnForRoom(room.code);
+    }
+  }
+
   async endGame(input: RoomCodeAction) {
     const room = await this.requireHostRoom(input);
 
@@ -401,6 +576,66 @@ export class GameService {
         }
       })
     ]);
+
+    await this.saveGameHistory(room.id, "manualEnd");
+  }
+
+  private async saveGameHistory(
+    roomId: string,
+    kind: "natural" | "manualEnd" | "cancelled"
+  ) {
+    try {
+      const room = await prisma.room.findUnique({
+        where: { id: roomId },
+        include: {
+          game: { include: { disaster: true } },
+          players: true
+        }
+      });
+      if (!room?.hostUserId) return;
+
+      const hostPlayer = room.players.find(
+        (p) => p.sessionId === room.hostSessionId
+      );
+      let outcome: GameOutcome;
+      if (kind === "cancelled") {
+        outcome = GameOutcome.CANCELLED;
+      } else if (kind === "manualEnd") {
+        outcome = GameOutcome.HOSTED;
+      } else if (hostPlayer?.isAlive) {
+        outcome = GameOutcome.WON;
+      } else if (hostPlayer) {
+        outcome = GameOutcome.ELIMINATED;
+      } else {
+        outcome = GameOutcome.PLAYED;
+      }
+
+      const endedAt = new Date();
+      const startedAt = room.game?.startedAt ?? null;
+      const durationSeconds =
+        startedAt && kind !== "cancelled"
+          ? Math.max(
+              0,
+              Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000)
+            )
+          : null;
+
+      await prisma.gameHistory.create({
+        data: {
+          userId: room.hostUserId,
+          playedAt: endedAt,
+          startedAt,
+          endedAt: kind === "cancelled" ? null : endedAt,
+          durationSeconds,
+          disasterName: room.game?.disaster?.name ?? null,
+          outcome,
+          roomCode: room.code,
+          playerCount: room.players.length
+        }
+      });
+    } catch (error) {
+      console.error("saveGameHistory failed", error);
+    }
   }
 
   async nextPhase(input: RoomCodeAction) {
@@ -561,6 +796,10 @@ export class GameService {
   async shutdown() {
     for (const [roomCode] of this.timers) {
       this.stopTimer(roomCode);
+    }
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
     }
   }
 
@@ -806,6 +1045,8 @@ export class GameService {
 
     this.stopTimer(room.code);
 
+    let didFinish = false;
+
     await prisma.$transaction(async (tx) => {
       await tx.player.update({
         where: { id: eliminatedId },
@@ -841,6 +1082,7 @@ export class GameService {
             tiebreakCandidateIds: []
           }
         });
+        didFinish = true;
         return;
       }
 
@@ -855,6 +1097,10 @@ export class GameService {
         }
       });
     });
+
+    if (didFinish) {
+      await this.saveGameHistory(room.id, "natural");
+    }
   }
 
   private findNextRevealPlayer(

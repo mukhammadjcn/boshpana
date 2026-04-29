@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { apiRequest } from "@/lib/api";
+import { getAuthUser } from "@/lib/auth";
 import { getOrCreateSessionId } from "@/lib/storage";
 
 type JoinRoomModalProps = {
@@ -27,6 +28,15 @@ export function JoinRoomModal({
     if (open) {
       setJoinCode(defaultCode.toUpperCase());
       setError(null);
+      const cached = getAuthUser();
+      const fallback =
+        cached?.nickname ??
+        cached?.firstName ??
+        cached?.telegramUsername ??
+        "";
+      if (fallback) {
+        setJoinName((current) => current || fallback);
+      }
     }
   }, [defaultCode, open]);
 

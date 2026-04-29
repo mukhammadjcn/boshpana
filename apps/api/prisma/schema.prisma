@@ -11,6 +11,7 @@ enum RoomStatus {
   LOBBY
   PLAYING
   FINISHED
+  CANCELLED
 }
 
 enum GamePhase {
@@ -40,10 +41,57 @@ enum Difficulty {
   HARD
 }
 
+model User {
+  id              String   @id @default(cuid())
+  telegramId      String   @unique
+  telegramUsername String?
+  firstName       String?
+  lastName        String?
+  nickname        String?
+  photoUrl        String?
+  phone           String?
+  languageCode    String?
+  isPremium       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  hostedRooms     Room[]   @relation("HostUser")
+  players         Player[]
+  gameHistory     GameHistory[]
+
+  @@index([phone])
+}
+
+enum GameOutcome {
+  HOSTED
+  WON
+  ELIMINATED
+  PLAYED
+  CANCELLED
+}
+
+model GameHistory {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playedAt        DateTime
+  startedAt       DateTime?
+  endedAt         DateTime?
+  durationSeconds Int?
+  disasterName    String?
+  outcome         GameOutcome @default(PLAYED)
+  roomCode        String?
+  playerCount     Int?
+  createdAt       DateTime    @default(now())
+
+  @@index([userId, playedAt])
+}
+
 model Room {
   id            String      @id @default(cuid())
   code          String      @unique
   hostSessionId String
+  hostUserId    String?
+  hostUser      User?       @relation("HostUser", fields: [hostUserId], references: [id], onDelete: SetNull)
   status        RoomStatus  @default(LOBBY)
   winnerTarget  Int         @default(1)
   maxPlayers    Int         @default(10)
@@ -53,6 +101,8 @@ model Room {
   players       Player[]
   game          Game?
   votes         Vote[]
+
+  @@index([hostUserId, createdAt])
 }
 
 model Player {
@@ -60,6 +110,8 @@ model Player {
   roomId        String
   room          Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
   sessionId     String
+  userId        String?
+  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   name          String
   isHost        Boolean         @default(false)
   isAlive       Boolean         @default(true)
@@ -71,6 +123,7 @@ model Player {
   votesReceived Vote[]          @relation("VotesReceived")
 
   @@unique([roomId, sessionId])
+  @@index([userId])
 }
 
 model Game {
@@ -83,6 +136,7 @@ model Game {
   currentSituation   Situation?       @relation(fields: [currentSituationId], references: [id], onDelete: SetNull)
   phase              GamePhase        @default(LOBBY)
   timerEndsAt        DateTime?
+  startedAt          DateTime?
   roundNumber        Int              @default(0)
   currentTurnPlayerId String?
   lastRevealedPlayerId String?

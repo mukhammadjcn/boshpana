@@ -17,6 +17,7 @@ type PlayerCardProps = {
   isMe?: boolean;
   isCurrentTurn?: boolean;
   variant?: "row" | "tile";
+  onKick?: () => void;
 };
 
 export function PlayerCard({
@@ -26,7 +27,8 @@ export function PlayerCard({
   revealedCards,
   isMe,
   isCurrentTurn,
-  variant = "row"
+  variant = "row",
+  onKick
 }: PlayerCardProps) {
   const entries = Object.entries(revealedCards).filter(([, value]) => value);
   const initials = getInitials(name);
@@ -92,6 +94,29 @@ export function PlayerCard({
                 : "O‘yindan chiqqan"}
           </p>
         </div>
+        {onKick && isAlive && !isHost ? (
+          <button
+            type="button"
+            onClick={onKick}
+            aria-label={`${name}ni chiqarish`}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M18 6L6 18" />
+              <path d="M6 6l12 12" />
+            </svg>
+          </button>
+        ) : null}
         <StatusDot isAlive={isAlive} isCurrentTurn={isCurrentTurn} />
       </div>
 

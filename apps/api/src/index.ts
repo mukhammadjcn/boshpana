@@ -2,8 +2,10 @@ import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { Server } from "socket.io";
 
+import { startTelegramBot, stopTelegramBot } from "./bot/bot-service";
 import { env } from "./lib/env";
 import { prisma } from "./lib/prisma";
+import { registerAuthRoutes } from "./routes/auth-routes";
 import { registerInternalAdminRoutes } from "./routes/internal-admin-routes";
 import { registerPublicRoutes } from "./routes/public-routes";
 import { GameService } from "./services/game-service";
@@ -20,6 +22,8 @@ async function bootstrap() {
   });
 
   const gameService = new GameService();
+  gameService.startCleanupSweeper();
+  await registerAuthRoutes(app);
   await registerPublicRoutes(app, { gameService });
   await registerInternalAdminRoutes(app);
 
@@ -34,7 +38,10 @@ async function bootstrap() {
   gameService.setRealtime(realtimeHub);
   realtimeHub.register();
 
+  void startTelegramBot();
+
   const shutdown = async () => {
+    await stopTelegramBot();
     await gameService.shutdown();
     await prisma.$disconnect();
     await app.close();

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { ActiveGames } from "@/components/active-games";
 import { JoinRoomModal } from "@/components/join-room-modal";
 
 export function HomePage() {
@@ -49,6 +50,8 @@ export function HomePage() {
               Roomga qo‘shilish
             </button>
           </div>
+
+          <ActiveGames />
 
           <ol className="mt-8 grid gap-3">
             <Step

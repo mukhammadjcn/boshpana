@@ -6,7 +6,7 @@ export type GamePhase =
   | "ROUND_COMPLETE"
   | "VOTING"
   | "FINISHED";
-export type RoomStatus = "LOBBY" | "PLAYING" | "FINISHED";
+export type RoomStatus = "LOBBY" | "PLAYING" | "FINISHED" | "CANCELLED";
 export type CardType =
   | "PROFESSION"
   | "HEALTH"

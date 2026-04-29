@@ -125,6 +125,20 @@ export class RealtimeHub {
         });
       });
 
+      socket.on(
+        "kick_player",
+        async (payload: SocketActionPayload & { targetPlayerId: string }) => {
+          await this.handleAction(socket, async () => {
+            await this.gameService.kickPlayer({
+              code: payload.roomCode,
+              sessionId: payload.sessionId,
+              targetPlayerId: payload.targetPlayerId
+            });
+            await this.broadcastRoomState(payload.roomCode);
+          });
+        }
+      );
+
       socket.on("next_phase", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
           await this.gameService.nextPhase({

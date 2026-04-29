@@ -13,14 +13,15 @@ type GameAudioInput = {
 const GAME_START = "/gamestart.mp3";
 const KILLED = "/killed.mp3";
 const REVEAL_AUDIOS = [
-  "/reveal1.mp3",
   "/reveal2.mp3",
   "/reveal3.mp3",
   "/reveal4.mp3",
   "/reveal5.mp3",
-  "/reveal6.mp3"
+  "/reveal6.mp3",
+  "/reveal7.mp3"
 ];
 const SITUATION_AUDIOS = [
+  "/situation1.mp3",
   "/situation2.mp3",
   "/situation3.mp3",
   "/situation4.mp3",
@@ -47,13 +48,29 @@ function shouldPreload() {
   return true;
 }
 
-function hashString(value: string) {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(i);
-    hash |= 0;
+// Fisher-Yates shuffle, in-place. Returns the same array for chaining.
+function shuffleInPlace<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return Math.abs(hash);
+  return arr;
+}
+
+// Deck-based pick: shuffle once, hand out items in order. When empty,
+// reshuffle (avoiding a back-to-back repeat with the previous head).
+// Guarantees every audio plays before any repeats — far more variety than
+// independent Math.random() picks.
+function pickFromDeck(deck: string[], pool: readonly string[]): string {
+  if (deck.length === 0) {
+    const last = deck.length === 0 ? null : deck[0];
+    deck.push(...pool);
+    shuffleInPlace(deck);
+    if (last && deck[0] === last && deck.length > 1) {
+      [deck[0], deck[1]] = [deck[1], deck[0]];
+    }
+  }
+  return deck.shift()!;
 }
 
 export function useGameAudio({
@@ -72,8 +89,27 @@ export function useGameAudio({
   const introLoopRef = useRef<HTMLAudioElement | null>(null);
   const situationLoopRef = useRef<HTMLAudioElement | null>(null);
   const situationAudioMapRef = useRef<Map<string, string>>(new Map());
+  const revealDeckRef = useRef<string[]>([]);
+  const situationDeckRef = useRef<string[]>([]);
   const seenRevealRef = useRef<Set<string>>(new Set());
   const seenElimRef = useRef<Set<string>>(new Set());
+
+  // Mirror inputs into refs so the gesture handler always reads the latest
+  // value, never a stale closure (root cause of "audio keeps playing after
+  // modal closes": a late pointerdown re-triggered playLoop using closure
+  // state from before the modal was closed).
+  const introOpenRef = useRef(introOpen);
+  const situationOpenRef = useRef(situationOpen);
+  const situationKeyRef = useRef(situationKey);
+  useEffect(() => {
+    introOpenRef.current = introOpen;
+  }, [introOpen]);
+  useEffect(() => {
+    situationOpenRef.current = situationOpen;
+  }, [situationOpen]);
+  useEffect(() => {
+    situationKeyRef.current = situationKey;
+  }, [situationKey]);
 
   const preload = useCallback((src: string) => {
     if (preloadedRef.current.has(src)) return;
@@ -185,14 +221,16 @@ export function useGameAudio({
     [stopLoop]
   );
 
+  // Per-situation-key memoization keeps the SAME audio for the duration of
+  // a round (every time the modal re-opens for the same situation). Picks
+  // come from a shuffled deck so consecutive situations rarely repeat.
   const getSituationSrc = useCallback((key: string) => {
     const cached = situationAudioMapRef.current.get(key);
     if (cached) return cached;
     if (!SITUATION_AUDIOS.length) return null;
-    const idx = hashString(key) % SITUATION_AUDIOS.length;
-    const picked = SITUATION_AUDIOS[idx];
-    if (picked) situationAudioMapRef.current.set(key, picked);
-    return picked ?? null;
+    const picked = pickFromDeck(situationDeckRef.current, SITUATION_AUDIOS);
+    situationAudioMapRef.current.set(key, picked);
+    return picked;
   }, []);
 
   const toggleAudio = useCallback(() => {
@@ -223,17 +261,18 @@ export function useGameAudio({
   }, [stopAll]);
 
   // Resume loops on user gesture (mobile autoplay policy).
-  // Only retry if the loop slot is currently empty — never re-trigger
-  // a loop that the user/state has already requested to stop.
+  // Reads ALL conditions through refs so a late pointerdown after a modal
+  // closes can never restart audio with stale closure state.
   useEffect(() => {
     if (!audioEnabled) return;
     const tryPlay = () => {
       if (!audioEnabledRef.current) return;
-      if (introOpen && !introLoopRef.current) {
+      if (introOpenRef.current && !introLoopRef.current) {
         playLoop(GAME_START, 0.9, introLoopRef);
       }
-      if (situationOpen && situationKey && !situationLoopRef.current) {
-        const src = getSituationSrc(situationKey);
+      const skey = situationKeyRef.current;
+      if (situationOpenRef.current && skey && !situationLoopRef.current) {
+        const src = getSituationSrc(skey);
         if (src) playLoop(src, 0.8, situationLoopRef);
       }
     };
@@ -243,7 +282,7 @@ export function useGameAudio({
       window.removeEventListener("pointerdown", tryPlay);
       window.removeEventListener("keydown", tryPlay);
     };
-  }, [audioEnabled, introOpen, situationOpen, situationKey, playLoop, getSituationSrc]);
+  }, [audioEnabled, playLoop, getSituationSrc]);
 
   // Intro loop
   useEffect(() => {
@@ -276,7 +315,9 @@ export function useGameAudio({
     if (!meRevealKey) return;
     if (seenRevealRef.current.has(meRevealKey)) return;
     seenRevealRef.current.add(meRevealKey);
-    const src = REVEAL_AUDIOS[Math.floor(Math.random() * REVEAL_AUDIOS.length)];
+    const src = REVEAL_AUDIOS.length
+      ? pickFromDeck(revealDeckRef.current, REVEAL_AUDIOS)
+      : null;
     if (src) playOnce(src, 0.9);
   }, [meRevealKey, playOnce]);
 

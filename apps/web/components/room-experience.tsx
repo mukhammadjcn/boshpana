@@ -3,16 +3,23 @@
 import { useRouter } from "next/navigation";
 import {
   FormEvent,
+  useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState
 } from "react";
 
+import { ConfirmModal } from "@/components/confirm-modal";
 import { HostControls } from "@/components/host-controls";
 import { PlayerCard } from "@/components/player-card";
 import { Timer } from "@/components/timer";
+import {
+  buildTelegramShareUrl,
+  buildTelegramStartappLink,
+  isInsideTelegram,
+  openTelegramLink
+} from "@/lib/telegram";
 import { VotePanel } from "@/components/vote-panel";
 import { useGameAudio } from "@/components/game/use-game-audio";
 import { apiRequest } from "@/lib/api";
@@ -72,6 +79,11 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const [myCardsOpen, setMyCardsOpen] = useState(false);
   const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
   const [winnerModalOpen, setWinnerModalOpen] = useState(false);
+  const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
+  const [kickTarget, setKickTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
 
   const connectedRef = useRef(false);
@@ -82,8 +94,25 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const seenWinnerModalRef = useRef<Set<string>>(new Set());
   const playersRef = useRef<RoomState["players"]>([]);
 
-  const bottomBarRef = useRef<HTMLDivElement>(null);
+  const bottomBarRef = useRef<HTMLDivElement | null>(null);
+  const bottomBarObserverRef = useRef<ResizeObserver | null>(null);
   const [bottomBarHeight, setBottomBarHeight] = useState(0);
+
+  // Callback ref + ResizeObserver — measures the moment the node attaches
+  // (no race with effect deps) and tracks every subsequent size change.
+  const setBottomBarNode = useCallback((node: HTMLDivElement | null) => {
+    bottomBarObserverRef.current?.disconnect();
+    bottomBarObserverRef.current = null;
+    bottomBarRef.current = node;
+    if (!node) return;
+    setBottomBarHeight(node.offsetHeight);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      setBottomBarHeight(node.offsetHeight);
+    });
+    ro.observe(node);
+    bottomBarObserverRef.current = ro;
+  }, []);
 
   const roomState = useGameStore((state) => state.roomState);
   const error = useGameStore((state) => state.error);
@@ -96,21 +125,6 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     setSessionId(getOrCreateSessionId());
     setOrigin(window.location.origin);
   }, []);
-
-  // Measure sticky bottom bar so content padding stays in sync.
-  useLayoutEffect(() => {
-    const node = bottomBarRef.current;
-    if (!node || typeof ResizeObserver === "undefined") {
-      if (node) setBottomBarHeight(node.offsetHeight);
-      return;
-    }
-    const ro = new ResizeObserver(() => {
-      setBottomBarHeight(node.offsetHeight);
-    });
-    ro.observe(node);
-    setBottomBarHeight(node.offsetHeight);
-    return () => ro.disconnect();
-  }, [roomState?.me?.isHost, roomState?.room.status, roomState?.game.phase]);
 
   // Initial state load
   useEffect(() => {
@@ -311,21 +325,21 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     roomState?.me?.id
   ]);
 
-  // Open the "you survived" modal once per finished game when I'm a winner.
+  // Open the "game over" modal once per finished game for every participant —
+  // winners and eliminated alike. Content branches on isAlive below.
   useEffect(() => {
     if (roomState?.room.status !== "FINISHED") return;
-    if (!roomState.me?.isAlive) return;
+    if (!roomState.me) return;
     const code = roomState.room.code;
     const meId = roomState.me.id;
-    const key = `winner-${code}-${meId}`;
+    const key = `gameover-${code}-${meId}`;
     if (seenWinnerModalRef.current.has(key)) return;
     seenWinnerModalRef.current.add(key);
     setWinnerModalOpen(true);
   }, [
     roomState?.room.status,
     roomState?.room.code,
-    roomState?.me?.id,
-    roomState?.me?.isAlive
+    roomState?.me?.id
   ]);
 
   // Audio
@@ -399,6 +413,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   }
 
   const inviteUrl = roomState ? `${origin || ""}/room/${roomState.room.code}` : "";
+  const tgStartappLink = roomState
+    ? buildTelegramStartappLink(roomState.room.code)
+    : null;
+  const insideTelegram = isInsideTelegram();
 
   async function handleCopyInviteLink() {
     if (!roomState) return;
@@ -411,8 +429,22 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     }
   }
 
+  function handleTelegramShare() {
+    if (!roomState) return;
+    const linkToShare = tgStartappLink ?? inviteUrl;
+    const text = `Bunker Online — ${roomState.room.code} xonasiga qo‘shiling`;
+    const shareUrl = buildTelegramShareUrl(linkToShare, text);
+    openTelegramLink(shareUrl);
+  }
+
   async function handleShareInviteLink() {
     if (!roomState) return;
+    // Inside Telegram: always open the native share sheet on the startapp
+    // link so recipients land in the Mini App, not the public web URL.
+    if (insideTelegram) {
+      handleTelegramShare();
+      return;
+    }
     if (!navigator.share) {
       await handleCopyInviteLink();
       return;
@@ -507,6 +539,45 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   }
 
   if (!me) {
+    if (room.status !== "LOBBY") {
+      const finished = room.status === "FINISHED" || room.status === "CANCELLED";
+      return (
+        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+          <div className="mx-auto max-w-md pt-6">
+            <p
+              className={`text-xs font-medium uppercase tracking-wider ${finished ? "text-bad" : "text-warn"}`}
+            >
+              {finished ? "Yopiq" : "Boshlangan"}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold">
+              {finished
+                ? "Bu o‘yin yakunlangan"
+                : "Bu o‘yin allaqachon boshlangan"}
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary">
+              {finished
+                ? "Yangi o‘yin yarating yoki ochiq xona kodini so‘rang."
+                : "O‘yin boshlanganidan keyin yangi o‘yinchi qo‘shila olmaydi. Yangi o‘yin yaratishingiz yoki boshqa xona kodi bilan kirishingiz mumkin."}
+            </p>
+
+            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
+              <p className="text-xs text-ink-muted">Room code</p>
+              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
+                {roomCode}
+              </p>
+            </div>
+
+            <button
+              onClick={() => router.push("/")}
+              className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              Bosh sahifa
+            </button>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
         <div className="mx-auto max-w-md pt-6">
@@ -578,20 +649,48 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
             {me.isHost ? (
               <div className="mt-4 grid gap-2">
-                <div className="flex gap-2">
+                {insideTelegram ? (
                   <button
-                    onClick={() => void handleCopyInviteLink()}
-                    className="flex h-12 flex-1 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+                    onClick={handleTelegramShare}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
                   >
-                    Linkni nusxalash
+                    Telegram orqali ulashish
                   </button>
-                  <button
-                    onClick={() => void handleShareInviteLink()}
-                    className="flex h-12 flex-1 items-center justify-center rounded-xl border border-line-strong bg-bg-elevated text-sm font-semibold"
-                  >
-                    Ulashish
-                  </button>
-                </div>
+                ) : (
+                  <>
+                    {tgStartappLink ? (
+                      <button
+                        onClick={handleTelegramShare}
+                        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#229ED9] text-sm font-semibold text-white transition active:scale-[0.98]"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          aria-hidden
+                        >
+                          <path d="M21.9 4.5L18.7 19.8c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.1 13.1l-4.9-1.5C.1 11.3.1 10.6 1.4 10.1L20.4 2.8c1-.4 1.8.2 1.5 1.7z" />
+                        </svg>
+                        Telegram orqali ulashish
+                      </button>
+                    ) : null}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => void handleCopyInviteLink()}
+                        className="flex h-12 flex-1 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+                      >
+                        Linkni nusxalash
+                      </button>
+                      <button
+                        onClick={() => void handleShareInviteLink()}
+                        className="flex h-12 flex-1 items-center justify-center rounded-xl border border-line-strong bg-bg-elevated text-sm font-semibold"
+                      >
+                        Ulashish
+                      </button>
+                    </div>
+                  </>
+                )}
                 <p className="break-all rounded-xl bg-bg-base/60 px-3 py-2 text-xs text-ink-muted">
                   {inviteUrl}
                 </p>
@@ -655,11 +754,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 onAdvanceTurn={() => emit("advance_turn")}
                 onStartVoting={() => emit("start_voting")}
                 onSkipVoting={() => emit("skip_voting")}
-                onEndGame={() => {
-                  if (window.confirm("Rostdan ham o‘yinni tugatmoqchimisiz?")) {
-                    emit("end_game");
-                  }
-                }}
+                onEndGame={() => setEndGameConfirmOpen(true)}
               />
             </div>
           </div>
@@ -710,7 +805,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
       <div
         className="mx-auto max-w-xl px-4 pt-3"
-        style={{ paddingBottom: bottomBarHeight + 24 }}
+        style={{
+          paddingBottom:
+            Math.max(bottomBarHeight, me.isHost ? 240 : 140) + 24
+        }}
       >
         {/* Disaster + situation summary */}
         {game.disaster ? (
@@ -753,12 +851,6 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
               Yutganlar:{" "}
               {winners.map((p) => p.name).join(", ") || "Hech kim qolmadi"}
             </p>
-            <button
-              onClick={() => router.push("/")}
-              className="mt-3 flex h-12 w-full items-center justify-center rounded-xl bg-ok text-sm font-semibold text-bg-base"
-            >
-              Bosh sahifaga qaytish
-            </button>
           </section>
         ) : null}
 
@@ -781,6 +873,14 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 isAlive={p.isAlive}
                 revealedCards={p.visibleCards}
                 isCurrentTurn={p.id === game.currentTurnPlayerId}
+                onKick={
+                  me.isHost &&
+                  room.status === "PLAYING" &&
+                  p.isAlive &&
+                  !p.isHost
+                    ? () => setKickTarget({ id: p.id, name: p.name })
+                    : undefined
+                }
               />
             ))}
           </ul>
@@ -795,7 +895,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
       {/* Sticky bottom actions */}
       <div
-        ref={bottomBarRef}
+        ref={setBottomBarNode}
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 backdrop-blur"
       >
         <div className="mx-auto max-w-xl px-4 pt-3 pb-safe">
@@ -827,11 +927,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 onAdvanceTurn={() => emit("advance_turn")}
                 onStartVoting={() => emit("start_voting")}
                 onSkipVoting={() => emit("skip_voting")}
-                onEndGame={() => {
-                  if (window.confirm("Rostdan ham o‘yinni tugatmoqchimisiz?")) {
-                    emit("end_game");
-                  }
-                }}
+                onEndGame={() => setEndGameConfirmOpen(true)}
               />
             </div>
           ) : null}
@@ -848,22 +944,32 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
             </button>
           ) : null}
 
-          <button
-            type="button"
-            onClick={() => setMyCardsOpen(true)}
-            className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
-          >
-            <div>
-              <p className="text-xs text-ink-muted">Mening kartalarim</p>
-              <p className="text-sm font-semibold">
-                {myRevealedCount}/6 ochilgan
-                {!me.isAlive ? " · chiqqansiz" : ""}
-              </p>
-            </div>
-            <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-              Ko‘rish
-            </span>
-          </button>
+          {room.status === "FINISHED" ? (
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="flex h-14 w-full items-center justify-center rounded-2xl bg-ok text-base font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              Bosh sahifaga qaytish
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMyCardsOpen(true)}
+              className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
+            >
+              <div>
+                <p className="text-xs text-ink-muted">Mening kartalarim</p>
+                <p className="text-sm font-semibold">
+                  {myRevealedCount}/6 ochilgan
+                  {!me.isAlive ? " · chiqqansiz" : ""}
+                </p>
+              </div>
+              <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
+                Ko‘rish
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1111,7 +1217,9 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
             <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
 
             <div className="px-6 pt-6 text-center">
-              <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-brand/40 bg-brand/15">
+              <div
+                className={`mx-auto grid h-20 w-20 place-items-center rounded-full border ${me.isAlive ? "border-brand/40 bg-brand/15" : "border-bad/40 bg-bad/15"}`}
+              >
                 <svg
                   width="40"
                   height="40"
@@ -1121,7 +1229,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="text-brand"
+                  className={me.isAlive ? "text-brand" : "text-bad"}
                   aria-hidden
                 >
                   <path d="M8 21h8" />
@@ -1131,19 +1239,25 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                   <path d="M7 4H4v3a3 3 0 0 0 3 3" />
                 </svg>
               </div>
-              <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-brand">
-                G‘alaba
+              <p
+                className={`mt-4 text-xs font-medium uppercase tracking-[0.25em] ${me.isAlive ? "text-brand" : "text-bad"}`}
+              >
+                {me.isAlive ? "G‘alaba" : "O‘yin tugadi"}
               </p>
               <h2 className="mt-2 text-2xl font-bold text-ink-primary">
-                Siz bunkerda omon qoldingiz!
+                {me.isAlive
+                  ? "Siz bunkerda omon qoldingiz!"
+                  : "Bu safar omad yor bo‘lmadi"}
               </h2>
               <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                Tabriklaymiz — insoniyatning kelajagini siz tiklaysiz.
-                {winners.length > 1
-                  ? ` ${winners.length} ta yutuvchi: ${winners
+                {me.isAlive
+                  ? "Tabriklaymiz — insoniyatning kelajagini siz tiklaysiz."
+                  : "Siz o‘yindan chiqib ketgansiz, lekin o‘yin yakunlandi."}
+                {winners.length > 0
+                  ? ` Bunkerda qolganlar: ${winners
                       .map((w) => w.name)
                       .join(", ")}.`
-                  : ""}
+                  : " Bunkerda hech kim qolmadi."}
               </p>
             </div>
 
@@ -1164,6 +1278,38 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           </div>
         </div>
       ) : null}
+
+      <ConfirmModal
+        open={endGameConfirmOpen}
+        title="O‘yinni tugatmoqchimisiz?"
+        description="O‘yin shu zahoti yakunlanadi va barcha ishtirokchilar uchun tugaydi. Bu amalni bekor qilib bo‘lmaydi."
+        confirmLabel="Ha, tugatish"
+        cancelLabel="Yo‘q"
+        tone="danger"
+        onConfirm={() => {
+          emit("end_game");
+          setEndGameConfirmOpen(false);
+        }}
+        onClose={() => setEndGameConfirmOpen(false)}
+      />
+
+      <ConfirmModal
+        open={!!kickTarget}
+        title={
+          kickTarget ? `${kickTarget.name}ni o‘yindan chiqarish?` : ""
+        }
+        description="Ushbu o‘yinchining barcha kartalari ochiladi va u o‘yindan chiqib ketgan deb belgilanadi. Buni odatda biror o‘yinchi tarmoqdan tushib qolib, o‘yin to‘xtab qolganda ishlating."
+        confirmLabel="Chiqarish"
+        cancelLabel="Bekor qilish"
+        tone="danger"
+        onConfirm={() => {
+          if (kickTarget) {
+            emit("kick_player", { targetPlayerId: kickTarget.id });
+          }
+          setKickTarget(null);
+        }}
+        onClose={() => setKickTarget(null)}
+      />
 
       {/* Floating announcement */}
       {announcement ? (

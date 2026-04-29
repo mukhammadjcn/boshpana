@@ -4,8 +4,14 @@
 
 :root {
   color-scheme: dark;
-  --safe-bottom: env(safe-area-inset-bottom);
-  --safe-top: env(safe-area-inset-top);
+  --tg-safe-top: 0px;
+  --tg-safe-bottom: 0px;
+  --tg-safe-left: 0px;
+  --tg-safe-right: 0px;
+  --safe-top: max(env(safe-area-inset-top), var(--tg-safe-top));
+  --safe-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-bottom));
+  --safe-left: max(env(safe-area-inset-left), var(--tg-safe-left));
+  --safe-right: max(env(safe-area-inset-right), var(--tg-safe-right));
 }
 
 * {

@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { apiRequest } from "@/lib/api";
+import { getAuthUser } from "@/lib/auth";
 import { getOrCreateSessionId } from "@/lib/storage";
 
 type CreateRoomResponse = {
@@ -26,6 +27,16 @@ export function CreateRoomForm({ onOpenJoin }: CreateRoomFormProps) {
   const [winnerTarget, setWinnerTarget] = useState(2);
   const [error, setError] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
+
+  useEffect(() => {
+    const cached = getAuthUser();
+    const fallback =
+      cached?.nickname ??
+      cached?.firstName ??
+      cached?.telegramUsername ??
+      "";
+    if (fallback) setHostName((current) => current || fallback);
+  }, []);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
