@@ -98,12 +98,19 @@ export function useGameAudio({
     (target: React.MutableRefObject<HTMLAudioElement | null>) => {
       const audio = target.current;
       if (!audio) return;
-      audio.pause();
-      audio.currentTime = 0;
+      target.current = null;
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        // Force-abort any in-flight play() promise by clearing src + load()
+        audio.removeAttribute("src");
+        audio.load();
+      } catch {
+        // ignore
+      }
       activeAudiosRef.current = activeAudiosRef.current.filter(
         (a) => a !== audio
       );
-      target.current = null;
     },
     []
   );
@@ -138,7 +145,32 @@ export function useGameAudio({
       audio.volume = volume;
       target.current = audio;
       activeAudiosRef.current.push(audio);
-      void audio.play().catch(() => stopLoop(target));
+      audio
+        .play()
+        .then(() => {
+          // If something else already cleared this slot while play() was
+          // pending, pause the orphan immediately.
+          if (target.current !== audio) {
+            audio.pause();
+            try {
+              audio.removeAttribute("src");
+              audio.load();
+            } catch {
+              // ignore
+            }
+            activeAudiosRef.current = activeAudiosRef.current.filter(
+              (a) => a !== audio
+            );
+          }
+        })
+        .catch(() => {
+          if (target.current === audio) {
+            target.current = null;
+          }
+          activeAudiosRef.current = activeAudiosRef.current.filter(
+            (a) => a !== audio
+          );
+        });
     },
     [stopLoop]
   );
@@ -172,13 +204,17 @@ export function useGameAudio({
     if (!audioEnabled) stopAll();
   }, [audioEnabled, stopAll]);
 
-  // Resume loops on user gesture (mobile autoplay policy)
+  // Resume loops on user gesture (mobile autoplay policy).
+  // Only retry if the loop slot is currently empty — never re-trigger
+  // a loop that the user/state has already requested to stop.
   useEffect(() => {
     if (!audioEnabled) return;
     const tryPlay = () => {
       if (!audioEnabledRef.current) return;
-      if (introOpen) playLoop(GAME_START, 0.9, introLoopRef);
-      if (situationOpen && situationKey) {
+      if (introOpen && !introLoopRef.current) {
+        playLoop(GAME_START, 0.9, introLoopRef);
+      }
+      if (situationOpen && situationKey && !situationLoopRef.current) {
         const src = getSituationSrc(situationKey);
         if (src) playLoop(src, 0.8, situationLoopRef);
       }

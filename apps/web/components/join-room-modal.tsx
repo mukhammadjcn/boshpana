@@ -77,12 +77,7 @@ export function JoinRoomModal({
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center"
     >
-      <button
-        type="button"
-        aria-label="Yopish"
-        className="absolute inset-0"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0" />
       <form
         onSubmit={handleJoin}
         className="relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border"

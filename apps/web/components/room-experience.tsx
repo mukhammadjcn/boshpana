@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   FormEvent,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -41,7 +42,7 @@ const cardOrder: CardType[] = [
 const phaseHelp: Record<GamePhase, string> = {
   LOBBY: "Lobby — kuting",
   INTRO: "Tanishuv",
-  ROUND_REVEAL: "Karta ochish",
+  ROUND_REVEAL: "Karta ochish navbati",
   ROUND_PITCH: "Pitch — 2 daqiqa",
   ROUND_COMPLETE: "Round yakuni",
   VOTING: "Ovoz berish",
@@ -69,12 +70,20 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const [introOpen, setIntroOpen] = useState(false);
   const [situationOpen, setSituationOpen] = useState(false);
   const [myCardsOpen, setMyCardsOpen] = useState(false);
+  const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
+  const [winnerModalOpen, setWinnerModalOpen] = useState(false);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
 
   const connectedRef = useRef(false);
   const seenSituationKeysRef = useRef<Set<string>>(new Set());
   const seenRevealAnnouncementRef = useRef<Set<string>>(new Set());
   const seenElimAnnouncementRef = useRef<Set<string>>(new Set());
+  const seenSelfEliminationRef = useRef<Set<string>>(new Set());
+  const seenWinnerModalRef = useRef<Set<string>>(new Set());
+  const playersRef = useRef<RoomState["players"]>([]);
+
+  const bottomBarRef = useRef<HTMLDivElement>(null);
+  const [bottomBarHeight, setBottomBarHeight] = useState(0);
 
   const roomState = useGameStore((state) => state.roomState);
   const error = useGameStore((state) => state.error);
@@ -87,6 +96,21 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     setSessionId(getOrCreateSessionId());
     setOrigin(window.location.origin);
   }, []);
+
+  // Measure sticky bottom bar so content padding stays in sync.
+  useLayoutEffect(() => {
+    const node = bottomBarRef.current;
+    if (!node || typeof ResizeObserver === "undefined") {
+      if (node) setBottomBarHeight(node.offsetHeight);
+      return;
+    }
+    const ro = new ResizeObserver(() => {
+      setBottomBarHeight(node.offsetHeight);
+    });
+    ro.observe(node);
+    setBottomBarHeight(node.offsetHeight);
+    return () => ro.disconnect();
+  }, [roomState?.me?.isHost, roomState?.room.status, roomState?.game.phase]);
 
   // Initial state load
   useEffect(() => {
@@ -178,7 +202,13 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     roomState?.room.status
   ]);
 
-  // Reveal announcement
+  // Keep latest players in a ref so announcement effects can read names
+  // without re-running on every socket update.
+  useEffect(() => {
+    playersRef.current = roomState?.players ?? [];
+  }, [roomState?.players]);
+
+  // Reveal announcement — only re-fires when the actual reveal id changes.
   useEffect(() => {
     if (
       !roomState?.game.lastRevealedPlayerId ||
@@ -186,13 +216,13 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     )
       return;
 
-    const player = roomState.players.find(
+    const key = `${roomState.game.roundNumber}-${roomState.game.lastRevealedPlayerId}-${roomState.game.lastRevealedCardType}`;
+    if (seenRevealAnnouncementRef.current.has(key)) return;
+
+    const player = playersRef.current.find(
       (p) => p.id === roomState.game.lastRevealedPlayerId
     );
     if (!player) return;
-
-    const key = `${roomState.game.roundNumber}-${roomState.game.lastRevealedPlayerId}-${roomState.game.lastRevealedCardType}`;
-    if (seenRevealAnnouncementRef.current.has(key)) return;
 
     seenRevealAnnouncementRef.current.add(key);
     setAnnouncement({
@@ -200,28 +230,22 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       title: `${player.name} kartasini ochdi`,
       description: `${cardLabels[roomState.game.lastRevealedCardType]} endi hammaga ko‘rinadi.`
     });
-
-    const t = window.setTimeout(() => {
-      setAnnouncement((c) => (c?.key === key ? null : c));
-    }, 4500);
-    return () => window.clearTimeout(t);
   }, [
     roomState?.game.lastRevealedCardType,
     roomState?.game.lastRevealedPlayerId,
-    roomState?.game.roundNumber,
-    roomState?.players
+    roomState?.game.roundNumber
   ]);
 
-  // Elimination announcement
+  // Elimination announcement — only re-fires when the actual elimination changes.
   useEffect(() => {
     if (!roomState?.game.lastEliminatedPlayerId) return;
-    const player = roomState.players.find(
+    const key = `eliminated-${roomState.game.roundNumber}-${roomState.game.lastEliminatedPlayerId}`;
+    if (seenElimAnnouncementRef.current.has(key)) return;
+
+    const player = playersRef.current.find(
       (p) => p.id === roomState.game.lastEliminatedPlayerId
     );
     if (!player) return;
-
-    const key = `eliminated-${roomState.game.roundNumber}-${player.id}`;
-    if (seenElimAnnouncementRef.current.has(key)) return;
 
     seenElimAnnouncementRef.current.add(key);
     setAnnouncement({
@@ -230,15 +254,52 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       description:
         "Bu o‘yinchi endi ovoz bera olmaydi, lekin kuzatishda davom etadi."
     });
+  }, [
+    roomState?.game.lastEliminatedPlayerId,
+    roomState?.game.roundNumber
+  ]);
 
+  // Auto-clear announcement after a fixed delay; runs only when the
+  // announcement itself changes (not on every players update).
+  useEffect(() => {
+    if (!announcement) return;
+    const key = announcement.key;
     const t = window.setTimeout(() => {
       setAnnouncement((c) => (c?.key === key ? null : c));
-    }, 5000);
+    }, 4500);
     return () => window.clearTimeout(t);
+  }, [announcement]);
+
+  // Open the "you were eliminated" modal once when it's me who got cut.
+  useEffect(() => {
+    const elimId = roomState?.game.lastEliminatedPlayerId;
+    const meId = roomState?.me?.id;
+    if (!elimId || !meId || elimId !== meId) return;
+    const key = `self-elim-${roomState?.game.roundNumber}-${meId}`;
+    if (seenSelfEliminationRef.current.has(key)) return;
+    seenSelfEliminationRef.current.add(key);
+    setEliminatedModalOpen(true);
   }, [
     roomState?.game.lastEliminatedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.players
+    roomState?.me?.id
+  ]);
+
+  // Open the "you survived" modal once per finished game when I'm a winner.
+  useEffect(() => {
+    if (roomState?.room.status !== "FINISHED") return;
+    if (!roomState.me?.isAlive) return;
+    const code = roomState.room.code;
+    const meId = roomState.me.id;
+    const key = `winner-${code}-${meId}`;
+    if (seenWinnerModalRef.current.has(key)) return;
+    seenWinnerModalRef.current.add(key);
+    setWinnerModalOpen(true);
+  }, [
+    roomState?.room.status,
+    roomState?.room.code,
+    roomState?.me?.id,
+    roomState?.me?.isAlive
   ]);
 
   // Audio
@@ -387,6 +448,17 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       p.id !== game?.currentTurnPlayerId &&
       p.revealedCount < roundRevealTarget
   );
+
+  // After resolveVoting we land back in ROUND_COMPLETE but with an
+  // elimination set — that's the signal that the host's only job is to
+  // start the next round.
+  const votingFinished =
+    game?.phase === "ROUND_COMPLETE" && !!game.lastEliminatedPlayerId;
+  const canStartRevealsHost =
+    me?.isHost &&
+    room?.status === "PLAYING" &&
+    game?.phase === "ROUND_REVEAL" &&
+    !game.currentTurnPlayerId;
 
   // Loading & error states
   if (loading) {
@@ -546,11 +618,14 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 isHost={me.isHost}
                 canStartGame={room.status === "LOBBY" && players.length >= 3}
                 canStartRound={false}
+                canStartReveals={false}
                 canAdvanceTurn={false}
                 canStartVoting={false}
                 canSkipVoting={false}
+                votingFinished={false}
                 onStartGame={() => emit("start_game")}
                 onStartRound={() => emit("start_round")}
+                onStartReveals={() => emit("start_reveals")}
                 onAdvanceTurn={() => emit("advance_turn")}
                 onStartVoting={() => emit("start_voting")}
                 onSkipVoting={() => emit("skip_voting")}
@@ -582,7 +657,11 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
               · {room.code}
             </p>
             <p className="truncate text-sm font-semibold text-ink-primary">
-              {phaseHelp[game.phase]}
+              {game.phase === "ROUND_REVEAL" && !game.currentTurnPlayerId
+                ? "Reveal kutilmoqda"
+                : votingFinished
+                  ? "Eliminatsiya tugadi"
+                  : phaseHelp[game.phase]}
               {currentTurnPlayer
                 ? ` · ${currentTurnPlayer.name}${
                     currentTurnPlayer.id === me.id ? " (siz)" : ""
@@ -603,7 +682,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-xl px-4 pt-3 pb-40">
+      <div
+        className="mx-auto max-w-xl px-4 pt-3"
+        style={{ paddingBottom: bottomBarHeight + 24 }}
+      >
         {/* Disaster + situation summary */}
         {game.disaster ? (
           <button
@@ -686,7 +768,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       </div>
 
       {/* Sticky bottom actions */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 backdrop-blur">
+      <div
+        ref={bottomBarRef}
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 backdrop-blur"
+      >
         <div className="mx-auto max-w-xl px-4 pt-3 pb-safe">
           {me.isHost ? (
             <div className="mb-2">
@@ -696,6 +781,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 canStartRound={
                   room.status === "PLAYING" && game.phase === "INTRO"
                 }
+                canStartReveals={!!canStartRevealsHost}
                 canAdvanceTurn={
                   room.status === "PLAYING" && game.phase === "ROUND_PITCH"
                 }
@@ -708,8 +794,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 canSkipVoting={
                   room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
                 }
+                votingFinished={votingFinished}
                 onStartGame={() => emit("start_game")}
                 onStartRound={() => emit("start_round")}
+                onStartReveals={() => emit("start_reveals")}
                 onAdvanceTurn={() => emit("advance_turn")}
                 onStartVoting={() => emit("start_voting")}
                 onSkipVoting={() => emit("skip_voting")}
@@ -748,11 +836,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           aria-modal="true"
           className="fixed inset-0 z-50 flex flex-col justify-end bg-bg-overlay backdrop-blur-sm"
         >
-          <button
-            aria-label="Yopish"
-            className="absolute inset-0"
-            onClick={() => setMyCardsOpen(false)}
-          />
+          <div className="absolute inset-0" />
           <div className="relative z-10 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-line-subtle bg-bg-surface px-5 pt-4 pb-safe">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong" />
             <div className="flex items-center justify-between">
@@ -811,11 +895,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           aria-modal="true"
           className="fixed inset-0 z-40 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center"
         >
-          <button
-            aria-label="Yopish"
-            className="absolute inset-0"
-            onClick={() => setIntroOpen(false)}
-          />
+          <div className="absolute inset-0" />
           <div className="relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
@@ -855,11 +935,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           aria-modal="true"
           className="fixed inset-0 z-40 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center"
         >
-          <button
-            aria-label="Yopish"
-            className="absolute inset-0"
-            onClick={() => setSituationOpen(false)}
-          />
+          <div className="absolute inset-0" />
           <div className="relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
             <p className="text-xs font-medium uppercase tracking-wider text-warn">
@@ -913,8 +989,8 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
         </div>
       ) : null}
 
-      {/* Voting */}
-      {game.phase === "VOTING" ? (
+      {/* Voting — only shown to alive players */}
+      {game.phase === "VOTING" && me.isAlive ? (
         <VotePanel
           canVote={canVote}
           hasVoted={roomState.votes.submittedByMe}
@@ -927,6 +1003,138 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           meId={me.id}
           onVote={(targetPlayerId) => emit("vote", { targetPlayerId })}
         />
+      ) : null}
+
+      {/* Self-elimination modal */}
+      {eliminatedModalOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-md sm:items-center"
+        >
+          <div className="absolute inset-0" />
+          <div
+            className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-bad/40 bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%), linear-gradient(180deg, rgba(239,68,68,0.04) 0%, rgba(11,13,18,0) 60%)"
+            }}
+          >
+            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
+
+            <div className="px-6 pt-6 text-center">
+              <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-bad/30 bg-bad/10">
+                <svg
+                  width="38"
+                  height="38"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-bad"
+                  aria-hidden
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              </div>
+              <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-bad">
+                Eliminatsiya
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-ink-primary">
+                Siz bunkerdan chiqarildingiz
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-ink-secondary">
+                Sizning kartalaringiz endi hammaga ochiq. Ovoz bera
+                olmaysiz, lekin o‘yin oxirigacha kuzatib turishingiz mumkin.
+              </p>
+            </div>
+
+            <div className="px-5 pt-5 pb-5">
+              <button
+                onClick={() => setEliminatedModalOpen(false)}
+                className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98]"
+              >
+                Kuzatishda davom etish
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Winner modal */}
+      {winnerModalOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-md sm:items-center"
+        >
+          <div className="absolute inset-0" />
+          <div
+            className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-brand/40 bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 50% 0%, rgba(244,168,58,0.28), transparent 55%), linear-gradient(180deg, rgba(34,197,94,0.06) 0%, rgba(11,13,18,0) 70%)"
+            }}
+          >
+            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
+
+            <div className="px-6 pt-6 text-center">
+              <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-brand/40 bg-brand/15">
+                <svg
+                  width="40"
+                  height="40"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-brand"
+                  aria-hidden
+                >
+                  <path d="M8 21h8" />
+                  <path d="M12 17v4" />
+                  <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
+                  <path d="M17 4h3v3a3 3 0 0 1-3 3" />
+                  <path d="M7 4H4v3a3 3 0 0 0 3 3" />
+                </svg>
+              </div>
+              <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-brand">
+                G‘alaba
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-ink-primary">
+                Siz bunkerda omon qoldingiz!
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-ink-secondary">
+                Tabriklaymiz — insoniyatning kelajagini siz tiklaysiz.
+                {winners.length > 1
+                  ? ` ${winners.length} ta yutuvchi: ${winners
+                      .map((w) => w.name)
+                      .join(", ")}.`
+                  : ""}
+              </p>
+            </div>
+
+            <div className="grid gap-2 px-5 pt-5 pb-5">
+              <button
+                onClick={() => setWinnerModalOpen(false)}
+                className="flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
+              >
+                Natijani ko‘rish
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                className="flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold text-ink-primary"
+              >
+                Bosh sahifa
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* Floating announcement */}

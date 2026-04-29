@@ -557,9 +557,15 @@ export class GameService {
 
     const nextRound = room.round + 1;
     const nextSituation = await this.pickSituation(room.game.currentSituationId ?? undefined);
-    const currentTurn = this.findNextRevealPlayer(room.players, nextRound, 0);
 
-    if (!currentTurn) {
+    const stillEligible = room.players.some(
+      (player) =>
+        player.isAlive &&
+        player.attributes &&
+        (player.attributes.revealed.length ?? 0) < nextRound + 1
+    );
+
+    if (!stillEligible) {
       throw new Error("Reveal uchun aktiv o'yinchi topilmadi.");
     }
 
@@ -577,11 +583,52 @@ export class GameService {
           currentSituationId: nextSituation.id,
           phase: GamePhase.ROUND_REVEAL,
           timerEndsAt: null,
-          currentTurnPlayerId: currentTurn.id,
-          lastEliminatedPlayerId: null
+          currentTurnPlayerId: null,
+          lastEliminatedPlayerId: null,
+          lastRevealedPlayerId: null,
+          lastRevealedCardType: null
         }
       })
     ]);
+  }
+
+  async startRoundReveals(input: RoomCodeAction) {
+    await this.requireHostRoom(input);
+    await this.startRevealsForRoom(input.code);
+  }
+
+  private async startRevealsForRoom(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+
+    if (!room?.game) {
+      throw new Error("Room topilmadi.");
+    }
+
+    if (room.game.phase !== GamePhase.ROUND_REVEAL) {
+      throw new Error("Hozir reveal bosqichi emas.");
+    }
+
+    if (room.game.currentTurnPlayerId) {
+      throw new Error("Reveal allaqachon boshlangan.");
+    }
+
+    const next = this.findNextRevealPlayer(
+      room.players,
+      room.game.roundNumber,
+      null
+    );
+
+    if (!next) {
+      throw new Error("Reveal uchun aktiv o'yinchi topilmadi.");
+    }
+
+    await prisma.game.update({
+      where: { id: room.game.id },
+      data: {
+        currentTurnPlayerId: next.id,
+        timerEndsAt: null
+      }
+    });
   }
 
   private async advanceTurnForRoom(roomCode: string) {
@@ -598,9 +645,11 @@ export class GameService {
       throw new Error("Hozir keyingi o'yinchiga o'tish mumkin emas.");
     }
 
-    const currentSeat =
-      room.players.find((player) => player.id === room.game?.currentTurnPlayerId)?.seatOrder ?? 0;
-    const nextTurn = this.findNextRevealPlayer(room.players, room.game.roundNumber, currentSeat);
+    const nextTurn = this.findNextRevealPlayer(
+      room.players,
+      room.game.roundNumber,
+      room.game.currentTurnPlayerId
+    );
 
     this.stopTimer(room.code);
 
@@ -631,29 +680,45 @@ export class GameService {
       (vote) => vote.roundNumber === room.game?.roundNumber
     );
 
+    const aliveBeforeVote = room.players.filter((p) => p.isAlive);
+    const isEndgame = aliveBeforeVote.length <= room.winnerTarget + 1;
+
+    let eliminatedId: string;
+
     if (!currentRoundVotes.length) {
-      await prisma.game.update({
-        where: { id: room.game.id },
-        data: {
-          phase: GamePhase.ROUND_COMPLETE,
-          timerEndsAt: null
-        }
-      });
-      this.stopTimer(room.code);
-      return;
+      // No votes — at endgame we must force progress (2 players refusing to
+      // vote against each other would otherwise loop forever). Otherwise let
+      // the round end without elimination.
+      if (!isEndgame) {
+        await prisma.game.update({
+          where: { id: room.game.id },
+          data: {
+            phase: GamePhase.ROUND_COMPLETE,
+            timerEndsAt: null
+          }
+        });
+        this.stopTimer(room.code);
+        return;
+      }
+
+      eliminatedId = aliveBeforeVote[randomInt(aliveBeforeVote.length)].id;
+    } else {
+      const score = new Map<string, number>();
+
+      for (const vote of currentRoundVotes) {
+        score.set(
+          vote.targetPlayerId,
+          (score.get(vote.targetPlayerId) ?? 0) + 1
+        );
+      }
+
+      const topScore = Math.max(...score.values());
+      const candidates = [...score.entries()]
+        .filter(([, value]) => value === topScore)
+        .map(([playerId]) => playerId);
+      eliminatedId = candidates[randomInt(candidates.length)];
     }
 
-    const score = new Map<string, number>();
-
-    for (const vote of currentRoundVotes) {
-      score.set(vote.targetPlayerId, (score.get(vote.targetPlayerId) ?? 0) + 1);
-    }
-
-    const topScore = Math.max(...score.values());
-    const candidates = [...score.entries()]
-      .filter(([, value]) => value === topScore)
-      .map(([playerId]) => playerId);
-    const eliminatedId = candidates[randomInt(candidates.length)];
     const eliminatedPlayer = room.players.find((player) => player.id === eliminatedId);
     const gameId = room.game.id;
 
@@ -711,22 +776,22 @@ export class GameService {
   private findNextRevealPlayer(
     players: RoomWithState["players"],
     roundNumber: number,
-    afterSeatOrder: number
+    excludePlayerId?: string | null
   ) {
     const targetRevealCount = roundNumber + 1;
-    const ordered = players.filter((player) => player.isAlive && player.attributes);
+    const eligible = players.filter(
+      (player) =>
+        player.isAlive &&
+        player.attributes &&
+        player.id !== excludePlayerId &&
+        (player.attributes.revealed.length ?? 0) < targetRevealCount
+    );
 
-    const next =
-      ordered.find(
-        (player) =>
-          player.seatOrder > afterSeatOrder &&
-          (player.attributes?.revealed.length ?? 0) < targetRevealCount
-      ) ??
-      ordered.find(
-        (player) => (player.attributes?.revealed.length ?? 0) < targetRevealCount
-      );
+    if (!eligible.length) {
+      return null;
+    }
 
-    return next ?? null;
+    return eligible[randomInt(eligible.length)];
   }
 
   private async getRoomWithState(code: string) {

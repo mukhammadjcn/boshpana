@@ -4,12 +4,15 @@ type HostControlsProps = {
   isHost: boolean;
   canStartGame: boolean;
   canStartRound: boolean;
+  canStartReveals: boolean;
   canAdvanceTurn: boolean;
   advanceTurnLabel?: string;
   canStartVoting: boolean;
   canSkipVoting: boolean;
+  votingFinished: boolean;
   onStartGame: () => void;
   onStartRound: () => void;
+  onStartReveals: () => void;
   onAdvanceTurn: () => void;
   onStartVoting: () => void;
   onSkipVoting: () => void;
@@ -20,12 +23,15 @@ export function HostControls({
   isHost,
   canStartGame,
   canStartRound,
+  canStartReveals,
   canAdvanceTurn,
   advanceTurnLabel = "Keyingi o‘yinchi",
   canStartVoting,
   canSkipVoting,
+  votingFinished,
   onStartGame,
   onStartRound,
+  onStartReveals,
   onAdvanceTurn,
   onStartVoting,
   onSkipVoting,
@@ -35,20 +41,25 @@ export function HostControls({
     return null;
   }
 
+  // After voting resolved, the only useful host action is moving on.
   const primary = canStartGame
     ? { label: "O‘yinni boshlash", onClick: onStartGame }
     : canStartRound
       ? { label: "1-roundni boshlash", onClick: onStartRound }
-      : canAdvanceTurn
-        ? { label: advanceTurnLabel, onClick: onAdvanceTurn }
-        : canStartVoting
-          ? { label: "Ovoz berishni boshlash", onClick: onStartVoting }
-          : null;
+      : canStartReveals
+        ? { label: "Kartalarni ochishni boshlash", onClick: onStartReveals }
+        : canAdvanceTurn
+          ? { label: advanceTurnLabel, onClick: onAdvanceTurn }
+          : votingFinished && canSkipVoting
+            ? { label: "Keyingi roundni boshlash", onClick: onSkipVoting }
+            : canStartVoting
+              ? { label: "Ovoz berishni boshlash", onClick: onStartVoting }
+              : null;
 
-  const secondary = canSkipVoting && !canStartVoting
-    ? { label: "Keyingi roundga", onClick: onSkipVoting }
-    : canStartVoting && canSkipVoting
-      ? { label: "Roundni o‘tkazib yuborish", onClick: onSkipVoting }
+  // Secondary "skip voting" only makes sense before voting actually happened.
+  const secondary =
+    !votingFinished && canStartVoting && canSkipVoting
+      ? { label: "Ovozsiz keyingi round", onClick: onSkipVoting }
       : null;
 
   return (

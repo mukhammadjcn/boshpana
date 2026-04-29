@@ -47,6 +47,16 @@ export class RealtimeHub {
         });
       });
 
+      socket.on("start_reveals", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          await this.gameService.startRoundReveals({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
       socket.on(
         "reveal_card",
         async (payload: SocketActionPayload & { cardType: CardType }) => {

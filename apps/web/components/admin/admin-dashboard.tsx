@@ -611,11 +611,7 @@ export function AdminDashboard() {
       {/* Delete confirm */}
       {confirmDelete ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay backdrop-blur-sm px-4">
-          <button
-            aria-label="Yopish"
-            className="absolute inset-0"
-            onClick={() => setConfirmDelete(null)}
-          />
+          <div className="absolute inset-0" />
           <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line-subtle bg-bg-surface p-5">
             <h3 className="text-sm font-semibold text-ink-primary">
               O‘chirish tasdiqlansinmi?
@@ -661,11 +657,7 @@ function FormModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center sm:px-4">
-      <button
-        aria-label="Yopish"
-        className="absolute inset-0"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0" />
       <form
         onSubmit={(e) => {
           e.preventDefault();
