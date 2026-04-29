@@ -10,3 +10,4 @@ apps/api/generated
 coverage
 npm-debug.log*
 Dockerfile*.local
+*.tsbuildinfo

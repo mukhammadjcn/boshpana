@@ -22,12 +22,19 @@ async function proxy(
       ? undefined
       : await request.text();
 
+  // Only set Content-Type when there is actually a body — Fastify rejects
+  // empty JSON bodies with FST_ERR_CTP_EMPTY_JSON_BODY when the header is
+  // present but body is empty (e.g. DELETE).
+  const headers: Record<string, string> = {
+    "x-admin-secret": process.env.ADMIN_JWT_SECRET ?? "super-secret-admin-jwt"
+  };
+  if (body !== undefined && body.length > 0) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(target, {
     method: request.method,
-    headers: {
-      "Content-Type": "application/json",
-      "x-admin-secret": process.env.ADMIN_JWT_SECRET ?? "super-secret-admin-jwt"
-    },
+    headers,
     body,
     cache: "no-store"
   });

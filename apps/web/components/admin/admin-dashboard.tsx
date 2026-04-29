@@ -204,11 +204,14 @@ export function AdminDashboard() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createState, setCreateState] = useState<FormState>({});
+  const [creating, setCreating] = useState(false);
 
   const [editingItem, setEditingItem] = useState<AdminItem | null>(null);
   const [editState, setEditState] = useState<FormState>({});
+  const [updating, setUpdating] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState<AdminItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const definition = modelDefinitions[selectedModel];
   const createFields = definition?.createFields ?? [];
@@ -262,8 +265,9 @@ export function AdminDashboard() {
   }
 
   async function createItem() {
-    if (!definition?.createFields?.length) return;
+    if (!definition?.createFields?.length || creating) return;
     try {
+      setCreating(true);
       setError(null);
       const res = await fetch(`/api/admin/${selectedModel}`, {
         method: "POST",
@@ -277,12 +281,15 @@ export function AdminDashboard() {
       await loadItems(selectedModel);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setCreating(false);
     }
   }
 
   async function updateItem() {
-    if (!editingItem || !definition?.editFields?.length) return;
+    if (!editingItem || !definition?.editFields?.length || updating) return;
     try {
+      setUpdating(true);
       setError(null);
       const res = await fetch(`/api/admin/${selectedModel}/${editingItem.id}`, {
         method: "PATCH",
@@ -295,11 +302,15 @@ export function AdminDashboard() {
       await loadItems(selectedModel);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setUpdating(false);
     }
   }
 
   async function deleteItem(item: AdminItem) {
+    if (deleting) return;
     try {
+      setDeleting(true);
       setError(null);
       const res = await fetch(`/api/admin/${selectedModel}/${item.id}`, {
         method: "DELETE"
@@ -310,6 +321,8 @@ export function AdminDashboard() {
       await loadItems(selectedModel);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -402,10 +415,18 @@ export function AdminDashboard() {
           <button
             onClick={() => void loadItems(selectedModel)}
             disabled={loading}
-            className="h-8 rounded-lg border border-line-strong bg-bg-elevated px-2.5 text-xs font-medium text-ink-secondary disabled:opacity-50"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium text-ink-secondary disabled:opacity-50"
             title="Refresh"
+            aria-label="Refresh"
           >
-            {loading ? "..." : "↻"}
+            {loading ? (
+              <span
+                className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
+                aria-hidden
+              />
+            ) : (
+              "↻"
+            )}
           </button>
           {createFields.length ? (
             <button
@@ -431,8 +452,15 @@ export function AdminDashboard() {
       ) : null}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-line-subtle bg-bg-surface">
-        <div className="overflow-x-auto">
+      <div className="relative overflow-hidden rounded-xl border border-line-subtle bg-bg-surface">
+        {loading ? (
+          <div className="absolute left-0 right-0 top-0 z-10 h-0.5 overflow-hidden bg-line-subtle">
+            <div className="h-full w-1/3 animate-[loading_1.2s_ease-in-out_infinite] bg-brand" />
+          </div>
+        ) : null}
+        <div
+          className={`overflow-x-auto transition-opacity ${loading && pageItems.length ? "opacity-60" : ""}`}
+        >
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-line-subtle bg-bg-elevated/60">
@@ -461,11 +489,19 @@ export function AdminDashboard() {
                     }
                     className="px-3 py-8 text-center text-xs text-ink-muted"
                   >
-                    {loading
-                      ? "Yuklanmoqda..."
-                      : search
-                        ? "Hech narsa topilmadi."
-                        : "Bo‘sh."}
+                    {loading ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
+                          aria-hidden
+                        />
+                        Yuklanmoqda...
+                      </span>
+                    ) : search ? (
+                      "Hech narsa topilmadi."
+                    ) : (
+                      "Bo‘sh."
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -569,9 +605,10 @@ export function AdminDashboard() {
       {createOpen ? (
         <FormModal
           title={`${definition?.label ?? selectedModel} — yangi`}
-          onClose={() => setCreateOpen(false)}
+          onClose={() => !creating && setCreateOpen(false)}
           onSubmit={createItem}
           submitLabel="Qo‘shish"
+          loading={creating}
         >
           {createFields.map((field) => (
             <FieldInput
@@ -581,6 +618,7 @@ export function AdminDashboard() {
               onChange={(value) =>
                 setCreateState((c) => ({ ...c, [field.key]: value }))
               }
+              disabled={creating}
             />
           ))}
         </FormModal>
@@ -591,9 +629,10 @@ export function AdminDashboard() {
         <FormModal
           title={`Tahrirlash`}
           subtitle={`ID: ${String(editingItem.id ?? "")}`}
-          onClose={() => setEditingItem(null)}
+          onClose={() => !updating && setEditingItem(null)}
           onSubmit={updateItem}
           submitLabel="Saqlash"
+          loading={updating}
         >
           {editFields.map((field) => (
             <FieldInput
@@ -603,6 +642,7 @@ export function AdminDashboard() {
               onChange={(value) =>
                 setEditState((c) => ({ ...c, [field.key]: value }))
               }
+              disabled={updating}
             />
           ))}
         </FormModal>
@@ -621,16 +661,19 @@ export function AdminDashboard() {
             </p>
             <div className="mt-4 flex gap-2">
               <button
-                onClick={() => setConfirmDelete(null)}
-                className="h-9 flex-1 rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium"
+                onClick={() => !deleting && setConfirmDelete(null)}
+                disabled={deleting}
+                className="h-9 flex-1 rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium disabled:opacity-50"
               >
                 Bekor
               </button>
               <button
                 onClick={() => void deleteItem(confirmDelete)}
-                className="h-9 flex-1 rounded-lg bg-bad text-xs font-semibold text-white"
+                disabled={deleting}
+                className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-bad text-xs font-semibold text-white disabled:opacity-60"
               >
-                O‘chirish
+                {deleting ? <Spinner /> : null}
+                {deleting ? "O‘chirilmoqda..." : "O‘chirish"}
               </button>
             </div>
           </div>
@@ -640,12 +683,22 @@ export function AdminDashboard() {
   );
 }
 
+function Spinner() {
+  return (
+    <span
+      className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
+      aria-hidden
+    />
+  );
+}
+
 function FormModal({
   title,
   subtitle,
   onClose,
   onSubmit,
   submitLabel,
+  loading = false,
   children
 }: {
   title: string;
@@ -653,6 +706,7 @@ function FormModal({
   onClose: () => void;
   onSubmit: () => void;
   submitLabel: string;
+  loading?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -678,7 +732,8 @@ function FormModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-7 w-7 place-items-center rounded-full border border-line-strong bg-bg-elevated text-xs"
+            disabled={loading}
+            className="grid h-7 w-7 place-items-center rounded-full border border-line-strong bg-bg-elevated text-xs disabled:opacity-50"
           >
             ×
           </button>
@@ -688,15 +743,23 @@ function FormModal({
           <button
             type="button"
             onClick={onClose}
-            className="h-10 flex-1 rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium"
+            disabled={loading}
+            className="h-10 flex-1 rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium disabled:opacity-50"
           >
             Bekor
           </button>
           <button
             type="submit"
-            className="h-10 flex-1 rounded-lg bg-brand text-xs font-semibold text-bg-base"
+            disabled={loading}
+            className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand text-xs font-semibold text-bg-base disabled:opacity-60"
           >
-            {submitLabel}
+            {loading ? (
+              <span
+                className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
+                aria-hidden
+              />
+            ) : null}
+            {loading ? "Yuborilmoqda..." : submitLabel}
           </button>
         </div>
       </form>
@@ -707,14 +770,16 @@ function FormModal({
 function FieldInput({
   field,
   value,
-  onChange
+  onChange,
+  disabled = false
 }: {
   field: FieldConfig;
   value: string | number | boolean | undefined;
   onChange: (value: string | number | boolean) => void;
+  disabled?: boolean;
 }) {
   const baseClass =
-    "w-full rounded-lg border border-line-strong bg-bg-base px-3 py-2 text-xs text-ink-primary outline-none focus:border-brand";
+    "w-full rounded-lg border border-line-strong bg-bg-base px-3 py-2 text-xs text-ink-primary outline-none focus:border-brand disabled:opacity-60";
 
   if (field.type === "textarea") {
     return (
@@ -722,6 +787,7 @@ function FieldInput({
         <span className="text-ink-muted">{field.label}</span>
         <textarea
           required={field.required}
+          disabled={disabled}
           value={String(value ?? "")}
           onChange={(e) => onChange(e.target.value)}
           className={`${baseClass} min-h-[96px] leading-5`}
@@ -736,6 +802,7 @@ function FieldInput({
         <span className="text-ink-muted">{field.label}</span>
         <select
           required={field.required}
+          disabled={disabled}
           value={String(value ?? field.options?.[0]?.value ?? "")}
           onChange={(e) => onChange(e.target.value)}
           className={baseClass}
@@ -756,6 +823,7 @@ function FieldInput({
         <span className="text-ink-secondary">{field.label}</span>
         <input
           type="checkbox"
+          disabled={disabled}
           checked={Boolean(value)}
           onChange={(e) => onChange(e.target.checked)}
           className="h-4 w-4 accent-brand"
@@ -770,6 +838,7 @@ function FieldInput({
       <input
         type={field.type === "number" ? "number" : "text"}
         required={field.required}
+        disabled={disabled}
         value={String(value ?? "")}
         onChange={(e) =>
           onChange(field.type === "number" ? Number(e.target.value) : e.target.value)

@@ -96,13 +96,20 @@ export function useGameAudio({
 
   const stopLoop = useCallback(
     (target: React.MutableRefObject<HTMLAudioElement | null>) => {
-      const audio = target.current;
+      const audio = target.current as
+        | (HTMLAudioElement & { _stopped?: boolean })
+        | null;
       if (!audio) return;
       target.current = null;
+      // Mark as stopped so any pending play().then() resolution can detect
+      // it and bail out (race condition fix).
+      audio._stopped = true;
       try {
+        // muted is immediate and survives a late play() resolution.
+        audio.muted = true;
         audio.pause();
         audio.currentTime = 0;
-        // Force-abort any in-flight play() promise by clearing src + load()
+        // Force-abort any in-flight play() / pending load.
         audio.removeAttribute("src");
         audio.load();
       } catch {
@@ -140,7 +147,9 @@ export function useGameAudio({
       const existing = target.current;
       if (existing && existing.src.includes(src) && !existing.paused) return;
       stopLoop(target);
-      const audio = new Audio(src);
+      const audio = new Audio(src) as HTMLAudioElement & {
+        _stopped?: boolean;
+      };
       audio.loop = true;
       audio.volume = volume;
       target.current = audio;
@@ -148,11 +157,12 @@ export function useGameAudio({
       audio
         .play()
         .then(() => {
-          // If something else already cleared this slot while play() was
-          // pending, pause the orphan immediately.
-          if (target.current !== audio) {
-            audio.pause();
+          // If stop was requested (or slot reassigned) while play() was
+          // pending, mute + pause immediately so no sound escapes.
+          if (audio._stopped || target.current !== audio) {
+            audio.muted = true;
             try {
+              audio.pause();
               audio.removeAttribute("src");
               audio.load();
             } catch {

@@ -67,6 +67,16 @@ code {
   scrollbar-width: none;
 }
 
+/* Indeterminate progress bar (admin table loading) */
+@keyframes loading {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 /* Safe area helpers */
 .pb-safe {
   padding-bottom: calc(1rem + var(--safe-bottom));

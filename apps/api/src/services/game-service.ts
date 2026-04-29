@@ -240,6 +240,10 @@ export class GameService {
     const selectedDisaster = disasters[randomInt(disasters.length)];
     const introEndsAt = new Date(Date.now() + 120_000);
 
+    // Deal a unique card per player for every type by shuffling each pool
+    // and handing out in order. Throws if a pool is too small.
+    const deal = this.buildUniqueDeal(cards, room.players.length);
+
     await prisma.$transaction(async (tx) => {
       if (room.game) {
         await tx.vote.deleteMany({ where: { roomId: room.id } });
@@ -271,7 +275,9 @@ export class GameService {
             }
           });
 
-      for (const player of room.players) {
+      for (let index = 0; index < room.players.length; index += 1) {
+        const player = room.players[index];
+
         await tx.player.update({
           where: { id: player.id },
           data: { isAlive: true }
@@ -281,12 +287,12 @@ export class GameService {
           data: {
             playerId: player.id,
             gameId: game.id,
-            profession: this.pickRandomCard(cards, CardType.PROFESSION),
-            health: this.pickRandomCard(cards, CardType.HEALTH),
-            character: this.pickRandomCard(cards, CardType.CHARACTER),
-            skill: this.pickRandomCard(cards, CardType.SKILL),
-            baggage: this.pickRandomCard(cards, CardType.BAGGAGE),
-            fact: this.pickRandomCard(cards, CardType.FACT),
+            profession: deal[CardType.PROFESSION][index],
+            health: deal[CardType.HEALTH][index],
+            character: deal[CardType.CHARACTER][index],
+            skill: deal[CardType.SKILL][index],
+            baggage: deal[CardType.BAGGAGE][index],
+            fact: deal[CardType.FACT][index],
             revealed: [CardType.PROFESSION]
           }
         });
@@ -848,14 +854,32 @@ export class GameService {
     return 1;
   }
 
-  private pickRandomCard(cards: Array<{ type: CardType; text: string }>, type: CardType) {
-    const filtered = cards.filter((card) => card.type === type);
+  private buildUniqueDeal(
+    cards: Array<{ type: CardType; text: string }>,
+    playerCount: number
+  ): Record<CardType, string[]> {
+    const deal = {} as Record<CardType, string[]>;
 
-    if (!filtered.length) {
-      throw new Error(`Card type bo'sh: ${type}`);
+    for (const type of CARD_TYPES) {
+      const pool = cards.filter((card) => card.type === type).map((c) => c.text);
+
+      if (pool.length < playerCount) {
+        throw new Error(
+          `${type} kartalari yetarli emas: ${pool.length} ta bor, ${playerCount} ta kerak.`
+        );
+      }
+
+      // Fisher–Yates shuffle (crypto-randomInt for fairness).
+      const shuffled = [...pool];
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = randomInt(i + 1);
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      deal[type] = shuffled.slice(0, playerCount);
     }
 
-    return filtered[randomInt(filtered.length)].text;
+    return deal;
   }
 
   private extractCards(
