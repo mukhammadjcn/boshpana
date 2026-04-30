@@ -463,6 +463,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     introOpen,
     situationOpen,
     situationKey,
+    situationRound: roomState?.game.roundNumber ?? null,
     votingActive: roomState?.game.phase === "VOTING",
     meRevealKey,
     meEliminationKey
@@ -553,7 +554,13 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const currentTurnPlayer = players.find(
     (p) => p.id === game?.currentTurnPlayerId
   );
-  const otherPlayers = players.filter((p) => p.id !== me?.id);
+  // After the game ends every player (including self) is shown with full
+  // cards open; mid-game we hide the self row because cards live in the
+  // bottom-sheet "Mening kartalarim" instead.
+  const isFinished = roomState?.room.status === "FINISHED";
+  const otherPlayers = isFinished
+    ? players
+    : players.filter((p) => p.id !== me?.id);
 
   const myCards = useMemo(() => {
     if (!me) return [];
@@ -1036,8 +1043,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 name={p.name}
                 isHost={p.isHost}
                 isAlive={p.isAlive}
+                isMe={p.id === me.id}
                 revealedCards={p.visibleCards}
                 isCurrentTurn={p.id === game.currentTurnPlayerId}
+                gameOver={room.status === "FINISHED"}
                 onKick={
                   me.isHost &&
                   room.status === "PLAYING" &&

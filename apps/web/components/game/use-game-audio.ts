@@ -6,6 +6,7 @@ type GameAudioInput = {
   introOpen: boolean;
   situationOpen: boolean;
   situationKey: string | null;
+  situationRound: number | null;
   votingActive: boolean;
   meRevealKey: string | null;
   meEliminationKey: string | null;
@@ -80,6 +81,7 @@ export function useGameAudio({
   introOpen,
   situationOpen,
   situationKey,
+  situationRound,
   votingActive,
   meRevealKey,
   meEliminationKey
@@ -106,6 +108,7 @@ export function useGameAudio({
   const introOpenRef = useRef(introOpen);
   const situationOpenRef = useRef(situationOpen);
   const situationKeyRef = useRef(situationKey);
+  const situationRoundRef = useRef(situationRound);
   const votingActiveRef = useRef(votingActive);
   useEffect(() => {
     introOpenRef.current = introOpen;
@@ -116,6 +119,9 @@ export function useGameAudio({
   useEffect(() => {
     situationKeyRef.current = situationKey;
   }, [situationKey]);
+  useEffect(() => {
+    situationRoundRef.current = situationRound;
+  }, [situationRound]);
   useEffect(() => {
     votingActiveRef.current = votingActive;
   }, [votingActive]);
@@ -231,14 +237,21 @@ export function useGameAudio({
     [stopLoop]
   );
 
-  // Per-situation-key memoization keeps the SAME audio for the duration of
-  // a round (every time the modal re-opens for the same situation). Picks
-  // come from a shuffled deck so consecutive situations rarely repeat.
+  // Per-round deterministic pick: every client maps a given roundNumber to
+  // the same audio file, so listeners hear the same music together. Falls
+  // back to the situationKey for the rare case where round info is missing.
   const getSituationSrc = useCallback((key: string) => {
+    if (!SITUATION_AUDIOS.length) return null;
     const cached = situationAudioMapRef.current.get(key);
     if (cached) return cached;
-    if (!SITUATION_AUDIOS.length) return null;
-    const picked = pickFromDeck(situationDeckRef.current, SITUATION_AUDIOS);
+    const round = situationRoundRef.current;
+    let picked: string;
+    if (typeof round === "number" && round > 0) {
+      const idx = (round - 1) % SITUATION_AUDIOS.length;
+      picked = SITUATION_AUDIOS[idx];
+    } else {
+      picked = pickFromDeck(situationDeckRef.current, SITUATION_AUDIOS);
+    }
     situationAudioMapRef.current.set(key, picked);
     return picked;
   }, []);

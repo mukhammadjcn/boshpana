@@ -289,18 +289,26 @@ export class GameService {
             revealed: me.attributes?.revealed ?? []
           }
         : null,
-      players: room.players.map((player) => ({
-        id: player.id,
-        name: player.name,
-        isHost: player.isHost,
-        isAlive: player.isAlive,
-        seatOrder: player.seatOrder,
-        visibleCards: player.isAlive
-          ? this.extractRevealedCards(player.attributes)
-          : this.extractCards(player.attributes),
-        revealedCards: this.extractRevealedCards(player.attributes),
-        revealedCount: player.attributes?.revealed.length ?? 0
-      })),
+      players: room.players.map((player) => {
+        // When the game is over, every player's full hand becomes public —
+        // both winners (alive) and eliminated players. During the game, only
+        // eliminated players' full hand is exposed; the rest stays hidden
+        // except for cards the player has chosen to reveal.
+        const gameOver = room.status === RoomStatus.FINISHED;
+        const showAll = gameOver || !player.isAlive;
+        return {
+          id: player.id,
+          name: player.name,
+          isHost: player.isHost,
+          isAlive: player.isAlive,
+          seatOrder: player.seatOrder,
+          visibleCards: showAll
+            ? this.extractCards(player.attributes)
+            : this.extractRevealedCards(player.attributes),
+          revealedCards: this.extractRevealedCards(player.attributes),
+          revealedCount: player.attributes?.revealed.length ?? 0
+        };
+      }),
       votes: {
         total: room.votes.filter((vote) => vote.roundNumber === currentRoundNumber).length,
         submittedByMe: me

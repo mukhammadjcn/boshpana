@@ -17,6 +17,7 @@ type PlayerCardProps = {
   isMe?: boolean;
   isCurrentTurn?: boolean;
   variant?: "row" | "tile";
+  gameOver?: boolean;
   onKick?: () => void;
 };
 
@@ -28,48 +29,61 @@ export function PlayerCard({
   isMe,
   isCurrentTurn,
   variant = "row",
+  gameOver = false,
   onKick
 }: PlayerCardProps) {
   const entries = Object.entries(revealedCards).filter(([, value]) => value);
   const initials = getInitials(name);
 
+  // After the game ends, recolor cards: winners (alive) green, losers
+  // (eliminated) red. Mid-game uses neutral / red-on-eliminated styling.
+  const containerTone = isCurrentTurn
+    ? "border-brand bg-brand-soft"
+    : gameOver
+      ? isAlive
+        ? "border-ok/40 bg-ok/10"
+        : "border-bad/40 bg-bad/10 opacity-90"
+      : isAlive
+        ? "border-line-subtle bg-bg-surface"
+        : "border-bad/30 bg-bad/5 opacity-80";
+
   if (variant === "tile") {
     return (
       <div
-        className={`flex flex-col gap-2 rounded-2xl border p-3 transition ${
-          isCurrentTurn
-            ? "border-brand bg-brand-soft"
-            : isAlive
-              ? "border-line-subtle bg-bg-surface"
-              : "border-bad/30 bg-bad/5 opacity-70"
-        }`}
+        className={`flex flex-col gap-2 rounded-2xl border p-3 transition ${containerTone}`}
       >
         <div className="flex items-center gap-2">
-          <Avatar initials={initials} isHost={isHost} isAlive={isAlive} />
+          <Avatar
+            initials={initials}
+            isHost={isHost}
+            isAlive={isAlive}
+            gameOver={gameOver}
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{name}</p>
             <p className="text-[11px] text-ink-muted">
               {isMe ? "Siz" : isHost ? "Host" : "O‘yinchi"}
             </p>
           </div>
-          <StatusDot isAlive={isAlive} isCurrentTurn={isCurrentTurn} />
+          <StatusDot
+            isAlive={isAlive}
+            isCurrentTurn={isCurrentTurn}
+            gameOver={gameOver}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className={`rounded-2xl border transition ${
-        isCurrentTurn
-          ? "border-brand bg-brand-soft"
-          : isAlive
-            ? "border-line-subtle bg-bg-surface"
-            : "border-bad/30 bg-bad/5 opacity-80"
-      }`}
-    >
+    <div className={`rounded-2xl border transition ${containerTone}`}>
       <div className="flex items-center gap-3 p-3">
-        <Avatar initials={initials} isHost={isHost} isAlive={isAlive} />
+        <Avatar
+          initials={initials}
+          isHost={isHost}
+          isAlive={isAlive}
+          gameOver={gameOver}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-base font-semibold text-ink-primary">
@@ -86,12 +100,24 @@ export function PlayerCard({
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 text-xs text-ink-muted">
+          <p
+            className={`mt-0.5 text-xs ${
+              gameOver
+                ? isAlive
+                  ? "font-semibold text-ok"
+                  : "font-semibold text-bad"
+                : "text-ink-muted"
+            }`}
+          >
             {isCurrentTurn
               ? "Hozir navbat"
-              : isAlive
-                ? `${entries.length}/6 ochiq`
-                : "O‘yindan chiqqan"}
+              : gameOver
+                ? isAlive
+                  ? "Yutgan"
+                  : "Yutqazgan"
+                : isAlive
+                  ? `${entries.length}/6 ochiq`
+                  : "O‘yindan chiqqan"}
           </p>
         </div>
         {onKick && isAlive && !isHost ? (
@@ -139,21 +165,26 @@ export function PlayerCard({
 function Avatar({
   initials,
   isHost,
-  isAlive
+  isAlive,
+  gameOver
 }: {
   initials: string;
   isHost: boolean;
   isAlive: boolean;
+  gameOver: boolean;
 }) {
+  const tone = gameOver
+    ? isAlive
+      ? "bg-ok/20 text-ok"
+      : "bg-bad/15 text-bad"
+    : isHost
+      ? "bg-brand text-bg-base"
+      : isAlive
+        ? "bg-bg-elevated text-ink-primary"
+        : "bg-bad/15 text-bad";
   return (
     <div
-      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold ${
-        isHost
-          ? "bg-brand text-bg-base"
-          : isAlive
-            ? "bg-bg-elevated text-ink-primary"
-            : "bg-bad/15 text-bad"
-      }`}
+      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold ${tone}`}
     >
       {initials}
     </div>
@@ -162,15 +193,28 @@ function Avatar({
 
 function StatusDot({
   isAlive,
-  isCurrentTurn
+  isCurrentTurn,
+  gameOver
 }: {
   isAlive: boolean;
   isCurrentTurn?: boolean;
+  gameOver?: boolean;
 }) {
   if (isCurrentTurn) {
     return (
       <span className="flex items-center gap-1 rounded-full bg-brand px-2 py-1 text-[10px] font-semibold uppercase text-bg-base">
         Navbat
+      </span>
+    );
+  }
+  if (gameOver) {
+    return (
+      <span
+        className={`flex items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${
+          isAlive ? "bg-ok/20 text-ok" : "bg-bad/15 text-bad"
+        }`}
+      >
+        {isAlive ? "Yutgan" : "Chiqqan"}
       </span>
     );
   }

@@ -58,10 +58,13 @@ export function HostControls({
               ? { label: "Ovoz berish", onClick: onStartVoting }
               : null;
 
-  // Secondary "skip voting" only makes sense before voting actually happened.
-  const secondary =
-    !votingFinished && canStartVoting && canSkipVoting
-      ? { label: "Ovozsiz keyingi round", onClick: onSkipVoting }
+  // Secondary action depends on whether voting already happened this round.
+  // Before voting: offer to skip it. After voting: offer another vote pass
+  // (useful in 8+ player games where one elimination per round is too slow).
+  const secondary = !votingFinished && canStartVoting && canSkipVoting
+    ? { label: "Ovozsiz keyingi round", onClick: onSkipVoting }
+    : votingFinished && canStartVoting
+      ? { label: "Yana ovoz berish", onClick: onStartVoting }
       : null;
 
   const endLabel = isLobby ? "Roomni o'chirish" : "O‘yinni tugatish";
