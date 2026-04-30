@@ -98,32 +98,54 @@ export async function registerInternalAdminRoutes(app: FastifyInstance) {
 
   app.get("/internal/admin/stats", async (_request, reply) => {
     try {
+      // Stats live in GameHistory, not Room/Game. Active rooms get pruned by
+      // the cleanup sweeper after 30 minutes (FINISHED/CANCELLED) or 24
+      // hours (stale LOBBY/PLAYING), so counting from those tables under-
+      // reports anything older than that window. GameHistory is the durable
+      // source of truth — one row per game (host's record).
       const [
         totalUsers,
-        totalRooms,
-        finishedRooms,
-        cancelledRooms,
+        lobbyRooms,
         playingRooms,
-        gamesStarted,
-        avgDurationGroup
+        historyRows
       ] = await Promise.all([
         prisma.user.count(),
-        prisma.room.count(),
-        prisma.room.count({ where: { status: "FINISHED" } }),
-        prisma.room.count({ where: { status: "CANCELLED" } }),
+        prisma.room.count({ where: { status: "LOBBY" } }),
         prisma.room.count({ where: { status: "PLAYING" } }),
-        prisma.game.count({ where: { startedAt: { not: null } } }),
         prisma.gameHistory.findMany({
-          where: {
-            durationSeconds: { not: null },
-            outcome: { not: "CANCELLED" }
-          },
+          // Dedupe by roomCode + playedAt to collapse the rare case where
+          // saveGameHistory fires twice for the same game (e.g. natural end
+          // followed by an immediate manual end click).
           distinct: ["roomCode", "playedAt"],
-          select: { durationSeconds: true }
+          select: {
+            outcome: true,
+            durationSeconds: true,
+            startedAt: true
+          }
         })
       ]);
 
-      const durations = avgDurationGroup
+      const finishedGames = historyRows.filter(
+        (row) => row.outcome !== "CANCELLED"
+      );
+      const cancelledGames = historyRows.filter(
+        (row) => row.outcome === "CANCELLED"
+      );
+      // A game is "started" if it ever entered PLAYING (lobby cancellations
+      // are excluded). For currently-running rooms the row isn't in history
+      // yet, so add the live PLAYING count.
+      const gamesStarted = finishedGames.length + playingRooms;
+
+      // Average duration only counts games that played to completion —
+      // HOSTED (host pressed "tugatish") and CANCELLED skew the average
+      // because they end early.
+      const naturallyFinished = historyRows.filter(
+        (row) =>
+          row.outcome === "WON" ||
+          row.outcome === "ELIMINATED" ||
+          row.outcome === "PLAYED"
+      );
+      const durations = naturallyFinished
         .map((row) => row.durationSeconds ?? 0)
         .filter((n) => n > 0);
       const avgDurationSeconds = durations.length
@@ -134,9 +156,10 @@ export async function registerInternalAdminRoutes(app: FastifyInstance) {
 
       return reply.send({
         totalUsers,
-        totalRooms,
-        finishedRooms,
-        cancelledRooms,
+        // Total games: every history entry + currently active rooms.
+        totalRooms: historyRows.length + lobbyRooms + playingRooms,
+        finishedRooms: finishedGames.length,
+        cancelledRooms: cancelledGames.length,
         playingRooms,
         gamesStarted,
         avgDurationSeconds,
