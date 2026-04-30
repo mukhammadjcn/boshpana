@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { Timer } from "@/components/timer";
+
 const cardLabels: Record<string, string> = {
   PROFESSION: "Kasb",
   HEALTH: "Sog‘liq",
@@ -22,6 +24,7 @@ type VotePanelProps = {
   }>;
   meId?: string;
   tiebreakCandidateIds?: string[];
+  secondsLeft?: number | null;
   onVote: (targetPlayerId: string) => void;
 };
 
@@ -31,6 +34,7 @@ export function VotePanel({
   players,
   meId,
   tiebreakCandidateIds = [],
+  secondsLeft,
   onVote
 }: VotePanelProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -114,11 +118,19 @@ export function VotePanel({
             </p>
             <h2 className="mt-0.5 text-lg font-semibold">{headline}</h2>
           </div>
-          {!meIsCandidate ? (
-            <span className="rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-xs font-medium text-ink-secondary">
-              {options.length} ta nomzod
-            </span>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {typeof secondsLeft === "number" ? (
+              <Timer
+                seconds={secondsLeft}
+                variant={hasVoted ? "muted" : "danger"}
+              />
+            ) : null}
+            {!meIsCandidate ? (
+              <span className="rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-xs font-medium text-ink-secondary">
+                {options.length} ta nomzod
+              </span>
+            ) : null}
+          </div>
         </div>
         <p className="px-5 pb-3 pt-1 text-sm text-ink-secondary">{helper}</p>
       </header>

@@ -1280,6 +1280,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           }))}
           meId={me.id}
           tiebreakCandidateIds={game.tiebreakCandidateIds}
+          secondsLeft={game.remainingSeconds}
           onVote={(targetPlayerId) => emit("vote", { targetPlayerId })}
         />
       ) : null}

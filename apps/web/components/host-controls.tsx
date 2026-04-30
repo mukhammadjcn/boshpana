@@ -37,7 +37,7 @@ export function HostControls({
   onAdvanceTurn,
   onStartVoting,
   onSkipVoting,
-  onEndGame
+  onEndGame,
 }: HostControlsProps) {
   if (!isHost) {
     return null;
@@ -55,7 +55,7 @@ export function HostControls({
           : votingFinished && canSkipVoting
             ? { label: "Keyingi roundni boshlash", onClick: onSkipVoting }
             : canStartVoting
-              ? { label: "Ovoz berishni boshlash", onClick: onStartVoting }
+              ? { label: "Ovoz berish", onClick: onStartVoting }
               : null;
 
   // Secondary "skip voting" only makes sense before voting actually happened.
@@ -64,7 +64,7 @@ export function HostControls({
       ? { label: "Ovozsiz keyingi round", onClick: onSkipVoting }
       : null;
 
-  const endLabel = isLobby ? "Roomni bekor qilish" : "O‘yinni tugatish";
+  const endLabel = isLobby ? "Roomni o'chirish" : "O‘yinni tugatish";
 
   return (
     <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3">
@@ -81,12 +81,12 @@ export function HostControls({
         ) : null}
       </div>
 
-      {primary || secondary ? (
+      {primary || secondary || isLobby ? (
         <div className="flex flex-wrap gap-2">
           {primary ? (
             <button
               onClick={primary.onClick}
-              className="flex h-12 flex-1 min-w-[180px] items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+              className="flex h-12 flex-1 min-w-[140px] items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
             >
               {primary.label}
             </button>
@@ -99,22 +99,21 @@ export function HostControls({
               {secondary.label}
             </button>
           ) : null}
+          {isLobby ? (
+            <button
+              type="button"
+              onClick={onEndGame}
+              className="flex h-12 flex-1 min-w-[140px] items-center justify-center rounded-xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
+            >
+              {endLabel}
+            </button>
+          ) : null}
         </div>
-      ) : !isLobby ? (
+      ) : (
         <p className="text-sm text-ink-muted">
           Hozir host uchun action yo‘q. Keyingi fazani kuting.
         </p>
-      ) : null}
-
-      {isLobby ? (
-        <button
-          type="button"
-          onClick={onEndGame}
-          className={`flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.98] ${primary || secondary ? "mt-2" : ""}`}
-        >
-          {endLabel}
-        </button>
-      ) : null}
+      )}
     </div>
   );
 }
