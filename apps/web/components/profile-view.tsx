@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { BottomNav } from "@/components/bottom-nav";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { apiRequest } from "@/lib/api";
 import {
   type AuthUser,
@@ -27,13 +28,13 @@ export function ProfileView() {
   } | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [canLogout, setCanLogout] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   useEffect(() => {
     setCanLogout(!isInsideTelegram());
   }, []);
 
-  function handleLogout() {
-    if (!confirm("Tizimdan chiqishni xohlaysizmi?")) return;
+  function performLogout() {
     clearAuthToken();
     router.replace("/" as Route);
     if (typeof window !== "undefined") window.location.reload();
@@ -198,7 +199,7 @@ export function ProfileView() {
           {canLogout ? (
             <section className="mt-6">
               <button
-                onClick={handleLogout}
+                onClick={() => setLogoutOpen(true)}
                 className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.99]"
               >
                 Tizimdan chiqish
@@ -208,6 +209,16 @@ export function ProfileView() {
         </>
       )}
       <BottomNav />
+      <ConfirmModal
+        open={logoutOpen}
+        title="Tizimdan chiqasizmi?"
+        description="Joriy seansdan chiqasiz. Keyingi safar Telegram orqali qayta kirish kerak bo'ladi."
+        confirmLabel="Chiqish"
+        cancelLabel="Bekor qilish"
+        tone="danger"
+        onConfirm={performLogout}
+        onClose={() => setLogoutOpen(false)}
+      />
     </main>
   );
 }

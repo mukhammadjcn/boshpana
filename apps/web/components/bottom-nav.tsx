@@ -49,8 +49,11 @@ const TABS: Tab[] = [
         strokeLinejoin="round"
         aria-hidden
       >
-        <rect x="3" y="6" width="18" height="14" rx="3" />
-        <path d="M7 10h2M11 10h2M15 10h2M7 14h10" />
+        <rect x="2.5" y="7" width="19" height="11" rx="5.5" />
+        <circle cx="8" cy="12.5" r="0.6" fill="currentColor" stroke="none" />
+        <path d="M7 10.5v4M5 12.5h4" />
+        <circle cx="15.75" cy="11" r="1" fill="currentColor" stroke="none" />
+        <circle cx="18" cy="13.5" r="1" fill="currentColor" stroke="none" />
       </svg>
     )
   },

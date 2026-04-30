@@ -74,7 +74,7 @@ export function ActiveGames() {
 
   if (loading) {
     return (
-      <section className="mt-6">
+      <section>
         <div className="h-3 w-24 animate-pulse rounded-full bg-bg-elevated" />
         <ul className="mt-2 grid gap-2">
           {Array.from({ length: 2 }).map((_, i) => (
@@ -97,7 +97,7 @@ export function ActiveGames() {
   if (!items.length) return null;
 
   return (
-    <section className="mt-6">
+    <section>
       <p className="text-xs font-medium uppercase tracking-wider text-brand">
         Davom ettirish
       </p>

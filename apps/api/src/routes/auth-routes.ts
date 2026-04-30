@@ -4,14 +4,96 @@ import { env } from "../lib/env";
 import { prisma } from "../lib/prisma";
 import {
   AuthError,
+  countHostedRoomsLast30d,
   publicUser,
   signAccessToken,
   upsertUserFromTelegram,
   verifyTelegramInitData
 } from "../services/auth-service";
+import {
+  createAuthSession,
+  deleteAuthSession,
+  getAuthSession,
+  ensureAuthSessionSweeper
+} from "../services/auth-session-store";
 import { requireAuth } from "../lib/auth-decorator";
 
+function buildBotLink(botHash: string): string | null {
+  const username = env.telegramBotUsername;
+  if (!username) return null;
+  // Always use the chat deep link (?start=...) — not the Mini App
+  // (?startapp=...). The bot chat is what surfaces the contact keyboard
+  // and the Yes/No confirmation buttons; the WebApp can't run those.
+  return `https://t.me/${username}?start=auth_${botHash}`;
+}
+
 export async function registerAuthRoutes(app: FastifyInstance) {
+  ensureAuthSessionSweeper();
+
+  // Browser asks for a fresh bot-login session. Returns the token (used
+  // for polling) and the bot link the user must open in Telegram.
+  app.post<{ Body: { redirect?: string } }>(
+    "/api/auth/bot-session",
+    async (request, reply) => {
+      if (!env.telegramBotUsername) {
+        return reply
+          .status(503)
+          .send({ message: "Bot ulanmagan, administratorga murojaat qiling." });
+      }
+      const redirect = (request.body?.redirect ?? "").trim() || undefined;
+      const session = await createAuthSession({ redirect });
+      const botLink = buildBotLink(session.botHash);
+      return reply.send({
+        token: session.token,
+        botLink,
+        expiresIn: Math.max(
+          0,
+          Math.floor((session.expiresAt - Date.now()) / 1000)
+        )
+      });
+    }
+  );
+
+  // Browser polls this endpoint until status === "confirmed". On success
+  // the session is consumed (deleted) and the JWT is returned.
+  app.get<{ Params: { token: string } }>(
+    "/api/auth/bot-session/:token",
+    async (request, reply) => {
+      const session = await getAuthSession(request.params.token);
+      if (!session) {
+        return reply
+          .status(404)
+          .send({ message: "Sessiya topilmadi yoki muddati tugagan." });
+      }
+      if (session.status === "confirmed" && session.userId) {
+        const user = await prisma.user.findUnique({
+          where: { id: session.userId }
+        });
+        if (!user) {
+          await deleteAuthSession(session.token);
+          return reply
+            .status(404)
+            .send({ message: "Foydalanuvchi topilmadi." });
+        }
+        const token = signAccessToken(user.id);
+        await deleteAuthSession(session.token);
+        return reply.send({
+          status: "confirmed",
+          token,
+          user: publicUser(user),
+          redirect: session.payload.redirect ?? null
+        });
+      }
+      return reply.send({
+        status: session.status,
+        expiresIn: Math.max(
+          0,
+          Math.floor((session.expiresAt - Date.now()) / 1000)
+        )
+      });
+    }
+  );
+
   app.post<{ Body: { initData?: string } }>(
     "/api/auth/telegram-webapp",
     async (request, reply) => {
@@ -81,10 +163,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     { preHandler: requireAuth },
     async (request, reply) => {
       const user = request.authUser!;
-      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const used = await prisma.room.count({
-        where: { hostUserId: user.id, createdAt: { gte: since } }
-      });
+      const used = await countHostedRoomsLast30d(user.id);
       const limit = env.roomCreationLimit;
       return reply.send({
         roomsCreatedLast30d: used,

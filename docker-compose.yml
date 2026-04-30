@@ -16,6 +16,16 @@ services:
       timeout: 5s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   api:
     build:
       context: .
@@ -29,8 +39,19 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bunker.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe123!}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-super-secret-admin-jwt}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-30d}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEB_APP_NAME: ${NEXT_PUBLIC_TELEGRAM_WEB_APP_NAME:-}
+      TELEGRAM_WEB_APP_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      TELEGRAM_AUTH_MAX_AGE_SECONDS: ${TELEGRAM_AUTH_MAX_AGE_SECONDS:-86400}
+      ROOM_CREATION_LIMIT_PER_30D: ${ROOM_CREATION_LIMIT_PER_30D:-10}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "4000:4000"
@@ -39,6 +60,12 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:4000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:-}
+        NEXT_PUBLIC_TELEGRAM_WEB_APP_NAME: ${NEXT_PUBLIC_TELEGRAM_WEB_APP_NAME:-}
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}

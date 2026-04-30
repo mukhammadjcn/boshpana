@@ -65,15 +65,18 @@ const modelDefinitions: Record<string, ModelDefinition> = {
     searchKeys: ["text", "type"],
     createFields: [
       { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
-      { key: "text", label: "Matn", type: "textarea", required: true }
+      { key: "text", label: "Matn", type: "textarea", required: true },
+      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
     ],
     editFields: [
       { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
-      { key: "text", label: "Matn", type: "textarea", required: true }
+      { key: "text", label: "Matn", type: "textarea", required: true },
+      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
     ],
     allowDelete: true,
     columns: [
       { key: "type", label: "Turi", width: "w-32", render: (i) => formatCardType(i.type) },
+      { key: "isAdult", label: "Reyting", width: "w-20", render: (i) => (i.isAdult ? "18+" : "Normal") },
       { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
     ]
   },
@@ -83,15 +86,18 @@ const modelDefinitions: Record<string, ModelDefinition> = {
     searchKeys: ["name", "description"],
     createFields: [
       { key: "name", label: "Nomi", type: "text", required: true },
-      { key: "description", label: "Tavsif", type: "textarea", required: true }
+      { key: "description", label: "Tavsif", type: "textarea", required: true },
+      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
     ],
     editFields: [
       { key: "name", label: "Nomi", type: "text", required: true },
-      { key: "description", label: "Tavsif", type: "textarea", required: true }
+      { key: "description", label: "Tavsif", type: "textarea", required: true },
+      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
     ],
     allowDelete: true,
     columns: [
       { key: "name", label: "Nomi", width: "w-48", render: (i) => String(i.name ?? "") },
+      { key: "isAdult", label: "Reyting", width: "w-20", render: (i) => (i.isAdult ? "18+" : "Normal") },
       { key: "description", label: "Tavsif", render: (i) => String(i.description ?? "") }
     ]
   },
@@ -101,15 +107,18 @@ const modelDefinitions: Record<string, ModelDefinition> = {
     searchKeys: ["text", "difficulty"],
     createFields: [
       { key: "text", label: "Matn", type: "textarea", required: true },
-      { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions }
+      { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions },
+      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
     ],
     editFields: [
       { key: "text", label: "Matn", type: "textarea", required: true },
-      { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions }
+      { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions },
+      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
     ],
     allowDelete: true,
     columns: [
       { key: "difficulty", label: "Daraja", width: "w-24", render: (i) => String(i.difficulty ?? "") },
+      { key: "isAdult", label: "Reyting", width: "w-20", render: (i) => (i.isAdult ? "18+" : "Normal") },
       { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
     ]
   },
@@ -234,6 +243,11 @@ export function AdminDashboard() {
   const [items, setItems] = useState<AdminItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  // Cards-only quick filters: limit table by card type and/or 18+ flag.
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [adultFilter, setAdultFilter] = useState<"all" | "normal" | "adult">(
+    "all"
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [message, setMessage] = useState<string | null>(null);
@@ -274,6 +288,8 @@ export function AdminDashboard() {
     setError(null);
     setMessage(null);
     setSearch("");
+    setTypeFilter("");
+    setAdultFilter("all");
     setPage(1);
     setEditingItem(null);
     setConfirmDelete(null);
@@ -380,10 +396,13 @@ export function AdminDashboard() {
 
   // Filtering + pagination
   const filteredItems = useMemo(() => {
-    if (!search.trim()) return items;
     const q = search.trim().toLowerCase();
     const keys = definition?.searchKeys ?? [];
     return items.filter((item) => {
+      if (typeFilter && item.type !== typeFilter) return false;
+      if (adultFilter === "adult" && !item.isAdult) return false;
+      if (adultFilter === "normal" && item.isAdult) return false;
+      if (!q) return true;
       if (keys.length) {
         return keys.some((k) =>
           String(item[k] ?? "").toLowerCase().includes(q)
@@ -393,7 +412,7 @@ export function AdminDashboard() {
         String(v ?? "").toLowerCase().includes(q)
       );
     });
-  }, [items, search, definition?.searchKeys]);
+  }, [items, search, typeFilter, adultFilter, definition?.searchKeys]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -405,7 +424,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, pageSize, selectedModel]);
+  }, [search, pageSize, selectedModel, typeFilter, adultFilter]);
 
   return (
     <div className="grid gap-3">
@@ -459,6 +478,37 @@ export function AdminDashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {selectedModel === "cards" ? (
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="h-8 rounded-lg border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none focus:border-brand"
+              title="Turi bo'yicha filter"
+            >
+              <option value="">Barcha turlar</option>
+              {cardTypeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          {selectedModel === "cards" ||
+          selectedModel === "disasters" ||
+          selectedModel === "situations" ? (
+            <select
+              value={adultFilter}
+              onChange={(e) =>
+                setAdultFilter(e.target.value as "all" | "normal" | "adult")
+              }
+              className="h-8 rounded-lg border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none focus:border-brand"
+              title="Reyting bo'yicha filter"
+            >
+              <option value="all">Barcha reyting</option>
+              <option value="normal">Normal</option>
+              <option value="adult">18+</option>
+            </select>
+          ) : null}
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}

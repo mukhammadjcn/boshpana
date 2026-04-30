@@ -21,6 +21,7 @@ type CreateRoomInput = {
   winnerTarget: number;
   maxPlayers?: number;
   hostUserId?: string;
+  isAdult?: boolean;
 };
 
 type JoinRoomInput = {
@@ -144,6 +145,7 @@ export class GameService {
         hostUserId: input.hostUserId ?? null,
         winnerTarget,
         maxPlayers,
+        isAdult: !!input.isAdult,
         players: {
           create: {
             name: input.hostName.trim(),
@@ -317,9 +319,13 @@ export class GameService {
       throw new Error("O'yinni boshlash uchun kamida 3 o'yinchi kerak.");
     }
 
+    // 18+ rooms can pull from both pools (more variety); normal rooms
+    // only see family-friendly content. Filter at the source so admins
+    // can flip a single flag and have it propagate everywhere.
+    const adultFilter = room.isAdult ? {} : { isAdult: false };
     const [disasters, cards] = await Promise.all([
-      prisma.disaster.findMany(),
-      prisma.card.findMany()
+      prisma.disaster.findMany({ where: adultFilter }),
+      prisma.card.findMany({ where: adultFilter })
     ]);
 
     if (!disasters.length || !cards.length) {
@@ -859,7 +865,10 @@ export class GameService {
     }
 
     const nextRound = room.round + 1;
-    const nextSituation = await this.pickSituation(room.game.currentSituationId ?? undefined);
+    const nextSituation = await this.pickSituation(
+      room.game.currentSituationId ?? undefined,
+      room.isAdult
+    );
 
     const stillEligible = room.players.some(
       (player) =>
@@ -1162,10 +1171,11 @@ export class GameService {
     });
   }
 
-  private async pickSituation(excludeId?: string) {
-    const situations = await prisma.situation.findMany({
-      where: excludeId ? { id: { not: excludeId } } : undefined
-    });
+  private async pickSituation(excludeId?: string, isAdult: boolean = false) {
+    const where: { id?: { not: string }; isAdult?: false } = {};
+    if (excludeId) where.id = { not: excludeId };
+    if (!isAdult) where.isAdult = false;
+    const situations = await prisma.situation.findMany({ where });
 
     if (!situations.length) {
       throw new Error("Situation ma'lumotlari topilmadi.");

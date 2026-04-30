@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "grammy": "^1.42.0",
+    "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3"
   }
 }

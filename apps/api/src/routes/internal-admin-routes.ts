@@ -10,12 +10,14 @@ type AdminDelegate = {
   delete: (args: any) => Promise<any>;
 };
 
+type OrderByEntry = Record<string, "asc" | "desc">;
+
 const adminModelConfig: Record<
   string,
   {
     delegate: AdminDelegate;
     include?: Record<string, boolean>;
-    orderBy?: Record<string, "asc" | "desc">;
+    orderBy?: OrderByEntry | OrderByEntry[];
   }
 > = {
   users: {
@@ -51,17 +53,19 @@ const adminModelConfig: Record<
   cards: {
     delegate: prisma.card as AdminDelegate,
     include: undefined,
-    orderBy: { updatedAt: "desc" as const }
+    // Stable order: edits mustn't shuffle a row to the top. Seed inserts
+    // share a `createdAt`, so we tie-break by `id` for full determinism.
+    orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   },
   disasters: {
     delegate: prisma.disaster as AdminDelegate,
     include: undefined,
-    orderBy: { updatedAt: "desc" as const }
+    orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   },
   situations: {
     delegate: prisma.situation as AdminDelegate,
     include: undefined,
-    orderBy: { updatedAt: "desc" as const }
+    orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   }
 };
 

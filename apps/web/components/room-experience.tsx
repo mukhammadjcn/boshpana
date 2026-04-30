@@ -16,7 +16,6 @@ import { PlayerCard } from "@/components/player-card";
 import { Timer } from "@/components/timer";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
 import {
-  buildTelegramBotLink,
   buildTelegramShareUrl,
   buildTelegramStartappLink,
   isInsideTelegram,
@@ -88,6 +87,13 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     name: string;
   } | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  const [revealModal, setRevealModal] = useState<{
+    playerId: string;
+    playerName: string;
+    newCardType: CardType;
+    newCardValue: string;
+    olderCards: Array<{ type: CardType; value: string }>;
+  } | null>(null);
 
   const connectedRef = useRef(false);
   const seenSituationKeysRef = useRef<Set<string>>(new Set());
@@ -265,7 +271,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     playersRef.current = roomState?.players ?? [];
   }, [roomState?.players]);
 
-  // Reveal announcement — only re-fires when the actual reveal id changes.
+  // Reveal announcement — opens a centred modal showing the player's
+  // freshly revealed card (highlighted) alongside their previously-shown
+  // cards. Players see this for everyone except themselves (they already
+  // know what they revealed).
   useEffect(() => {
     if (
       !roomState?.game.lastRevealedPlayerId ||
@@ -273,24 +282,40 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     )
       return;
 
-    const key = `${roomState.game.roundNumber}-${roomState.game.lastRevealedPlayerId}-${roomState.game.lastRevealedCardType}`;
+    const playerId = roomState.game.lastRevealedPlayerId;
+    const cardType = roomState.game.lastRevealedCardType;
+    const key = `${roomState.game.roundNumber}-${playerId}-${cardType}`;
     if (seenRevealAnnouncementRef.current.has(key)) return;
 
-    const player = playersRef.current.find(
-      (p) => p.id === roomState.game.lastRevealedPlayerId
-    );
+    const player = playersRef.current.find((p) => p.id === playerId);
     if (!player) return;
+    // Don't show the modal to the player who actually revealed the card.
+    if (roomState.me?.id === playerId) {
+      seenRevealAnnouncementRef.current.add(key);
+      return;
+    }
+
+    const newCardValue = player.revealedCards?.[cardType] ?? "";
+    if (!newCardValue) return;
+
+    const olderCards: Array<{ type: CardType; value: string }> = Object
+      .entries(player.revealedCards ?? {})
+      .filter(([t, v]) => t !== cardType && !!v)
+      .map(([t, v]) => ({ type: t as CardType, value: v as string }));
 
     seenRevealAnnouncementRef.current.add(key);
-    setAnnouncement({
-      key,
-      title: `${player.name} kartasini ochdi`,
-      description: `${cardLabels[roomState.game.lastRevealedCardType]} endi hammaga ko‘rinadi.`
+    setRevealModal({
+      playerId,
+      playerName: player.name,
+      newCardType: cardType,
+      newCardValue,
+      olderCards
     });
   }, [
     roomState?.game.lastRevealedCardType,
     roomState?.game.lastRevealedPlayerId,
-    roomState?.game.roundNumber
+    roomState?.game.roundNumber,
+    roomState?.me?.id
   ]);
 
   // Elimination announcement — only re-fires when the actual elimination changes.
@@ -600,8 +625,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     }
 
     if (!getAuthToken()) {
-      const deepLink =
-        buildTelegramStartappLink(`room_${roomCode}`) ?? buildTelegramBotLink();
+      const loginHref = `/login?redirect=${encodeURIComponent(`/room/${roomCode}`)}`;
       return (
         <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
           <div className="mx-auto max-w-md pt-6">
@@ -609,12 +633,11 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
               Taklif
             </p>
             <h1 className="mt-1 text-2xl font-bold">
-              Roomga kirish uchun Telegramda kiring
+              Roomga kirish uchun tizimga kiring
             </h1>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
               Roomga qo'shilish uchun bot orqali bir martalik avtorizatsiya
-              kerak. Avtorizatsiyadan keyin to'g'ridan-to'g'ri shu xonaga
-              tushasiz.
+              kerak. Tasdiqlangach to'g'ridan-to'g'ri shu xonaga tushasiz.
             </p>
 
             <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
@@ -624,21 +647,13 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
               </p>
             </div>
 
-            {deepLink ? (
-              <a
-                href={deepLink}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-              >
-                <span aria-hidden>✈</span>
-                Telegramda ochish
-              </a>
-            ) : (
-              <p className="mt-5 rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-                Bot ulanmagan. Administratorga murojaat qiling.
-              </p>
-            )}
+            <a
+              href={loginHref}
+              className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              <span aria-hidden>✈</span>
+              Telegramda kirish
+            </a>
           </div>
         </main>
       );
@@ -1411,6 +1426,69 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
             <p className="mt-1 text-sm leading-6 text-ink-secondary">
               {announcement.description}
             </p>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Card reveal modal — shows whose card just opened, with the new
+          card highlighted and older reveals as smaller chips. */}
+      {revealModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setRevealModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl border border-line-strong bg-bg-surface p-5 shadow-pop"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
+              Karta ochildi
+            </p>
+            <h3 className="mt-1 text-xl font-bold text-ink-primary">
+              {revealModal.playerName}
+            </h3>
+
+            <div className="mt-5 rounded-2xl border border-brand/40 bg-brand-soft/40 p-4">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
+                {cardLabels[revealModal.newCardType]} · yangi
+              </p>
+              <p className="mt-2 text-base font-semibold leading-7 text-ink-primary">
+                {revealModal.newCardValue}
+              </p>
+            </div>
+
+            {revealModal.olderCards.length > 0 ? (
+              <div className="mt-4">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
+                  Avval ochilganlar
+                </p>
+                <ul className="mt-2 grid gap-2">
+                  {revealModal.olderCards.map((c) => (
+                    <li
+                      key={c.type}
+                      className="rounded-xl border border-line-subtle bg-bg-base/60 px-3 py-2"
+                    >
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
+                        {cardLabels[c.type]}
+                      </p>
+                      <p className="mt-0.5 text-sm leading-6 text-ink-secondary">
+                        {c.value}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setRevealModal(null)}
+              className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              Tushundim
+            </button>
           </div>
         </div>
       ) : null}

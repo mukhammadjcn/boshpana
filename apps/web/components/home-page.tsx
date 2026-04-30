@@ -1,76 +1,66 @@
 "use client";
 
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { getAuthToken } from "@/lib/auth";
-import { buildTelegramBotLink } from "@/lib/telegram";
 
 const FEATURES = [
   {
     title: "6 yashirin atribut",
-    body:
-      "Har bir o'yinchiga kasb, sog'liq, xarakter, skill, bagaj va fakt tushadi. Ularni qachon ochishni o'zingiz hal qilasiz.",
-    icon: "🃏"
+    body: "Har bir o'yinchiga kasb, sog'liq, xarakter, skill, bagaj va fakt tushadi. Ularni qachon ochishni o'zingiz hal qilasiz.",
+    icon: "🃏",
   },
   {
     title: "Real-time o'yin",
-    body:
-      "Hammasi telefoningizda — round, taymerli pitch, ovoz berish va eliminatsiya jonli ravishda yuradi.",
-    icon: "⚡"
+    body: "Hammasi telefoningizda — round, taymerli pitch, ovoz berish va eliminatsiya jonli ravishda yuradi.",
+    icon: "⚡",
   },
   {
     title: "3-10 o'yinchi",
-    body:
-      "Kichkina davradan to'liq mehmonxonagacha. Limitga qarab finish — 1, 2 yoki 3 kishi qolganda tugaydi.",
-    icon: "👥"
+    body: "Kichkina davradan to'liq mehmonxonagacha. Limitga qarab finish — 1, 2 yoki 3 kishi qolganda tugaydi.",
+    icon: "👥",
   },
   {
     title: "Aniq tiebreak",
-    body:
-      "Ovozlar teng kelsa tizim random tanlamaydi — qayta ovoz bosqichi ochiladi va hayotingizni himoya qilasiz.",
-    icon: "⚖️"
+    body: "Ovozlar teng kelsa tizim random tanlamaydi — qayta ovoz bosqichi ochiladi va hayotingizni himoya qilasiz.",
+    icon: "⚖️",
   },
   {
     title: "Telegram-first",
-    body:
-      "Hisob — Telegram orqali. Lobbyni do'stlarga forward qilasiz, kod kiritish shart emas.",
-    icon: "📨"
+    body: "Hisob — Telegram orqali. Lobbyni do'stlarga forward qilasiz, kod kiritish shart emas.",
+    icon: "📨",
   },
   {
     title: "O'yinlar tarixi",
-    body:
-      "Tugagan o'yinlaringiz tarixda saqlanadi — qaysi falokat, kim g'olib bo'lgan, qancha vaqt bo'lgan.",
-    icon: "🗂️"
-  }
+    body: "Tugagan o'yinlaringiz tarixda saqlanadi — qaysi falokat, kim g'olib bo'lgan, qancha vaqt bo'lgan.",
+    icon: "🗂️",
+  },
 ];
 
 const STEPS = [
   {
     n: 1,
     title: "Telegramda kirasiz",
-    body:
-      "Bot orqali bir martalik avtorizatsiya. Telefon raqamingiz so'raladi, keyingi kirishlarda avtomatik kirib turasiz."
+    body: "Bot orqali bir martalik avtorizatsiya. Telefon raqamingiz so'raladi, keyingi kirishlarda avtomatik kirib turasiz.",
   },
   {
     n: 2,
     title: "Room yaratasiz yoki qo'shilasiz",
-    body:
-      "Host yaratadi va lobbyni Telegramda forward qiladi. Qolganlar bir bosishda ichkariga tushadi."
+    body: "Host yaratadi va lobbyni Telegramda forward qiladi. Qolganlar bir bosishda ichkariga tushadi.",
   },
   {
     n: 3,
     title: "Karta ochib, gaplashasiz",
-    body:
-      "Har round bitta atribut ochiladi va 2 daqiqada o'zingizni himoya qilasiz."
+    body: "Har round bitta atribut ochiladi va 2 daqiqada o'zingizni himoya qilasiz.",
   },
   {
     n: 4,
     title: "Ovoz va eliminatsiya",
-    body:
-      "Round oxirida kim ortiqcha ekanligi aniqlanadi. Tirik qolganlar finish‑ga yetib boradi."
-  }
+    body: "Round oxirida kim ortiqcha ekanligi aniqlanadi. Tirik qolganlar finish‑ga yetib boradi.",
+  },
 ];
 
 const ATTRIBUTES = [
@@ -79,13 +69,13 @@ const ATTRIBUTES = [
   { label: "Xarakter", hint: "Jamoa bilan til topasiz?" },
   { label: "Skill", hint: "Qaysi yo'nalishda yordam berasiz?" },
   { label: "Bagaj", hint: "Yoningizda nima bor?" },
-  { label: "Fakt", hint: "Sir yoki ustunlik" }
+  { label: "Fakt", hint: "Sir yoki ustunlik" },
 ];
 
 export function HomePage() {
   const router = useRouter();
   const [redirecting, setRedirecting] = useState(false);
-  const botLink = useMemo(() => buildTelegramBotLink(), []);
+  const loginHref = "/login" as Route;
 
   useEffect(() => {
     if (getAuthToken()) {
@@ -122,7 +112,7 @@ export function HomePage() {
             </div>
           </div>
           <BotCta
-            href={botLink}
+            href={loginHref}
             label="Telegramda ochish"
             variant="primary"
             size="sm"
@@ -144,18 +134,19 @@ export function HomePage() {
             </h1>
             <p className="mt-4 text-base leading-7 text-ink-secondary sm:text-lg sm:leading-8">
               6 ta yashirin atribut, jonli pitch va ovoz berish. Telegramda
-              do'stlaringiz bilan 10 daqiqada bunkerga kim loyiqligini
-              hal qilasiz — barchasi telefondan, hech qanday o'rnatuvchi
-              ilovasiz.
+              do'stlaringiz bilan 10 daqiqada bunkerga kim loyiqligini hal
+              qilasiz — barchasi telefondan, hech qanday o'rnatuvchi ilovasiz.
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <BotCta
-                href={botLink}
-                label="Telegramda boshlash"
-                variant="primary"
-                size="lg"
-              />
+              <div className="hidden sm:block">
+                <BotCta
+                  href={loginHref}
+                  label="Telegramda boshlash"
+                  variant="primary"
+                  size="lg"
+                />
+              </div>
               <p className="text-xs text-ink-muted sm:text-sm">
                 O'yin yaratish va qo'shilish uchun Telegram orqali kiring
               </p>
@@ -183,8 +174,8 @@ export function HomePage() {
                 Falokat: Quyosh portlashi
               </p>
               <p className="mt-1 text-sm text-ink-secondary">
-                Bunkerda 4 kishilik joy bor. Atributlaringizni asosli
-                tarzda himoya qilishingiz kerak.
+                Bunkerda 4 kishilik joy bor. Atributlaringizni asosli tarzda
+                himoya qilishingiz kerak.
               </p>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 {ATTRIBUTES.slice(0, 4).map((a) => (
@@ -225,8 +216,8 @@ export function HomePage() {
               4 qadamda do'stlar bilan jonli o'yin
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
-              Faqat Telegram kerak. Hech qanday qo'shimcha ilova yoki
-              hisob yaratish shart emas.
+              Faqat Telegram kerak. Hech qanday qo'shimcha ilova yoki hisob
+              yaratish shart emas.
             </p>
           </div>
 
@@ -327,13 +318,13 @@ export function HomePage() {
                   <span className="text-brand">o'ynashga tayyormisiz?</span>
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-                  Bir bosishda Telegramga o'tasiz, bir martalik
-                  avtorizatsiya — keyin har safar avtomatik kirib turasiz.
+                  Bir bosishda Telegramga o'tasiz, bir martalik avtorizatsiya —
+                  keyin har safar avtomatik kirib turasiz.
                 </p>
               </div>
               <div className="grid gap-3">
                 <BotCta
-                  href={botLink}
+                  href={loginHref}
                   label="Telegramda boshlash"
                   variant="primary"
                   size="lg"
@@ -373,9 +364,9 @@ function BotCta({
   href,
   label,
   variant,
-  size
+  size,
 }: {
-  href: string | null;
+  href: Route;
   label: string;
   variant: "primary" | "secondary";
   size: "sm" | "lg";
@@ -388,24 +379,13 @@ function BotCta({
     variant === "primary"
       ? "bg-brand text-bg-base"
       : "border border-line-strong bg-bg-surface text-ink-primary";
-  if (!href) {
-    return (
-      <span
-        className={`inline-flex items-center justify-center rounded-2xl font-semibold opacity-60 ${sizeClass} ${variantClass}`}
-      >
-        {label}
-      </span>
-    );
-  }
   return (
-    <a
+    <Link
       href={href}
-      target="_blank"
-      rel="noreferrer"
       className={`inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition active:scale-[0.98] ${sizeClass} ${variantClass}`}
     >
       <span aria-hidden>✈</span>
       {label}
-    </a>
+    </Link>
   );
 }

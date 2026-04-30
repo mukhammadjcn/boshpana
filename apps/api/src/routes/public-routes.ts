@@ -3,7 +3,7 @@ import { FastifyInstance } from "fastify";
 
 import { requireAuth } from "../lib/auth-decorator";
 import { env } from "../lib/env";
-import { prisma } from "../lib/prisma";
+import { countHostedRoomsLast30d } from "../services/auth-service";
 import { GameService } from "../services/game-service";
 
 type RouteDeps = {
@@ -19,6 +19,7 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
       sessionId: string;
       winnerTarget: number;
       maxPlayers?: number;
+      isAdult?: boolean;
     };
   }>(
     "/api/rooms/create",
@@ -26,10 +27,7 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
     async (request, reply) => {
       try {
         const user = request.authUser!;
-        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        const recentCount = await prisma.room.count({
-          where: { hostUserId: user.id, createdAt: { gte: since } }
-        });
+        const recentCount = await countHostedRoomsLast30d(user.id);
         if (recentCount >= env.roomCreationLimit) {
           return reply.status(429).send({
             message: `Limit yetdi: 30 kunda ${env.roomCreationLimit} ta xonadan ortiq yarata olmaysiz.`

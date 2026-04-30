@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import { startTelegramBot, stopTelegramBot } from "./bot/bot-service";
 import { env } from "./lib/env";
 import { prisma } from "./lib/prisma";
+import { closeRedis, getRedis } from "./lib/redis";
 import { registerAuthRoutes } from "./routes/auth-routes";
 import { registerInternalAdminRoutes } from "./routes/internal-admin-routes";
 import { registerPublicRoutes } from "./routes/public-routes";
@@ -20,6 +21,10 @@ async function bootstrap() {
     origin: true,
     credentials: true
   });
+
+  // Eagerly initialise the Redis connection so failures surface at boot
+  // rather than on the first auth-session call.
+  getRedis();
 
   const gameService = new GameService();
   gameService.startCleanupSweeper();
@@ -43,6 +48,7 @@ async function bootstrap() {
   const shutdown = async () => {
     await stopTelegramBot();
     await gameService.shutdown();
+    await closeRedis();
     await prisma.$disconnect();
     await app.close();
     process.exit(0);

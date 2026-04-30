@@ -100,15 +100,19 @@ export async function upsertUserFromTelegram(
   tgUser: TelegramWebAppUser,
   phone?: string
 ) {
-  const updateData = {
+  const updateData: Record<string, unknown> = {
     telegramUsername: tgUser.username ?? null,
     firstName: tgUser.first_name ?? null,
     lastName: tgUser.last_name ?? null,
-    photoUrl: tgUser.photo_url ?? null,
     languageCode: tgUser.language_code ?? null,
     isPremium: !!tgUser.is_premium,
     ...(phone ? { phone } : {})
   };
+  // Only overwrite photoUrl when the source actually has one (bot
+  // updates don't carry photo_url, only the WebApp initData does).
+  if (tgUser.photo_url !== undefined) {
+    updateData.photoUrl = tgUser.photo_url ?? null;
+  }
 
   // Default nickname seeds from Telegram first_name (or username) on the
   // very first upsert. Subsequent upserts never overwrite a nickname the
@@ -150,6 +154,33 @@ export function verifyAccessToken(token: string): string {
 
 export async function findUserById(id: string) {
   return prisma.user.findUnique({ where: { id } });
+}
+
+// Count how many rooms this user has hosted in the last 30 days.
+//
+// We can't just count Room rows because the cleanup sweeper deletes
+// FINISHED/CANCELLED rooms 30 minutes after they end — so yesterday's
+// games disappear from Room and the limit appears to "reset" overnight.
+//
+// GameHistory is durable (1 row per game, attached to the host), so we
+// count from there + add active rooms not yet in history. The two sets
+// are disjoint: a room is in GameHistory iff it's FINISHED/CANCELLED,
+// and we only count LOBBY/PLAYING from Room.
+export async function countHostedRoomsLast30d(userId: string): Promise<number> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [historyCount, activeCount] = await Promise.all([
+    prisma.gameHistory.count({
+      where: { userId, playedAt: { gte: since } }
+    }),
+    prisma.room.count({
+      where: {
+        hostUserId: userId,
+        status: { in: ["LOBBY", "PLAYING"] },
+        createdAt: { gte: since }
+      }
+    })
+  ]);
+  return historyCount + activeCount;
 }
 
 export function publicUser(

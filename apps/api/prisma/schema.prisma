@@ -95,6 +95,7 @@ model Room {
   status        RoomStatus  @default(LOBBY)
   winnerTarget  Int         @default(1)
   maxPlayers    Int         @default(10)
+  isAdult       Boolean     @default(false)
   round         Int         @default(0)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -181,26 +182,30 @@ model Card {
   id        String   @id @default(cuid())
   type      CardType
   text      String
+  isAdult   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([type, text])
+  @@index([type, isAdult])
 }
 
 model Disaster {
   id          String   @id @default(cuid())
   name        String   @unique
   description String
+  isAdult     Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   games       Game[]
 }
 
 model Situation {
-  id        String     @id @default(cuid())
-  text      String     @unique
+  id         String     @id @default(cuid())
+  text       String     @unique
   difficulty Difficulty @default(MEDIUM)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  games     Game[]
+  isAdult    Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  games      Game[]
 }

@@ -19,7 +19,7 @@ const mono = IBM_Plex_Mono({
 });
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://bunker.alijonov.tech";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://bunker.alijonov.tech";
 const SITE_TITLE = "Boshpana — Bunker Online";
 const SITE_DESCRIPTION =
   "Telegramda do‘stlar bilan o‘ynaydigan real-time party o‘yin. Halokat ortidan bunkerda kim qoladi?";
