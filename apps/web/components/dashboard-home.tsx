@@ -248,13 +248,18 @@ export function DashboardHome() {
                     </button>
                     <button
                       type="button"
-                      disabled
-                      aria-disabled
-                      title="Tez orada ochiladi"
-                      className="flex h-14 flex-col items-center justify-center rounded-xl border border-line-subtle bg-bg-base/50 text-center text-ink-muted opacity-60"
+                      onClick={() => setIsAdult(true)}
+                      aria-pressed={isAdult}
+                      className={`flex h-14 flex-col items-center justify-center rounded-xl border text-center transition active:scale-[0.98] ${
+                        isAdult
+                          ? "border-brand bg-brand-soft text-brand"
+                          : "border-line-strong bg-bg-base text-ink-secondary"
+                      }`}
                     >
                       <span className="text-sm font-semibold">18+</span>
-                      <span className="text-[11px]">Tez orada</span>
+                      <span className="text-[11px] text-ink-muted">
+                        Aralash kartalar
+                      </span>
                     </button>
                   </div>
                 </div>
