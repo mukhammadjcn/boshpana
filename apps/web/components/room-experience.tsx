@@ -949,35 +949,42 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
         }}
       >
         {/* Disaster + situation summary */}
-        {game.disaster ? (
-          <button
-            type="button"
-            onClick={() => setIntroOpen(true)}
-            className="w-full rounded-2xl border border-line-subtle bg-bg-surface p-4 text-left transition active:scale-[0.99]"
-          >
-            <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
-              Fojea
-            </p>
-            <p className="mt-1 text-base font-semibold">{game.disaster.name}</p>
-            <p className="mt-1 line-clamp-2 text-sm text-ink-secondary">
-              {game.disaster.description}
-            </p>
-          </button>
-        ) : null}
+        {game.disaster || game.situation ? (
+          <div className="rounded-2xl border border-line-subtle bg-bg-surface">
+            {game.disaster ? (
+              <button
+                type="button"
+                onClick={() => setIntroOpen(true)}
+                className="block w-full px-4 pt-3 pb-3 text-left transition active:opacity-80"
+              >
+                <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
+                  Fojea
+                </p>
+                <p className="mt-0.5 text-base font-semibold">
+                  {game.disaster.name}
+                </p>
+              </button>
+            ) : null}
 
-        {game.situation ? (
-          <button
-            type="button"
-            onClick={() => setSituationOpen(true)}
-            className="mt-3 w-full rounded-2xl border border-line-subtle bg-bg-surface p-4 text-left transition active:scale-[0.99]"
-          >
-            <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
-              Round {game.roundNumber} vaziyati
-            </p>
-            <p className="mt-1 line-clamp-3 text-sm leading-6 text-ink-primary">
-              {game.situation.text}
-            </p>
-          </button>
+            {game.disaster && game.situation ? (
+              <div className="border-t border-line-subtle" />
+            ) : null}
+
+            {game.situation ? (
+              <button
+                type="button"
+                onClick={() => setSituationOpen(true)}
+                className="block w-full px-4 pt-3 pb-4 text-left transition active:opacity-80"
+              >
+                <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
+                  Round {game.roundNumber} vaziyati
+                </p>
+                <p className="mt-1 text-sm leading-6 text-ink-primary">
+                  {game.situation.text}
+                </p>
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {room.status === "FINISHED" ? (
