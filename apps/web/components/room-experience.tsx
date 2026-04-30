@@ -72,7 +72,14 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState("");
   const [joinName, setJoinName] = useState("");
-  const [loading, setLoading] = useState(true);
+  // Initialize loading=false if zustand store already has fresh state for this
+  // room. This bridges the unavoidable remount when status changes flip the
+  // route between /room/CODE and /game/CODE — without it, every transition
+  // flashes the "Room yuklanmoqda…" screen.
+  const [loading, setLoading] = useState(() => {
+    const cached = useGameStore.getState().roomState;
+    return !cached || cached.room.code !== roomCode.toUpperCase();
+  });
   const [origin, setOrigin] = useState("");
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [introOpen, setIntroOpen] = useState(false);
@@ -136,6 +143,16 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     setSessionId(getOrCreateSessionId());
     setOrigin(window.location.origin);
   }, []);
+
+  // Clear store state if the cached room belongs to a different code — this
+  // happens when navigating between rooms and prevents a flash of stale data.
+  useEffect(() => {
+    const cached = useGameStore.getState().roomState;
+    if (cached && cached.room.code !== roomCode.toUpperCase()) {
+      setRoomState(null);
+      setLoading(true);
+    }
+  }, [roomCode, setRoomState]);
 
   // Initial state load
   useEffect(() => {
@@ -446,6 +463,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     introOpen,
     situationOpen,
     situationKey,
+    votingActive: roomState?.game.phase === "VOTING",
     meRevealKey,
     meEliminationKey
   });
@@ -584,19 +602,21 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     game?.phase === "ROUND_REVEAL" &&
     !game.currentTurnPlayerId;
 
-  // Loading & error states
-  if (loading) {
-    return (
-      <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-          Room yuklanmoqda...
-        </div>
-      </main>
-    );
-  }
-
+  // Loading & error states. Order matters: only show the spinner when we
+  // truly have nothing to render. If the store still has state (e.g. we just
+  // remounted because of a /room ↔ /game navigation), keep rendering the real
+  // UI to avoid a flash.
   if (!roomState || !room || !game) {
+    if (loading) {
+      return (
+        <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+            Room yuklanmoqda...
+          </div>
+        </main>
+      );
+    }
     return (
       <main className="grid min-h-screen place-items-center bg-bg-base px-5 text-ink-secondary">
         <div className="flex flex-col items-center gap-4 text-center">

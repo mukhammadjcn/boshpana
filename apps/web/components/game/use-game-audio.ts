@@ -6,12 +6,14 @@ type GameAudioInput = {
   introOpen: boolean;
   situationOpen: boolean;
   situationKey: string | null;
+  votingActive: boolean;
   meRevealKey: string | null;
   meEliminationKey: string | null;
 };
 
 const GAME_START = "/gamestart.mp3";
 const KILLED = "/killed.mp3";
+const VOTING_AUDIO = "/situation7.mp3";
 const REVEAL_AUDIOS = [
   "/reveal2.mp3",
   "/reveal3.mp3",
@@ -20,14 +22,15 @@ const REVEAL_AUDIOS = [
   "/reveal6.mp3",
   "/reveal7.mp3"
 ];
+// situation7 is reserved for the voting phase, so it's not in the per-round
+// rotation pool below.
 const SITUATION_AUDIOS = [
   "/situation1.mp3",
   "/situation2.mp3",
   "/situation3.mp3",
   "/situation4.mp3",
   "/situation5.mp3",
-  "/situation6.mp3",
-  "/situation7.mp3"
+  "/situation6.mp3"
 ];
 
 function shouldPreload() {
@@ -77,6 +80,7 @@ export function useGameAudio({
   introOpen,
   situationOpen,
   situationKey,
+  votingActive,
   meRevealKey,
   meEliminationKey
 }: GameAudioInput) {
@@ -88,6 +92,7 @@ export function useGameAudio({
   const activeAudiosRef = useRef<HTMLAudioElement[]>([]);
   const introLoopRef = useRef<HTMLAudioElement | null>(null);
   const situationLoopRef = useRef<HTMLAudioElement | null>(null);
+  const votingLoopRef = useRef<HTMLAudioElement | null>(null);
   const situationAudioMapRef = useRef<Map<string, string>>(new Map());
   const revealDeckRef = useRef<string[]>([]);
   const situationDeckRef = useRef<string[]>([]);
@@ -101,6 +106,7 @@ export function useGameAudio({
   const introOpenRef = useRef(introOpen);
   const situationOpenRef = useRef(situationOpen);
   const situationKeyRef = useRef(situationKey);
+  const votingActiveRef = useRef(votingActive);
   useEffect(() => {
     introOpenRef.current = introOpen;
   }, [introOpen]);
@@ -110,6 +116,9 @@ export function useGameAudio({
   useEffect(() => {
     situationKeyRef.current = situationKey;
   }, [situationKey]);
+  useEffect(() => {
+    votingActiveRef.current = votingActive;
+  }, [votingActive]);
 
   const preload = useCallback((src: string) => {
     if (preloadedRef.current.has(src)) return;
@@ -128,6 +137,7 @@ export function useGameAudio({
     activeAudiosRef.current = [];
     introLoopRef.current = null;
     situationLoopRef.current = null;
+    votingLoopRef.current = null;
   }, []);
 
   const stopLoop = useCallback(
@@ -241,9 +251,13 @@ export function useGameAudio({
   useEffect(() => {
     if (didPreloadRef.current || !shouldPreload()) return;
     didPreloadRef.current = true;
-    [GAME_START, KILLED, ...REVEAL_AUDIOS, ...SITUATION_AUDIOS].forEach(
-      preload
-    );
+    [
+      GAME_START,
+      KILLED,
+      VOTING_AUDIO,
+      ...REVEAL_AUDIOS,
+      ...SITUATION_AUDIOS
+    ].forEach(preload);
   }, [preload]);
 
   // Sync enabled ref + stop all on disable
@@ -274,6 +288,9 @@ export function useGameAudio({
       if (situationOpenRef.current && skey && !situationLoopRef.current) {
         const src = getSituationSrc(skey);
         if (src) playLoop(src, 0.8, situationLoopRef);
+      }
+      if (votingActiveRef.current && !votingLoopRef.current) {
+        playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
       }
     };
     window.addEventListener("pointerdown", tryPlay);
@@ -309,6 +326,16 @@ export function useGameAudio({
     playLoop,
     stopLoop
   ]);
+
+  // Voting loop — same track for everyone, plays for the duration of the
+  // VOTING phase so users notice they need to vote.
+  useEffect(() => {
+    if (!votingActive) {
+      stopLoop(votingLoopRef);
+      return;
+    }
+    playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
+  }, [votingActive, audioEnabled, playLoop, stopLoop]);
 
   // My reveal sound
   useEffect(() => {
