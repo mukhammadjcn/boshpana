@@ -585,10 +585,19 @@ export class GameService {
 
     this.stopTimer(room.code);
 
+    // Lobby vaqtida tugatish = o'yin umuman boshlanmagan. Status CANCELLED
+    // bo'ladi, GameHistory'da `outcome: CANCELLED` deb yoziladi va host'ning
+    // oylik limiti aslida ishlatilgan o'yin sifatida hisoblanmaydi (cancelled
+    // chiqaruvchi default bo'lib limit hisobiga kirsa-da, bu ataylab —
+    // spam'ga qarshi).
+    const wasInLobby = room.status === RoomStatus.LOBBY;
+
     await prisma.$transaction([
       prisma.room.update({
         where: { id: room.id },
-        data: { status: RoomStatus.FINISHED }
+        data: {
+          status: wasInLobby ? RoomStatus.CANCELLED : RoomStatus.FINISHED
+        }
       }),
       prisma.game.update({
         where: { id: room.game.id },
@@ -600,7 +609,7 @@ export class GameService {
       })
     ]);
 
-    await this.saveGameHistory(room.id, "manualEnd");
+    await this.saveGameHistory(room.id, wasInLobby ? "cancelled" : "manualEnd");
   }
 
   private async saveGameHistory(

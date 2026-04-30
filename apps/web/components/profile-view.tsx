@@ -110,21 +110,21 @@ export function ProfileView() {
           Profilni ko'rish uchun avval Telegram orqali tizimga kiring.
         </div>
       ) : !user ? (
-        <>
+        <div className="animate-pulse">
           <section className="mt-6 flex items-center gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-            <div className="h-14 w-14 animate-pulse rounded-full bg-bg-elevated" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 w-2/3 animate-pulse rounded-full bg-bg-elevated" />
-              <div className="h-3 w-1/3 animate-pulse rounded-full bg-bg-elevated" />
+            <div className="h-14 w-14 shrink-0 rounded-full bg-bg-elevated" />
+            <div className="min-w-0 flex-1">
+              <div className="h-5 w-40 rounded bg-bg-elevated" />
+              <div className="mt-2 h-3 w-24 rounded bg-bg-elevated" />
             </div>
           </section>
           <section className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-            <div className="h-3 w-20 animate-pulse rounded-full bg-bg-elevated" />
-            <div className="mt-3 h-3 w-3/4 animate-pulse rounded-full bg-bg-elevated" />
-            <div className="mt-4 h-12 w-full animate-pulse rounded-xl bg-bg-elevated" />
-            <div className="mt-3 h-12 w-full animate-pulse rounded-xl bg-bg-elevated" />
+            <div className="h-3 w-20 rounded bg-bg-elevated" />
+            <div className="mt-2 h-3 w-3/4 rounded bg-bg-elevated" />
+            <div className="mt-3 h-12 w-full rounded-xl bg-bg-elevated" />
+            <div className="mt-3 h-12 w-full rounded-xl bg-bg-elevated" />
           </section>
-        </>
+        </div>
       ) : (
         <>
           <section className="mt-6 flex items-center gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">

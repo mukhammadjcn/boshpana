@@ -131,13 +131,13 @@ export function DashboardHome() {
           <div className="mt-5 grid gap-5 lg:mt-8">
             <div className="grid gap-5">
               {!usage ? (
-                <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
+                <div className="animate-pulse rounded-2xl border border-line-subtle bg-bg-surface p-4">
                   <div className="flex items-center justify-between">
-                    <div className="h-4 w-20 animate-pulse rounded-full bg-bg-elevated" />
-                    <div className="h-4 w-12 animate-pulse rounded-full bg-bg-elevated" />
+                    <div className="h-4 w-24 rounded bg-bg-elevated" />
+                    <div className="h-4 w-12 rounded bg-bg-elevated" />
                   </div>
-                  <div className="mt-3 h-2 w-full animate-pulse rounded-full bg-bg-elevated" />
-                  <div className="mt-3 h-3 w-2/3 animate-pulse rounded-full bg-bg-elevated" />
+                  <div className="mt-2 h-2 w-full rounded-full bg-bg-elevated" />
+                  <div className="mt-2 h-3 w-3/5 rounded bg-bg-elevated" />
                 </div>
               ) : (
                 <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">

@@ -6,12 +6,12 @@
     "apps/*"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace web",
-    "dev:api": "npm run dev --workspace api",
-    "build": "npm run build --workspace api && npm run build --workspace web",
-    "lint": "npm run lint --workspace web && npm run lint --workspace api",
-    "prisma:generate": "npm run prisma:generate --workspace api",
-    "prisma:migrate": "npm run prisma:migrate --workspace api",
-    "prisma:seed": "npm run prisma:seed --workspace api"
+    "dev:web": "yarn workspace web dev",
+    "dev:api": "yarn workspace api dev",
+    "build": "yarn workspace api build && yarn workspace web build",
+    "lint": "yarn workspace web lint && yarn workspace api lint",
+    "prisma:generate": "yarn workspace api prisma:generate",
+    "prisma:migrate": "yarn workspace api prisma:migrate",
+    "prisma:seed": "yarn workspace api prisma:seed"
   }
 }

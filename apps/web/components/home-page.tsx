@@ -139,7 +139,7 @@ export function HomePage() {
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="hidden sm:block">
+              <div className="sm:hidden">
                 <BotCta
                   href={loginHref}
                   label="Telegramda boshlash"

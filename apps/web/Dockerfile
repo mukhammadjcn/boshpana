@@ -13,13 +13,13 @@ ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=$NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
 ENV NEXT_PUBLIC_TELEGRAM_WEB_APP_NAME=$NEXT_PUBLIC_TELEGRAM_WEB_APP_NAME
 
-COPY package.json package-lock.json tsconfig.base.json ./
+COPY package.json yarn.lock tsconfig.base.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/api/package.json apps/api/package.json
-RUN npm install
+RUN yarn install --frozen-lockfile
 
 COPY . .
-RUN npm run build --workspace web
+RUN yarn workspace web build
 
 FROM node:22-alpine AS runner
 WORKDIR /app

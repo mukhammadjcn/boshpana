@@ -80,6 +80,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const [myCardsOpen, setMyCardsOpen] = useState(false);
   const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
   const [winnerModalOpen, setWinnerModalOpen] = useState(false);
+  const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [kickTarget, setKickTarget] = useState<{
@@ -101,6 +102,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const seenElimAnnouncementRef = useRef<Set<string>>(new Set());
   const seenSelfEliminationRef = useRef<Set<string>>(new Set());
   const seenWinnerModalRef = useRef<Set<string>>(new Set());
+  const seenCancelledModalRef = useRef<Set<string>>(new Set());
   const playersRef = useRef<RoomState["players"]>([]);
 
   const bottomBarRef = useRef<HTMLDivElement | null>(null);
@@ -384,6 +386,24 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     roomState?.me?.id
   ]);
 
+  // Lobby vaqtida host xonani tugatib yuborsa room CANCELLED bo'ladi va
+  // o'yin umuman boshlanmaydi. Har bir ishtirokchiga "o'yin yaratilmadi"
+  // modal bir marta chiqsin va bosh sahifaga yo'naltirsin.
+  useEffect(() => {
+    if (roomState?.room.status !== "CANCELLED") return;
+    if (!roomState.me) return;
+    const code = roomState.room.code;
+    const meId = roomState.me.id;
+    const key = `cancelled-${code}-${meId}`;
+    if (seenCancelledModalRef.current.has(key)) return;
+    seenCancelledModalRef.current.add(key);
+    setCancelledModalOpen(true);
+  }, [
+    roomState?.room.status,
+    roomState?.room.code,
+    roomState?.me?.id
+  ]);
+
   // Audio
   const meRevealKey = useMemo(() => {
     if (
@@ -578,8 +598,21 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
   if (!roomState || !room || !game) {
     return (
-      <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
-        Room topilmadi.
+      <main className="grid min-h-screen place-items-center bg-bg-base px-5 text-ink-secondary">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <p className="text-base font-semibold text-ink-primary">
+            Room topilmadi.
+          </p>
+          <p className="text-sm text-ink-secondary">
+            Bu xona o'chirilgan yoki kod noto'g'ri.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="flex h-12 items-center justify-center rounded-2xl bg-brand px-6 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+          >
+            Bosh sahifa
+          </button>
+        </div>
       </main>
     );
   }
@@ -1415,6 +1448,38 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
         }}
         onClose={() => setLeaveConfirmOpen(false)}
       />
+
+      {/* Lobby cancellation modal — host tugatdi, o'yin umuman bo'lmadi. */}
+      {cancelledModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-3xl border border-line-strong bg-bg-surface p-6 text-center shadow-pop">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-warn/40 bg-warn/10 text-2xl">
+              🚫
+            </div>
+            <h3 className="mt-4 text-xl font-bold text-ink-primary">
+              O'yin yaratilmadi
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary">
+              Host xonani o'yin boshlanmasdan turib tugatdi. Yangi o'yinda
+              ishtirok etish uchun bosh sahifaga qayting.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setCancelledModalOpen(false);
+                router.push("/");
+              }}
+              className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              Bosh sahifa
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Floating announcement */}
       {announcement ? (
