@@ -2,6 +2,7 @@
 
 type HostControlsProps = {
   isHost: boolean;
+  isLobby?: boolean;
   canStartGame: boolean;
   canStartRound: boolean;
   canStartReveals: boolean;
@@ -21,6 +22,7 @@ type HostControlsProps = {
 
 export function HostControls({
   isHost,
+  isLobby = false,
   canStartGame,
   canStartRound,
   canStartReveals,
@@ -62,17 +64,21 @@ export function HostControls({
       ? { label: "Ovozsiz keyingi round", onClick: onSkipVoting }
       : null;
 
+  const endLabel = isLobby ? "Roomni bekor qilish" : "O‘yinni tugatish";
+
   return (
     <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-medium text-ink-muted">Host paneli</p>
-        <button
-          type="button"
-          onClick={onEndGame}
-          className="text-xs font-medium text-bad hover:underline"
-        >
-          O‘yinni tugatish
-        </button>
+        {!isLobby ? (
+          <button
+            type="button"
+            onClick={onEndGame}
+            className="text-xs font-medium text-bad hover:underline"
+          >
+            O‘yinni tugatish
+          </button>
+        ) : null}
       </div>
 
       {primary || secondary ? (
@@ -94,11 +100,21 @@ export function HostControls({
             </button>
           ) : null}
         </div>
-      ) : (
+      ) : !isLobby ? (
         <p className="text-sm text-ink-muted">
           Hozir host uchun action yo‘q. Keyingi fazani kuting.
         </p>
-      )}
+      ) : null}
+
+      {isLobby ? (
+        <button
+          type="button"
+          onClick={onEndGame}
+          className={`flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.98] ${primary || secondary ? "mt-2" : ""}`}
+        >
+          {endLabel}
+        </button>
+      ) : null}
     </div>
   );
 }

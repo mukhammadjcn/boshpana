@@ -864,6 +864,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
             <div className="mx-auto max-w-xl">
               <HostControls
                 isHost={me.isHost}
+                isLobby
                 canStartGame={room.status === "LOBBY" && players.length >= 3}
                 canStartRound={false}
                 canStartReveals={false}
@@ -882,6 +883,20 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
             </div>
           </div>
         ) : null}
+
+        <ConfirmModal
+          open={endGameConfirmOpen}
+          title="Roomni bekor qilasizmi?"
+          description="Room bekor qilinadi va barcha ishtirokchilar bosh sahifaga qaytadi. Bu amalni bekor qilib bo‘lmaydi."
+          confirmLabel="Ha, bekor qilish"
+          cancelLabel="Yo‘q"
+          tone="danger"
+          onConfirm={() => {
+            emit("end_game");
+            setEndGameConfirmOpen(false);
+          }}
+          onClose={() => setEndGameConfirmOpen(false)}
+        />
       </main>
     );
   }
