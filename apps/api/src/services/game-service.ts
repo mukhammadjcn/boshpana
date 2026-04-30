@@ -87,7 +87,9 @@ export class GameService {
   //      doesn't grow unbounded. History rows survive (separate table).
   startCleanupSweeper(
     intervalMs = 10 * 60 * 1000,
-    ageMs = 30 * 60 * 1000,
+    // Keep finished rooms for 2 hours so per-user card history survives a
+    // few back-to-back games and the dealer can de-duplicate against it.
+    ageMs = 2 * 60 * 60 * 1000,
     cancelAfterMs = 24 * 60 * 60 * 1000
   ) {
     if (this.cleanupTimer) return;
@@ -343,30 +345,34 @@ export class GameService {
       throw new Error("Seed ma'lumotlari topilmadi.");
     }
 
-    // Disaster cooldown: avoid back-to-back repeats. Falls back to the full
-    // pool if cooldown filtered everyone out (small pool, busy server).
+    // Disaster cooldown: avoid back-to-back repeats for THIS host. Falls
+    // back to the full pool if cooldown filtered everyone out.
+    const hostKey = this.hostCooldownKey(room);
     const selectedDisaster = (() => {
-      const now = Date.now();
-      for (const [id, ts] of GameService.recentDisasters) {
-        if (now - ts > GameService.RECENT_DISASTER_TTL_MS) {
-          GameService.recentDisasters.delete(id);
-        }
-      }
-      const fresh = disasters.filter(
-        (d) => !GameService.recentDisasters.has(d.id)
+      const recent = GameService.cooldownActive(
+        GameService.recentDisasters,
+        hostKey,
+        GameService.RECENT_DISASTER_TTL_MS
       );
+      const fresh = disasters.filter((d) => !recent.has(d.id));
       const pool = fresh.length > 0 ? fresh : disasters;
       const picked = pool[randomInt(pool.length)];
-      GameService.recentDisasters.set(picked.id, now);
+      GameService.cooldownAdd(GameService.recentDisasters, hostKey, [
+        picked.id
+      ]);
       return picked;
     })();
     const introEndsAt = new Date(Date.now() + 120_000);
 
-    // Deal a unique card per player for every type. Recently-dealt cards
-    // are de-prioritised (cooldown) so consecutive games rarely repeat.
-    // For 18+ rooms each player is guaranteed at least one adult card
-    // somewhere in their hand.
-    const deal = this.buildUniqueDeal(cards, room.players.length, {
+    // Deal a unique card per player for every type. Each player has their
+    // own personal cooldown (last 2h of cards they were dealt), so
+    // back-to-back games avoid repeating cards for the SAME player even if
+    // a different host runs the next room. 18+ rooms guarantee at least
+    // one adult card per hand.
+    const dealPlayers = room.players.map((p) => ({
+      userKey: p.userId ?? `session:${p.sessionId}`
+    }));
+    const deal = this.buildUniqueDeal(cards, dealPlayers, {
       adultMode: !!room.isAdult
     });
 
@@ -1211,7 +1217,7 @@ export class GameService {
     });
   }
 
-  private async pickSituation(excludeId?: string, isAdult: boolean = false) {
+  private async pickSituation(excludeId: string | undefined, isAdult: boolean) {
     const where: { id?: { not: string }; isAdult?: false } = {};
     if (excludeId) where.id = { not: excludeId };
     if (!isAdult) where.isAdult = false;
@@ -1221,9 +1227,9 @@ export class GameService {
       throw new Error("Situation ma'lumotlari topilmadi.");
     }
 
-    // Cross-game cooldown: filter out situations used in the last 30 min so
-    // back-to-back games don't recycle the same prompts. Falls back to the
-    // full pool if cooldown leaves nothing.
+    // Server-wide cooldown: any situation used recently by anyone is de-
+    // prioritised so the whole game-night cycles through fresh prompts.
+    // Falls back to the full pool when cooldown filters everything.
     const now = Date.now();
     for (const [id, ts] of GameService.recentSituations) {
       if (now - ts > GameService.RECENT_SITUATION_TTL_MS) {
@@ -1260,31 +1266,62 @@ export class GameService {
     return 1;
   }
 
-  // Recent-card cooldown: in-memory map of cardId → timestamp. Cards dealt
-  // in the last RECENT_CARD_TTL_MS are filtered out of the next deal when
-  // the pool is large enough. Prevents back-to-back games from showing the
-  // same kasb/sog'liq/etc. Memory-only (no Redis): a single API instance is
-  // assumed; restart simply resets the cooldown which is harmless.
-  private static readonly RECENT_CARD_TTL_MS = 30 * 60 * 1000;
-  private static recentCards: Map<string, number> = new Map();
-  // Disasters have a smaller pool (currently 6) so the cooldown is longer
-  // — we want each game to feel different even if you start a few in a row.
+  // Cooldown stores. In-memory only (no Redis): single API instance is
+  // assumed; restart resets every cooldown, which is harmless.
+  //
+  // Cards: per-USER. Each player carries their own "I just saw these"
+  // history so they don't see the same kasb/sog'liq twice in a row even
+  // if a different host runs the room.
+  private static readonly RECENT_CARD_TTL_MS = 2 * 60 * 60 * 1000;
+  private static recentCardsByUser: Map<string, Map<string, number>> =
+    new Map();
+  // Disasters: per-HOST. Whoever creates the room shouldn't get the same
+  // disaster two games in a row.
   private static readonly RECENT_DISASTER_TTL_MS = 60 * 60 * 1000;
-  private static recentDisasters: Map<string, number> = new Map();
-  // Situations cycle through rounds within a single game; the cooldown
-  // here is cross-game so back-to-back games don't reuse the same prompts.
+  private static recentDisasters: Map<string, Map<string, number>> = new Map();
+  // Situations: SERVER-WIDE. Round prompts are shared across all hosts so
+  // the entire game-night avoids recycling the same vaziyatlar regardless
+  // of who creates each room.
   private static readonly RECENT_SITUATION_TTL_MS = 30 * 60 * 1000;
   private static recentSituations: Map<string, number> = new Map();
 
-  private getFreshPool<T extends { id: string }>(pool: T[]): T[] {
+  private static cooldownActive(
+    store: Map<string, Map<string, number>>,
+    hostKey: string,
+    ttlMs: number
+  ): Set<string> {
     const now = Date.now();
-    // Evict expired entries lazily so the map doesn't grow forever.
-    for (const [id, ts] of GameService.recentCards) {
-      if (now - ts > GameService.RECENT_CARD_TTL_MS) {
-        GameService.recentCards.delete(id);
-      }
+    const bucket = store.get(hostKey);
+    if (!bucket) return new Set();
+    for (const [id, ts] of bucket) {
+      if (now - ts > ttlMs) bucket.delete(id);
     }
-    return pool.filter((c) => !GameService.recentCards.has(c.id));
+    if (bucket.size === 0) {
+      store.delete(hostKey);
+      return new Set();
+    }
+    return new Set(bucket.keys());
+  }
+
+  private static cooldownAdd(
+    store: Map<string, Map<string, number>>,
+    hostKey: string,
+    ids: Iterable<string>
+  ): void {
+    let bucket = store.get(hostKey);
+    if (!bucket) {
+      bucket = new Map();
+      store.set(hostKey, bucket);
+    }
+    const now = Date.now();
+    for (const id of ids) bucket.set(id, now);
+  }
+
+  private hostCooldownKey(room: {
+    hostUserId: string | null;
+    hostSessionId: string;
+  }): string {
+    return room.hostUserId ?? `session:${room.hostSessionId}`;
   }
 
   private fisherYatesShuffle<T>(arr: T[]): T[] {
@@ -1296,20 +1333,34 @@ export class GameService {
     return out;
   }
 
+  // Each player carries their own card cooldown so back-to-back games don't
+  // hand them the same kasb/sog'liq even if a different friend hosts the
+  // next room. The deal still has to be unique within a single game (no two
+  // players hold the same card) so we deal greedily, picking each player's
+  // card from the cards still available in the pool, preferring ones they
+  // haven't seen recently.
   private buildUniqueDeal(
     cards: Array<{ id: string; type: CardType; text: string; isAdult: boolean }>,
-    playerCount: number,
-    options: { adultMode: boolean } = { adultMode: false }
+    players: Array<{ userKey: string }>,
+    options: { adultMode: boolean }
   ): Record<CardType, string[]> {
+    const playerCount = players.length;
     const deal = {} as Record<CardType, string[]>;
 
-    // For 18+ rooms, distribute "guaranteed adult slots" across the types
-    // that actually have adult cards. Round-robin over those types only,
-    // capped by each type's available adult count so we never demand more
-    // adults than the seed contains. Example: BAGGAGE/HEALTH/PROFESSION/
-    // FACT have adults, CHARACTER/SKILL don't → allocate only across the
-    // first four. With 6 players this gives 2,2,1,1 quotas (or similar).
-    const adultSlotCountByType: Partial<Record<CardType, number>> = {};
+    // Snapshot each player's personal cooldown once up front.
+    const cooldownByIdx = players.map((p) =>
+      GameService.cooldownActive(
+        GameService.recentCardsByUser,
+        p.userKey,
+        GameService.RECENT_CARD_TTL_MS
+      )
+    );
+
+    // Decide WHICH player slot is guaranteed an adult card in WHICH type.
+    // Round-robin assigns each player a single guaranteed adult type so
+    // every hand contains at least one adult card overall. Skips types
+    // without any adult cards in the seed.
+    const adultIdxByType = new Map<CardType, Set<number>>();
     if (options.adultMode) {
       const adultsPerType = new Map<CardType, number>();
       for (const c of cards) {
@@ -1322,31 +1373,32 @@ export class GameService {
       );
 
       if (typesWithAdults.length > 0) {
-        let assigned = 0;
-        let cursor = 0;
-        // Each pass tries every adult-bearing type once. Bail out when a
-        // pass adds nothing — that means every quota is full and we can't
-        // guarantee more adults than the seed permits.
-        while (assigned < playerCount) {
-          let progressedThisPass = false;
-          for (let i = 0; i < typesWithAdults.length && assigned < playerCount; i += 1) {
+        const playerOrder = this.fisherYatesShuffle(
+          Array.from({ length: playerCount }, (_, i) => i)
+        );
+        const usagePerType = new Map<CardType, number>();
+        for (const playerIdx of playerOrder) {
+          for (let attempt = 0; attempt < typesWithAdults.length; attempt += 1) {
             const type =
-              typesWithAdults[(cursor + i) % typesWithAdults.length];
+              typesWithAdults[(playerIdx + attempt) % typesWithAdults.length];
             const cap = adultsPerType.get(type) ?? 0;
-            const current = adultSlotCountByType[type] ?? 0;
-            if (current < cap) {
-              adultSlotCountByType[type] = current + 1;
-              assigned += 1;
-              progressedThisPass = true;
+            const used = usagePerType.get(type) ?? 0;
+            if (used < cap) {
+              usagePerType.set(type, used + 1);
+              let bucket = adultIdxByType.get(type);
+              if (!bucket) {
+                bucket = new Set();
+                adultIdxByType.set(type, bucket);
+              }
+              bucket.add(playerIdx);
+              break;
             }
           }
-          cursor += 1;
-          if (!progressedThisPass) break;
         }
       }
     }
 
-    const dealtIds: string[] = [];
+    const dealtIdsByUser = new Map<string, string[]>();
 
     for (const type of CARD_TYPES) {
       const typePool = cards.filter((c) => c.type === type);
@@ -1357,56 +1409,63 @@ export class GameService {
         );
       }
 
-      // Prefer "fresh" (non-recent) cards if we still have enough.
-      const fresh = this.getFreshPool(typePool);
-      const workingPool = fresh.length >= playerCount ? fresh : typePool;
+      const adultIdxSet = adultIdxByType.get(type) ?? new Set<number>();
+      const result: string[] = new Array(playerCount);
+      const used = new Set<string>();
 
-      let picked: typeof typePool;
+      // Process players in random order so the same player slot doesn't
+      // always end up with the leftover scraps when the pool is tight.
+      const order = this.fisherYatesShuffle(
+        Array.from({ length: playerCount }, (_, i) => i)
+      );
 
-      const adultSlotsNeeded = adultSlotCountByType[type] ?? 0;
-      if (options.adultMode && adultSlotsNeeded > 0) {
-        // Split the working pool into adult / normal buckets, then satisfy
-        // the per-type adult quota first. If adult cards are scarce in this
-        // type, fall back to the type pool's adult cards (ignore cooldown
-        // for the quota — correctness over freshness).
-        const adults = this.fisherYatesShuffle(
-          workingPool.filter((c) => c.isAdult)
-        );
-        const normals = this.fisherYatesShuffle(
-          workingPool.filter((c) => !c.isAdult)
-        );
+      for (const idx of order) {
+        const cooldown = cooldownByIdx[idx];
+        const needsAdult = adultIdxSet.has(idx);
 
-        const adultsAvailable =
-          adults.length >= adultSlotsNeeded
-            ? adults
-            : this.fisherYatesShuffle(typePool.filter((c) => c.isAdult));
+        const remaining = typePool.filter((c) => !used.has(c.id));
+        let candidates: typeof typePool;
 
-        const adultPicks = adultsAvailable.slice(0, adultSlotsNeeded);
-        const remaining = playerCount - adultPicks.length;
+        if (needsAdult) {
+          // Adult slot: fresh adult > any adult > any remaining (last
+          // resort if every adult was already taken by a peer).
+          const adults = remaining.filter((c) => c.isAdult);
+          const freshAdults = adults.filter((c) => !cooldown.has(c.id));
+          candidates =
+            freshAdults.length > 0
+              ? freshAdults
+              : adults.length > 0
+                ? adults
+                : remaining;
+        } else {
+          // Free slot: fresh > anything left.
+          const fresh = remaining.filter((c) => !cooldown.has(c.id));
+          candidates = fresh.length > 0 ? fresh : remaining;
+        }
 
-        // Fill the rest from normals (then any leftover adults if normals
-        // run out).
-        const fillerPool = this.fisherYatesShuffle([
-          ...normals,
-          ...adults.slice(adultPicks.length)
-        ]);
-        const fillers = fillerPool.slice(0, remaining);
+        const picked = candidates[randomInt(candidates.length)];
+        result[idx] = picked.text;
+        used.add(picked.id);
 
-        // Interleave adult picks across player slots so the adult card
-        // doesn't always sit in the same hand position.
-        picked = this.fisherYatesShuffle([...adultPicks, ...fillers]);
-      } else {
-        picked = this.fisherYatesShuffle(workingPool).slice(0, playerCount);
+        const userKey = players[idx].userKey;
+        let bucket = dealtIdsByUser.get(userKey);
+        if (!bucket) {
+          bucket = [];
+          dealtIdsByUser.set(userKey, bucket);
+        }
+        bucket.push(picked.id);
       }
 
-      deal[type] = picked.map((c) => c.text);
-      for (const c of picked) dealtIds.push(c.id);
+      deal[type] = result;
     }
 
-    // Mark dealt cards as recent so the next deal de-prioritises them.
-    const now = Date.now();
-    for (const id of dealtIds) {
-      GameService.recentCards.set(id, now);
+    // Persist each player's hand into their personal cooldown.
+    for (const [userKey, ids] of dealtIdsByUser) {
+      GameService.cooldownAdd(
+        GameService.recentCardsByUser,
+        userKey,
+        ids
+      );
     }
 
     return deal;

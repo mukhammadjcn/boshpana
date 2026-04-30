@@ -136,16 +136,10 @@ export async function registerInternalAdminRoutes(app: FastifyInstance) {
       // yet, so add the live PLAYING count.
       const gamesStarted = finishedGames.length + playingRooms;
 
-      // Average duration only counts games that played to completion —
-      // HOSTED (host pressed "tugatish") and CANCELLED skew the average
-      // because they end early.
-      const naturallyFinished = historyRows.filter(
-        (row) =>
-          row.outcome === "WON" ||
-          row.outcome === "ELIMINATED" ||
-          row.outcome === "PLAYED"
-      );
-      const durations = naturallyFinished
+      // Average duration counts every finished game (anything that wasn't
+      // cancelled in lobby). Manual ends count too — host pressing
+      // "tugatish" still represents real play time.
+      const durations = finishedGames
         .map((row) => row.durationSeconds ?? 0)
         .filter((n) => n > 0);
       const avgDurationSeconds = durations.length

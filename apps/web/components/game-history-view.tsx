@@ -23,16 +23,26 @@ type HistoryResponse = {
 };
 
 const outcomeLabel: Record<Outcome, string> = {
-  WON: "G‘alaba",
-  ELIMINATED: "Chiqib ketgan",
+  WON: "G‘olib",
+  ELIMINATED: "Yakunlangan",
   HOSTED: "Yakunlangan",
-  PLAYED: "O‘ynagan"
+  PLAYED: "Yakunlangan"
+};
+
+// Sub-label clarifies the nuance under the badge when relevant. For host
+// games where the host was voted out the game still ended naturally — we
+// note that they didn't survive but don't paint the whole row red.
+const outcomeNote: Record<Outcome, string | null> = {
+  WON: null,
+  ELIMINATED: "Siz chiqib ketgan",
+  HOSTED: "Qo‘lda tugatildi",
+  PLAYED: null
 };
 
 const outcomeStyles: Record<Outcome, string> = {
   WON: "bg-ok/15 text-ok border-ok/30",
-  ELIMINATED: "bg-bad/15 text-bad border-bad/30",
-  HOSTED: "bg-warn/15 text-warn border-warn/30",
+  ELIMINATED: "bg-bg-elevated text-ink-secondary border-line-strong",
+  HOSTED: "bg-bg-elevated text-ink-secondary border-line-strong",
   PLAYED: "bg-bg-elevated text-ink-secondary border-line-strong"
 };
 
@@ -164,11 +174,18 @@ export function GameHistoryView() {
                       {it.playerCount ? `${it.playerCount} o‘yinchi` : null}
                     </p>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${outcomeStyles[it.outcome]}`}
-                  >
-                    {outcomeLabel[it.outcome]}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${outcomeStyles[it.outcome]}`}
+                    >
+                      {outcomeLabel[it.outcome]}
+                    </span>
+                    {outcomeNote[it.outcome] ? (
+                      <span className="text-[10px] text-ink-muted">
+                        {outcomeNote[it.outcome]}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </li>
             ))}
