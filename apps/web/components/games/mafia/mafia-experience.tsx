@@ -2,10 +2,11 @@
 
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { ConfirmModal } from "@/components/confirm-modal";
 import { apiRequest } from "@/lib/api";
+import { getAuthToken, getAuthUser } from "@/lib/auth";
 import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import { pushToast } from "@/store/useToastStore";
@@ -35,10 +36,30 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const [loading, setLoading] = useState(true);
   const [socketConnected, setSocketConnected] = useState(true);
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
+  const [kickTarget, setKickTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [joinName, setJoinName] = useState("");
   const connectedRef = useRef(false);
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
+  }, []);
+
+  // Prefill the join nickname from the cached auth profile so the
+  // invitee can tap "Roomga kirish" without retyping their name. Same
+  // pattern as the Bunker experience.
+  useEffect(() => {
+    if (joinName) return;
+    const authUser = getAuthUser();
+    const fallback =
+      authUser?.nickname ??
+      authUser?.firstName ??
+      authUser?.telegramUsername ??
+      "";
+    if (fallback) setJoinName(fallback);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Initial state fetch — same pattern as Bunker.
@@ -143,6 +164,35 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     socket.emit(event, { roomCode, sessionId, ...(payload ?? {}) });
   }
 
+  // Join handler — mirrors Bunker. Hits the HTTP endpoint, then
+  // re-emits join_room over the socket so the room state broadcast
+  // reflects the new player immediately for everyone in the lobby.
+  async function joinWithName(name: string) {
+    if (!sessionId) return;
+    await apiRequest(`/api/rooms/${roomCode}/join`, {
+      method: "POST",
+      body: JSON.stringify({ name, sessionId })
+    });
+    const socket = getSocket();
+    socket.emit("join_room", { roomCode, sessionId });
+    const fresh = await apiRequest<MafiaPublicState>(
+      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`,
+    );
+    setRoomState(fresh);
+  }
+
+  async function handleJoin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (typeof document !== "undefined") {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+    try {
+      await joinWithName(joinName.trim());
+    } catch (nextError) {
+      setError((nextError as Error).message);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-ink-muted">
@@ -161,6 +211,121 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
 
   const { room, players, me, game } = roomState;
 
+  // Visitor (link recipient) hasn't joined yet — surface the right
+  // call-to-action depending on room status and auth state. Mirrors
+  // Bunker's invite flow.
+  if (!me) {
+    if (room.status !== "LOBBY") {
+      const finished =
+        room.status === "FINISHED" || room.status === "CANCELLED";
+      return (
+        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+          <div className="mx-auto max-w-md pt-6">
+            <p
+              className={`text-xs font-medium uppercase tracking-wider ${
+                finished ? "text-bad" : "text-warn"
+              }`}
+            >
+              {finished ? "Yopiq" : "Boshlangan"}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold">
+              {finished
+                ? "Bu o'yin yakunlangan"
+                : "Bu o'yin allaqachon boshlangan"}
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary">
+              {finished
+                ? "Yangi o'yin yarating yoki ochiq xona kodini so'rang."
+                : "O'yin boshlanganidan keyin yangi o'yinchi qo'shila olmaydi."}
+            </p>
+            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
+              <p className="text-xs text-ink-muted">Room code</p>
+              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
+                {roomCode}
+              </p>
+            </div>
+            <button
+              onClick={() => router.push("/dashboard" as Route)}
+              className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              Bosh sahifa
+            </button>
+          </div>
+        </main>
+      );
+    }
+
+    if (!getAuthToken()) {
+      const loginHref = `/login?redirect=${encodeURIComponent(`/room/${roomCode}`)}`;
+      return (
+        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+          <div className="mx-auto max-w-md pt-6">
+            <p className="text-xs font-medium uppercase tracking-wider text-brand">
+              Taklif · Mafia
+            </p>
+            <h1 className="mt-1 text-2xl font-bold">
+              Roomga kirish uchun tizimga kiring
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary">
+              Roomga qo'shilish uchun bot orqali bir martalik avtorizatsiya
+              kerak. Tasdiqlangach to'g'ridan-to'g'ri shu xonaga tushasiz.
+            </p>
+            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
+              <p className="text-xs text-ink-muted">Room code</p>
+              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
+                {roomCode}
+              </p>
+            </div>
+            <a
+              href={loginHref}
+              className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              <span aria-hidden>✈</span>
+              Telegramda kirish
+            </a>
+          </div>
+        </main>
+      );
+    }
+
+    return (
+      <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+        <div className="mx-auto max-w-md pt-6">
+          <p className="text-xs font-medium uppercase tracking-wider text-brand">
+            Taklif · Mafia
+          </p>
+          <h1 className="mt-1 text-2xl font-bold">
+            Roomga kirish uchun nickname yozing
+          </h1>
+          <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
+            <p className="text-xs text-ink-muted">Room code</p>
+            <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
+              {roomCode}
+            </p>
+          </div>
+          <form onSubmit={handleJoin} className="mt-5 grid gap-3">
+            <input
+              value={joinName}
+              onChange={(e) => setJoinName(e.target.value)}
+              required
+              maxLength={20}
+              className="h-14 rounded-2xl border border-line-strong bg-bg-surface px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
+              placeholder="Nickname"
+            />
+            <button className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]">
+              Roomga kirish
+            </button>
+          </form>
+          {error ? (
+            <p className="mt-3 rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </main>
+    );
+  }
+
   // Lobby view (room.status === LOBBY)
   if (room.status === "LOBBY") {
     return (
@@ -173,9 +338,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           socketConnected={socketConnected}
           onStartGame={() => emit("start_game")}
           onLeaveRoom={() => emit("leave_room")}
-          onKickPlayer={(targetPlayerId) =>
-            emit("kick_player", { targetPlayerId })
-          }
+          onRequestKickPlayer={(player) => setKickTarget(player)}
           onRequestEndGame={() => setEndGameConfirmOpen(true)}
         />
         <ConfirmModal
@@ -189,6 +352,21 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             emit("end_game");
           }}
           onClose={() => setEndGameConfirmOpen(false)}
+        />
+        <ConfirmModal
+          open={!!kickTarget}
+          title={kickTarget ? `${kickTarget.name}ni chiqarish?` : ""}
+          description="Bu o'yinchi roomdan chiqarib yuboriladi. Xohlasa, qayta link orqali kirishi mumkin."
+          confirmLabel="Chiqarish"
+          cancelLabel="Bekor qilish"
+          tone="danger"
+          onConfirm={() => {
+            if (kickTarget) {
+              emit("kick_player", { targetPlayerId: kickTarget.id });
+            }
+            setKickTarget(null);
+          }}
+          onClose={() => setKickTarget(null)}
         />
       </>
     );
@@ -345,7 +523,7 @@ function Lobby({
   socketConnected,
   onStartGame,
   onLeaveRoom,
-  onKickPlayer,
+  onRequestKickPlayer,
   onRequestEndGame,
 }: {
   room: MafiaPublicState["room"];
@@ -355,7 +533,7 @@ function Lobby({
   socketConnected: boolean;
   onStartGame: () => void;
   onLeaveRoom: () => void;
-  onKickPlayer: (id: string) => void;
+  onRequestKickPlayer: (player: { id: string; name: string }) => void;
   onRequestEndGame: () => void;
 }) {
   const router = useRouter();
@@ -488,10 +666,26 @@ function Lobby({
                 {me?.isHost && p.id !== me.id && room.status === "LOBBY" ? (
                   <button
                     type="button"
-                    onClick={() => onKickPlayer(p.id)}
-                    className="text-[11px] font-medium text-bad hover:underline"
+                    onClick={() =>
+                      onRequestKickPlayer({ id: p.id, name: p.name })
+                    }
+                    aria-label={`${p.name}ni chiqarish`}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
                   >
-                    Kick
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M18 6L6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
                   </button>
                 ) : null}
               </li>

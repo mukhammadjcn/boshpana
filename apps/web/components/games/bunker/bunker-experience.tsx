@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   FormEvent,
@@ -31,6 +32,19 @@ import { getOrCreateSessionId } from "@/lib/storage";
 import type { BunkerCardType, BunkerPhase, BunkerRoomState } from "./bunker-types";
 import { useGameStore } from "./use-bunker-store";
 import { pushToast } from "@/store/useToastStore";
+
+// Disaster banner mapping. Image filenames in /public are tied to the
+// seeded disaster names — keep this in sync with data.md when new
+// disasters are added. A missing entry simply falls back to the
+// text-only modal layout.
+const disasterImage: Record<string, string> = {
+  "Yadro urushi": "/yaderdavri.webp",
+  "Global virus": "/epidemiyadavri.webp",
+  "AI isyoni": "/aidavri.webp",
+  "Muz davri": "/muzlikdavri.webp",
+  "Issiq apokalipsis": "/issiqdavri.webp",
+  "Zombi apokalipsisi": "/zombidavri.webp"
+};
 
 const cardLabels: Record<BunkerCardType, string> = {
   PROFESSION: "Kasb",
@@ -180,6 +194,18 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       active = false;
     };
   }, [roomCode, sessionId, setError, setRoomState]);
+
+  // Warm the browser cache for every disaster banner while the user
+  // sits in the lobby — by the time the host triggers the game, the
+  // intro modal can flash its artwork instantly. We hit the raw .webp
+  // URLs (not the /_next/image variant) so the underlying file is
+  // cached even when the optimized version is requested later.
+  useEffect(() => {
+    for (const src of Object.values(disasterImage)) {
+      const img = new window.Image();
+      img.src = src;
+    }
+  }, []);
 
   // Prefill the join form from the cached auth profile so the user only
   // needs to confirm — they don't have to type the name from scratch.
@@ -1282,22 +1308,40 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           className="fixed inset-0 z-40 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center"
         >
           <div className="absolute inset-0" />
-          <div className="relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border">
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
-            <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Fojea
-            </p>
-            <h2 className="mt-1 text-2xl font-bold">{game.disaster.name}</h2>
-            <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              {game.disaster.description}
-            </p>
-            <div className="mt-5 grid gap-2">
-              <button
-                onClick={() => setIntroOpen(false)}
-                className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-              >
-                Tushundim
-              </button>
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-line-subtle bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border">
+            <div className="mx-auto mt-3 mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
+            {disasterImage[game.disaster.name] ? (
+              // Banner image — sits flush to the modal edges so the
+              // imagery feels cinematic. Bottom gradient ensures the
+              // "Fojea" pill stays legible against bright artwork.
+              <div className="relative aspect-[16/10] w-full overflow-hidden">
+                <Image
+                  src={disasterImage[game.disaster.name]}
+                  alt={game.disaster.name}
+                  fill
+                  sizes="(max-width: 640px) 100vw, 448px"
+                  className="object-cover"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-bg-surface via-bg-surface/40 to-transparent" />
+              </div>
+            ) : null}
+            <div className="px-5 pb-5 pt-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-brand">
+                Fojea
+              </p>
+              <h2 className="mt-1 text-2xl font-bold">{game.disaster.name}</h2>
+              <p className="mt-3 text-sm leading-7 text-ink-secondary">
+                {game.disaster.description}
+              </p>
+              <div className="mt-5 grid gap-2">
+                <button
+                  onClick={() => setIntroOpen(false)}
+                  className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
+                >
+                  Tushundim
+                </button>
+              </div>
             </div>
           </div>
         </div>
