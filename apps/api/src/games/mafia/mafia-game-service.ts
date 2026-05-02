@@ -2,14 +2,19 @@ import {
   GameOutcome,
   GameType,
   MafiaPhase,
+  MafiaRole,
   Prisma,
   RoomStatus
 } from "@prisma/client";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 
 import { prisma } from "../../lib/prisma";
 
-import type { MafiaPublicState } from "./mafia-types";
+import {
+  MAFIA_DOCTOR_MAX_SELF_HEALS,
+  MAFIA_SHERIFF_MAX_SHOTS,
+  type MafiaPublicState
+} from "./mafia-types";
 
 type RealtimePublisher = {
   broadcastRoomState: (roomCode: string) => Promise<void>;
@@ -220,10 +225,11 @@ export class MafiaGameService {
       throw new Error("O'yin allaqachon boshlangan.");
     }
 
+    const config = room.mafiaGame;
     const required =
-      room.mafiaGame.mafiaCount +
-      (room.mafiaGame.hasSheriff ? 1 : 0) +
-      (room.mafiaGame.hasDoctor ? 1 : 0) +
+      config.mafiaCount +
+      (config.hasSheriff ? 1 : 0) +
+      (config.hasDoctor ? 1 : 0) +
       1;
     if (room.players.length < required) {
       throw new Error(
@@ -231,23 +237,113 @@ export class MafiaGameService {
       );
     }
 
-    // Role assignment is intentionally deferred to the next stage. For
-    // now we just transition the room to PLAYING and mark the game as
-    // entering the role-reveal phase; the next commit will fill in the
-    // shuffled MafiaPlayerRole rows + the per-citizen night question.
-    await prisma.$transaction([
-      prisma.room.update({
+    // Build the role bag according to the host config. Citizens fill
+    // the remainder so player count > minimum still has a valid seat
+    // assignment.
+    const roles: MafiaRole[] = [];
+    for (let i = 0; i < config.mafiaCount; i += 1) roles.push(MafiaRole.MAFIA);
+    if (config.hasSheriff) roles.push(MafiaRole.SHERIFF);
+    if (config.hasDoctor) roles.push(MafiaRole.DOCTOR);
+    while (roles.length < room.players.length) roles.push(MafiaRole.CITIZEN);
+
+    // Fisher-Yates shuffle backed by crypto.randomInt — same approach
+    // Bunker uses for card deals, so role assignment is unbiased and
+    // not predictable from prior seats.
+    for (let i = roles.length - 1; i > 0; i -= 1) {
+      const j = randomInt(i + 1);
+      [roles[i], roles[j]] = [roles[j], roles[i]];
+    }
+
+    const gameId = config.id;
+    const startedAt = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.room.update({
         where: { id: room.id },
         data: { status: RoomStatus.PLAYING }
-      }),
-      prisma.mafiaGame.update({
-        where: { id: room.mafiaGame.id },
+      });
+      await tx.mafiaGame.update({
+        where: { id: gameId },
         data: {
           phase: MafiaPhase.ASSIGN_ROLES,
-          startedAt: new Date()
+          startedAt,
+          // First night/day haven't started yet — they tick when we
+          // leave ASSIGN_ROLES.
+          nightNumber: 0,
+          dayNumber: 0
         }
-      })
-    ]);
+      });
+      // Wipe any prior role rows in case startGame is somehow called
+      // twice (defensive — `requireHostRoom + status check` should
+      // prevent this, but transactions are cheap).
+      await tx.mafiaPlayerRole.deleteMany({ where: { gameId } });
+      for (let i = 0; i < room.players.length; i += 1) {
+        await tx.mafiaPlayerRole.create({
+          data: {
+            gameId,
+            playerId: room.players[i].id,
+            role: roles[i]
+          }
+        });
+      }
+    });
+  }
+
+  // Player taps "Tasdiqlash" on the role-reveal screen. Once every
+  // alive player has confirmed, we automatically advance to the first
+  // night. The host can also force-advance via `nextPhase` (added in
+  // the night-stage commit).
+  async confirmRole(input: RoomCodeAction) {
+    const room = await this.getRoomWithState(input.code);
+    if (!room || !room.mafiaGame) throw new Error("Room state topilmadi.");
+    if (room.gameType !== GameType.MAFIA) {
+      throw new Error("Bu Mafia o'yini emas.");
+    }
+    if (room.mafiaGame.phase !== MafiaPhase.ASSIGN_ROLES) {
+      throw new Error("Hozir rol tasdiqlash bosqichi emas.");
+    }
+    const me = room.players.find((p) => p.sessionId === input.sessionId);
+    if (!me || !me.mafiaRole) {
+      throw new Error("Sizning rolingiz topilmadi.");
+    }
+    if (me.mafiaRole.roleConfirmed) return; // Idempotent — second tap is a no-op.
+
+    await prisma.mafiaPlayerRole.update({
+      where: { id: me.mafiaRole.id },
+      data: { roleConfirmed: true }
+    });
+
+    // Re-check: if everyone has confirmed, advance the phase. We could
+    // skip this DB round-trip by counting from the in-memory list +
+    // delta, but a fresh count is simpler and keeps the transition
+    // logic in one place.
+    const remaining = await prisma.mafiaPlayerRole.count({
+      where: {
+        gameId: room.mafiaGame.id,
+        isAlive: true,
+        roleConfirmed: false
+      }
+    });
+    if (remaining === 0) {
+      await this.advanceToNight(room.mafiaGame.id);
+    }
+  }
+
+  // First night begins. Subsequent nights also flow through here once
+  // day-vote / day-result are wired up.
+  private async advanceToNight(gameId: string) {
+    const game = await prisma.mafiaGame.findUnique({ where: { id: gameId } });
+    if (!game) return;
+    await prisma.mafiaGame.update({
+      where: { id: gameId },
+      data: {
+        phase: MafiaPhase.NIGHT,
+        nightNumber: game.nightNumber + 1,
+        // Night timer is a strict 20s window — clients render dummy
+        // taps for citizens during this time.
+        timerEndsAt: new Date(Date.now() + 20_000)
+      }
+    });
   }
 
   async endGame(input: RoomCodeAction) {
@@ -332,6 +428,26 @@ export class MafiaGameService {
             .map((p) => p.id)
         : [];
 
+    // ASSIGN_ROLES bosqichida host va o'yinchilarga "X / N tasdiqladi"
+    // ko'rsatish uchun. Tirik o'yinchilardan rolini tasdiqlaganlar soni
+    // hisoblab beriladi — `kicked` yoki rol tushmagan o'yinchilar
+    // hisobga olinmaydi.
+    const aliveWithRole = room.players.filter(
+      (p) => p.mafiaRole && p.mafiaRole.isAlive
+    );
+    const confirmedCount = aliveWithRole.filter(
+      (p) => p.mafiaRole?.roleConfirmed
+    ).length;
+
+    const sheriffShotsRemaining = Math.max(
+      0,
+      MAFIA_SHERIFF_MAX_SHOTS - game.sheriffShotsUsed
+    );
+    const doctorSelfHealsRemaining = Math.max(
+      0,
+      MAFIA_DOCTOR_MAX_SELF_HEALS - game.doctorSelfHealsUsed
+    );
+
     return {
       room: {
         id: room.id,
@@ -350,8 +466,12 @@ export class MafiaGameService {
           hasSheriff: game.hasSheriff,
           hasDoctor: game.hasDoctor
         },
-        sheriffShotsRemaining: 0,
-        doctorSelfHealsRemaining: 0,
+        sheriffShotsRemaining,
+        doctorSelfHealsRemaining,
+        roleConfirmations: {
+          confirmed: confirmedCount,
+          total: aliveWithRole.length
+        },
         winner: game.winner,
         lastNightVictims: [],
         lastNightDoctorSaved: false,
@@ -370,7 +490,8 @@ export class MafiaGameService {
             mafiaTeammates,
             sheriffChecks: [],
             citizenQuestion: null,
-            pendingNightTargetId: null
+            pendingNightTargetId: null,
+            roleConfirmed: myRole?.roleConfirmed ?? false
           }
         : null,
       players: room.players.map((p) => {

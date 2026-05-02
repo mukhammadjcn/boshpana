@@ -333,6 +333,10 @@ model MafiaPlayerRole {
   // Flips true once the role is publicly revealed (death announcement
   // or day-vote reveal). Mafia teammates always see each other regardless.
   roleRevealed    Boolean                @default(false)
+  // True once the player has acknowledged seeing their role on the
+  // ASSIGN_ROLES screen. The phase advances to NIGHT when every alive
+  // player has confirmed (or the host force-advances).
+  roleConfirmed   Boolean                @default(false)
 }
 
 model MafiaNightSubmission {

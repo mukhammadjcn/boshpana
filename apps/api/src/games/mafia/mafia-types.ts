@@ -43,6 +43,10 @@ export type MafiaPublicState = {
     };
     sheriffShotsRemaining: number;
     doctorSelfHealsRemaining: number;
+    // ASSIGN_ROLES bosqichida foydalanuvchi va host'ga ko'rsatish
+    // uchun: nechta tirik o'yinchi rolini tasdiqlagan / jami necha
+    // tirik. NIGHT bosqichida ham 0/0 bo'ladi.
+    roleConfirmations: { confirmed: number; total: number };
     winner: MafiaTeam | null;
     // Joriy tunda kim o'lganini ertalab e'lon qilish uchun. Bo'sh array
     // = "doktor saqlab qoldi" yoki "tinch tun".
@@ -73,6 +77,10 @@ export type MafiaPublicState = {
     // O'yinchining shu raunddagi tanlovi (mavjud bo'lsa). Mafia uchun
     // bu sherigi ham ko'radi (maydonni service tomonida to'ldiradi).
     pendingNightTargetId: string | null;
+    // True once the user tapped "Tasdiqlash" on their role-reveal modal.
+    // Frontend uses this to flip the screen into the "host'ni kuting"
+    // waiting state.
+    roleConfirmed: boolean;
   } | null;
   // Hamma uchun ko'rinadigan o'yinchilar ro'yxati.
   players: Array<{

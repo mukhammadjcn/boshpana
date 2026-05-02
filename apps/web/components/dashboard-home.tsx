@@ -1,6 +1,7 @@
 "use client";
 
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -35,7 +36,7 @@ const games: GameCard[] = [
     players: "3-16 kishi · 30-60 daqiqa",
     gradient: "from-amber-700 via-orange-900 to-stone-950",
     available: true,
-    image: "../public/bunkerbanner.webp",
+    image: "/bunkerbanner.webp",
   },
   {
     href: "/games/mafia" as Route,
@@ -44,7 +45,7 @@ const games: GameCard[] = [
     players: "8-12 kishi · 30-45 daqiqa",
     gradient: "from-violet-800 via-slate-900 to-zinc-950",
     available: false,
-    image: "../public/mafiabanner.webp",
+    image: "/mafiabanner.webp",
   },
 ];
 
@@ -190,16 +191,24 @@ function GameCardItem({ game }: { game: GameCard }) {
       href={game.href}
       className="group block overflow-hidden rounded-2xl border border-line-subtle bg-bg-surface transition active:scale-[0.99]"
     >
-      {/* Landscape art slot. Gradient placeholder until real images
-          are added — swap for <Image src={game.image} ... /> later. */}
+      {/* Landscape banner. The gradient sits underneath as a fallback
+          while the image hydrates and as a backdrop if the file is
+          ever missing. */}
       <div className="relative aspect-[16/9] w-full overflow-hidden">
         <div
           className={`absolute inset-0 bg-gradient-to-br ${game.gradient}`}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.08),transparent_60%)]" />
-        <span className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-xl bg-black/40 text-base font-bold text-white backdrop-blur">
-          {game.title.slice(0, 1)}
-        </span>
+        <Image
+          src={game.image}
+          alt={game.title}
+          fill
+          sizes="(max-width: 768px) 100vw, 600px"
+          className="object-cover"
+          priority={game.available}
+        />
+        {/* Slight dark scrim along the bottom so the rounded corner of
+            the card meets the title block cleanly. */}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent" />
         {!game.available && (
           <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur">
             Tez orada

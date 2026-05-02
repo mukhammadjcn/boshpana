@@ -10,6 +10,7 @@ import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import { pushToast } from "@/store/useToastStore";
 
+import { MafiaRoleReveal } from "./mafia-role-reveal";
 import type { MafiaPublicState } from "./mafia-types";
 
 type MafiaExperienceProps = {
@@ -189,8 +190,23 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     );
   }
 
-  // PLAYING / FINISHED — placeholder until role-reveal and per-phase
-  // screens land. The host can still end the game from here.
+  // ASSIGN_ROLES — har o'yinchi rolini ko'radi va tasdiqlaydi. Hamma
+  // tasdiqlasa, server o'zi NIGHT fazasiga o'tkazadi.
+  if (game.phase === "ASSIGN_ROLES" && room.status === "PLAYING") {
+    return (
+      <>
+        <MafiaRoleReveal
+          state={roomState}
+          onConfirm={() => emit("mafia:confirm_role")}
+        />
+        {!socketConnected ? <ReconnectingBanner /> : null}
+      </>
+    );
+  }
+
+  // PLAYING (post-ASSIGN_ROLES) / FINISHED — placeholder until per-
+  // phase screens (NIGHT, DAY_*) land. The host can still end the
+  // game from here.
   return (
     <>
       <main className="min-h-screen bg-bg-base text-ink-primary">
@@ -485,6 +501,17 @@ function CompositionChip({ label, value }: { label: string; value: number }) {
     <div className="flex items-center justify-between rounded-xl border border-line-strong bg-bg-base px-3 py-2">
       <span className="text-ink-muted">{label}</span>
       <span className="font-mono font-semibold text-ink-primary">{value}</span>
+    </div>
+  );
+}
+
+function ReconnectingBanner() {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
+      <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
+        Qayta ulanmoqda…
+      </div>
     </div>
   );
 }

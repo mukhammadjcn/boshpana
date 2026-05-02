@@ -225,6 +225,25 @@ export class RealtimeHub {
         });
       });
 
+      // ── Mafia-spetsifik eventlar ─────────────────────────────────
+      // Player taps "Tasdiqlash" on the role-reveal screen. We forward
+      // straight to the Mafia service; the room is guaranteed to be a
+      // Mafia room (Bunker frontend never emits this event), but we
+      // route via `serviceForRoom` to keep dispatch consistent.
+      socket.on("mafia:confirm_role", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service || !("confirmRole" in service)) {
+            throw new Error("Bu xona Mafia o'yini emas.");
+          }
+          await service.confirmRole({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
       socket.on("next_phase", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
           await this.gameService.nextPhase({

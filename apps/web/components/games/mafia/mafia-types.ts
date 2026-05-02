@@ -36,6 +36,9 @@ export type MafiaPublicState = {
     };
     sheriffShotsRemaining: number;
     doctorSelfHealsRemaining: number;
+    // ASSIGN_ROLES bosqichida: nechta tirik o'yinchi rolini tasdiqlagan
+    // (UI'ga "X / N tasdiqladi" deb chiqarish uchun).
+    roleConfirmations: { confirmed: number; total: number };
     winner: MafiaTeam | null;
     lastNightVictims: Array<{ playerId: string; role: MafiaRole }>;
     lastNightDoctorSaved: boolean;
@@ -58,6 +61,10 @@ export type MafiaPublicState = {
     }>;
     citizenQuestion: MafiaCitizenQuestion | null;
     pendingNightTargetId: string | null;
+    // True once the user has tapped "Tasdiqlash" on the role-reveal
+    // modal — frontend uses this to render the "host'ni kuting" wait
+    // state until everyone confirms and the night begins.
+    roleConfirmed: boolean;
   } | null;
   players: Array<{
     id: string;
