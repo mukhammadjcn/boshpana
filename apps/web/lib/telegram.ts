@@ -27,6 +27,8 @@ type TgWebApp = {
   ready: () => void;
   expand: () => void;
   close: () => void;
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
   setHeaderColor?: (color: string) => void;
   setBackgroundColor?: (color: string) => void;
   setBottomBarColor?: (color: string) => void;
@@ -36,6 +38,13 @@ type TgWebApp = {
     callback: (shared: boolean, response?: { responseUnsafe?: { contact?: TgContact } }) => void
   ) => void;
   openTelegramLink?: (url: string) => void;
+  HapticFeedback?: {
+    impactOccurred?: (
+      style: "light" | "medium" | "heavy" | "rigid" | "soft"
+    ) => void;
+    notificationOccurred?: (type: "error" | "success" | "warning") => void;
+    selectionChanged?: () => void;
+  };
   MainButton?: {
     show: () => void;
     hide: () => void;
@@ -86,11 +95,43 @@ export function readyExpand() {
   try {
     wa.ready();
     wa.expand();
+    // Disable swipe-down to close — accidental drags during gameplay
+    // shouldn't dismiss the WebApp. Only available on Bot API ≥ 7.7,
+    // call is wrapped in optional-chain so older clients ignore it.
+    wa.disableVerticalSwipes?.();
     // Match the app's themeColor so the Telegram header doesn't visually
     // separate from the page background.
     wa.setHeaderColor?.("#0b0d12");
     wa.setBackgroundColor?.("#0b0d12");
     wa.setBottomBarColor?.("#0b0d12");
+  } catch {
+    // ignore
+  }
+}
+
+// Haptic feedback shorthand. Falls back to no-op outside Telegram so the
+// same call works on web without guards. Style guidance:
+//   - "light"  : minor selection / hover
+//   - "medium" : button press, card flip
+//   - "rigid"  : decisive action (vote, advance turn)
+//   - "soft"   : subtle confirmations
+export function tgHaptic(
+  kind: "light" | "medium" | "heavy" | "rigid" | "soft" = "medium"
+) {
+  const wa = getTelegramWebApp();
+  if (!wa?.HapticFeedback?.impactOccurred) return;
+  try {
+    wa.HapticFeedback.impactOccurred(kind);
+  } catch {
+    // ignore
+  }
+}
+
+export function tgHapticNotify(kind: "success" | "warning" | "error") {
+  const wa = getTelegramWebApp();
+  if (!wa?.HapticFeedback?.notificationOccurred) return;
+  try {
+    wa.HapticFeedback.notificationOccurred(kind);
   } catch {
     // ignore
   }

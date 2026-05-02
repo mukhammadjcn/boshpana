@@ -162,19 +162,33 @@ export class RealtimeHub {
   }
 
   async broadcastRoomState(roomCode: string) {
-    const socketIds = await this.io.in(roomCode.toUpperCase()).allSockets();
+    const code = roomCode.toUpperCase();
+    const socketIds = await this.io.in(code).allSockets();
+    if (socketIds.size === 0) return;
+
+    // Fetch the room ONCE and derive per-session state in memory. Without
+    // this, large lobbies hit the DB N times for what is effectively the
+    // same query — measurable lag during phase transitions.
+    let prepared: Awaited<
+      ReturnType<typeof this.gameService.getRoomStateForBroadcast>
+    >;
+    try {
+      prepared = await this.gameService.getRoomStateForBroadcast(code);
+    } catch (error) {
+      const message = (error as Error).message;
+      for (const socketId of socketIds) {
+        const socket = this.io.sockets.sockets.get(socketId);
+        socket?.emit("action_error", { message });
+      }
+      return;
+    }
 
     for (const socketId of socketIds) {
       const socket = this.io.sockets.sockets.get(socketId);
       const sessionId = socket?.data.sessionId as string | undefined;
-
-      if (!socket || !sessionId) {
-        continue;
-      }
-
+      if (!socket || !sessionId) continue;
       try {
-        const state = await this.gameService.getRoomState(roomCode, sessionId);
-        socket.emit("room_state", state);
+        socket.emit("room_state", prepared.perSession(sessionId));
       } catch (error) {
         socket.emit("action_error", { message: (error as Error).message });
       }

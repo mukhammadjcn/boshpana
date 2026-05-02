@@ -19,7 +19,9 @@ import {
   buildTelegramShareUrl,
   buildTelegramStartappLink,
   isInsideTelegram,
-  openTelegramLink
+  openTelegramLink,
+  tgHaptic,
+  tgHapticNotify
 } from "@/lib/telegram";
 import { VotePanel } from "@/components/vote-panel";
 import { useGameAudio } from "@/components/game/use-game-audio";
@@ -82,6 +84,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   });
   const [origin, setOrigin] = useState("");
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [socketConnected, setSocketConnected] = useState(true);
   const [introOpen, setIntroOpen] = useState(false);
   const [situationOpen, setSituationOpen] = useState(false);
   const [myCardsOpen, setMyCardsOpen] = useState(false);
@@ -199,6 +202,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     let isReconnect = false;
 
     const onConnect = () => {
+      setSocketConnected(true);
       socket.emit("join_room", { roomCode, sessionId });
       if (isReconnect) {
         // Recover any broadcasts missed during the disconnect window.
@@ -213,6 +217,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       isReconnect = true;
     };
 
+    const onDisconnect = () => {
+      setSocketConnected(false);
+    };
+
     const onState = (s: RoomState) => {
       setRoomState(s);
       setLoading(false);
@@ -224,12 +232,22 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
-      // Only reconnect if the socket actually dropped — connect handler
-      // will rejoin and refetch state. Don't fire on every tab switch.
-      if (!socket.connected) socket.connect();
+      // Tab came back into focus — reconnect if dropped, AND refetch state
+      // (the broadcast we missed while hidden may have been the only chance
+      // to learn about a phase change).
+      if (!socket.connected) {
+        socket.connect();
+      } else {
+        void apiRequest<RoomState>(
+          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+        )
+          .then((s) => setRoomState(s))
+          .catch(() => undefined);
+      }
     };
 
     socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
     socket.on("room_state", onState);
     socket.on("timer_update", onTimer);
     socket.on("action_error", onErr);
@@ -239,6 +257,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
     return () => {
       socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
       socket.off("room_state", onState);
       socket.off("timer_update", onTimer);
       socket.off("action_error", onErr);
@@ -323,6 +342,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       .map(([t, v]) => ({ type: t as CardType, value: v as string }));
 
     seenRevealAnnouncementRef.current.add(key);
+    tgHaptic("light");
     setRevealModal({
       playerId,
       playerName: player.name,
@@ -379,6 +399,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     const key = `self-elim-${roomState?.game.roundNumber}-${meId}`;
     if (seenSelfEliminationRef.current.has(key)) return;
     seenSelfEliminationRef.current.add(key);
+    tgHapticNotify("error");
     setEliminatedModalOpen(true);
   }, [
     roomState?.game.lastEliminatedPlayerId,
@@ -485,6 +506,11 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
   async function handleJoin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Blur the active input so the on-screen keyboard collapses before the
+    // network call kicks in — feels noticeably snappier on mobile.
+    if (typeof document !== "undefined") {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
     try {
       await joinWithName(joinName.trim());
     } catch (nextError) {
@@ -763,6 +789,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   if (room.status === "LOBBY") {
     return (
       <main className="min-h-screen bg-bg-base text-ink-primary">
+        <ConnectionBanner connected={socketConnected} />
         <div className="mx-auto max-w-xl px-5 pt-safe pb-32">
           <header className="flex items-center justify-between py-3">
             <button
@@ -931,6 +958,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   // ─── GAME VIEW ───────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
+      <ConnectionBanner connected={socketConnected} />
       {/* Sticky header */}
       <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-2 px-4 pt-safe pb-2.5">
@@ -1310,7 +1338,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           meId={me.id}
           tiebreakCandidateIds={game.tiebreakCandidateIds}
           secondsLeft={game.remainingSeconds}
-          onVote={(targetPlayerId) => emit("vote", { targetPlayerId })}
+          onVote={(targetPlayerId) => {
+            tgHaptic("rigid");
+            emit("vote", { targetPlayerId });
+          }}
         />
       ) : null}
 
@@ -1610,5 +1641,20 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
         </div>
       ) : null}
     </main>
+  );
+}
+
+// Small toast-style banner that floats over content while the realtime
+// socket is dropped. Pinned to the top under any safe-area inset so it
+// doesn't collide with Telegram's chrome.
+function ConnectionBanner({ connected }: { connected: boolean }) {
+  if (connected) return null;
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
+      <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
+        Qayta ulanmoqda…
+      </div>
+    </div>
   );
 }

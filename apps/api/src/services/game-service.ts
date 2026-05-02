@@ -249,6 +249,13 @@ export class GameService {
       }
     });
 
+    // Push the new state to everyone already in the lobby right away. The
+    // joining client's own socket will reconnect/emit "join_room" shortly
+    // after this HTTP response — but if we wait for that, existing lobby
+    // members occasionally don't see the new player until they manually
+    // refresh (Telegram WebApp socket reconnects can be slow).
+    await this.realtime.broadcastRoomState(room.code);
+
     return { roomCode: room.code, playerId: player.id };
   }
 
@@ -259,6 +266,34 @@ export class GameService {
       throw new Error("Room state topilmadi.");
     }
 
+    return this.buildRoomState(room, sessionId);
+  }
+
+  // Pre-loaded version: assumes the caller already fetched the room with
+  // all relations. Lets `broadcastRoomState` query the DB ONCE and reuse
+  // the result for every connected socket — large lobbies used to do N+1
+  // queries per phase change.
+  async getRoomStateForBroadcast(code: string): Promise<{
+    room: NonNullable<Awaited<ReturnType<GameService["getRoomWithState"]>>>;
+    perSession: (sessionId: string) => PublicRoomState;
+  }> {
+    const room = await this.getRoomWithState(code);
+    if (!room || !room.game) {
+      throw new Error("Room state topilmadi.");
+    }
+    return {
+      room,
+      perSession: (sessionId: string) => this.buildRoomState(room, sessionId)
+    };
+  }
+
+  private buildRoomState(
+    room: NonNullable<Awaited<ReturnType<GameService["getRoomWithState"]>>>,
+    sessionId: string
+  ): PublicRoomState {
+    if (!room.game) {
+      throw new Error("Room state topilmadi.");
+    }
     const me = room.players.find((player) => player.sessionId === sessionId) ?? null;
     const remainingSeconds = this.getRemainingSeconds(room.game.timerEndsAt);
     const currentRoundNumber = room.game.roundNumber;

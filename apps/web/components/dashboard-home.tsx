@@ -72,6 +72,9 @@ export function DashboardHome() {
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (limitReached) return;
+    if (typeof document !== "undefined") {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
     setCreating(true);
     setCreateError(null);
     try {
