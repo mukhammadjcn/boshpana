@@ -10,6 +10,8 @@ import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import { pushToast } from "@/store/useToastStore";
 
+import { MafiaNight } from "./mafia-night";
+import { MafiaNightResult } from "./mafia-night-result";
 import { MafiaRoleReveal } from "./mafia-role-reveal";
 import type { MafiaPublicState } from "./mafia-types";
 
@@ -199,6 +201,32 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           state={roomState}
           onConfirm={() => emit("mafia:confirm_role")}
         />
+        {!socketConnected ? <ReconnectingBanner /> : null}
+      </>
+    );
+  }
+
+  // NIGHT — strict 20s window. Each role taps a target; server
+  // resolves at the deadline.
+  if (game.phase === "NIGHT" && room.status === "PLAYING") {
+    return (
+      <>
+        <MafiaNight
+          state={roomState}
+          onSubmit={(action, targetPlayerId) =>
+            emit("mafia:submit_night_action", { action, targetPlayerId })
+          }
+        />
+        {!socketConnected ? <ReconnectingBanner /> : null}
+      </>
+    );
+  }
+
+  // NIGHT_RESULT — sequential reveal of victims and doctor save.
+  if (game.phase === "NIGHT_RESULT" && room.status === "PLAYING") {
+    return (
+      <>
+        <MafiaNightResult state={roomState} />
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );

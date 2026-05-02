@@ -1,4 +1,4 @@
-import { BunkerCardType } from "@prisma/client";
+import { BunkerCardType, MafiaNightActionType } from "@prisma/client";
 import { Server, Socket } from "socket.io";
 
 import { GameRegistry } from "../games/registry";
@@ -243,6 +243,33 @@ export class RealtimeHub {
           await this.broadcastRoomState(payload.roomCode);
         });
       });
+
+      // Player chooses (or re-chooses) their night target. Mafia,
+      // sheriff, doctor and citizen all flow through this single event;
+      // the service validates the action ↔ role pairing.
+      socket.on(
+        "mafia:submit_night_action",
+        async (
+          payload: SocketActionPayload & {
+            action: MafiaNightActionType;
+            targetPlayerId: string | null;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const service = await this.serviceForRoom(payload.roomCode);
+            if (!service || !("submitNightAction" in service)) {
+              throw new Error("Bu xona Mafia o'yini emas.");
+            }
+            await service.submitNightAction({
+              code: payload.roomCode,
+              sessionId: payload.sessionId,
+              action: payload.action,
+              targetPlayerId: payload.targetPlayerId
+            });
+            await this.broadcastRoomState(payload.roomCode);
+          });
+        }
+      );
 
       socket.on("next_phase", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {

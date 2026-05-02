@@ -1,6 +1,9 @@
 import {
   GameOutcome,
   GameType,
+  MafiaCitizenQuestion,
+  MafiaEliminationCause,
+  MafiaNightActionType,
   MafiaPhase,
   MafiaRole,
   Prisma,
@@ -12,6 +15,7 @@ import { prisma } from "../../lib/prisma";
 
 import {
   MAFIA_DOCTOR_MAX_SELF_HEALS,
+  MAFIA_NIGHT_DURATION_SECONDS,
   MAFIA_SHERIFF_MAX_SHOTS,
   type MafiaPublicState
 } from "./mafia-types";
@@ -52,7 +56,11 @@ type RoomWithMafiaState = Prisma.RoomGetPayload<{
       };
       orderBy: { seatOrder: "asc" };
     };
-    mafiaGame: true;
+    mafiaGame: {
+      include: {
+        nightSubmissions: true;
+      };
+    };
   };
 }>;
 
@@ -65,13 +73,21 @@ const noopRealtime: RealtimePublisher = {
 export class MafiaGameService {
   private realtime: RealtimePublisher = noopRealtime;
 
+  // Per-room interval timers — same pattern as Bunker. Each tick checks
+  // the persisted `timerEndsAt` against now, broadcasts the remaining
+  // seconds, and resolves the phase when the deadline passes. We key on
+  // roomCode (uppercase) so reconnects don't double-start.
+  private readonly timers = new Map<string, NodeJS.Timeout>();
+
   setRealtime(publisher: RealtimePublisher) {
     this.realtime = publisher;
   }
 
   async shutdown() {
-    // Mafia hozircha persistent timer'ga ega emas — taymerlar tun
-    // bosqichi qo'shilganda paydo bo'ladi va shu yerda to'xtatiladi.
+    for (const timer of this.timers.values()) {
+      clearInterval(timer);
+    }
+    this.timers.clear();
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -332,18 +348,324 @@ export class MafiaGameService {
   // First night begins. Subsequent nights also flow through here once
   // day-vote / day-result are wired up.
   private async advanceToNight(gameId: string) {
-    const game = await prisma.mafiaGame.findUnique({ where: { id: gameId } });
-    if (!game) return;
-    await prisma.mafiaGame.update({
+    const game = await prisma.mafiaGame.findUnique({
       where: { id: gameId },
-      data: {
-        phase: MafiaPhase.NIGHT,
-        nightNumber: game.nightNumber + 1,
-        // Night timer is a strict 20s window — clients render dummy
-        // taps for citizens during this time.
-        timerEndsAt: new Date(Date.now() + 20_000)
+      include: {
+        room: { select: { code: true } },
+        playerRoles: { where: { isAlive: true } }
       }
     });
+    if (!game) return;
+
+    const newNightNumber = game.nightNumber + 1;
+    const timerEndsAt = new Date(
+      Date.now() + MAFIA_NIGHT_DURATION_SECONDS * 1000
+    );
+
+    // Pre-pick a random citizen question for each alive citizen so the
+    // moment the NIGHT state broadcasts, citizens already see their
+    // prompt. Pre-creating their submission row also ensures the upsert
+    // path on /submit_night_action can update an existing row instead
+    // of racing to insert one.
+    const citizens = game.playerRoles.filter(
+      (pr) => pr.role === MafiaRole.CITIZEN
+    );
+    const citizenSeeds = citizens.map((c) => {
+      const useKill = randomInt(2) === 0;
+      const question = useKill
+        ? MafiaCitizenQuestion.GUESS_MAFIA_KILL
+        : MafiaCitizenQuestion.GUESS_DOCTOR_HEAL;
+      const action = useKill
+        ? MafiaNightActionType.CITIZEN_GUESS_KILL
+        : MafiaNightActionType.CITIZEN_GUESS_HEAL;
+      return { playerId: c.playerId, question, action };
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.mafiaGame.update({
+        where: { id: gameId },
+        data: {
+          phase: MafiaPhase.NIGHT,
+          nightNumber: newNightNumber,
+          timerEndsAt,
+          // Reset previous-night flags so NIGHT_RESULT renders cleanly
+          // when this new night resolves.
+          lastNightDoctorSaved: false
+        }
+      });
+      for (const seed of citizenSeeds) {
+        await tx.mafiaNightSubmission.upsert({
+          where: {
+            gameId_nightNumber_actorPlayerId: {
+              gameId,
+              nightNumber: newNightNumber,
+              actorPlayerId: seed.playerId
+            }
+          },
+          create: {
+            gameId,
+            nightNumber: newNightNumber,
+            actorPlayerId: seed.playerId,
+            action: seed.action,
+            targetPlayerId: null,
+            citizenQuestion: seed.question
+          },
+          update: {}
+        });
+      }
+    });
+
+    this.startTimer(game.room.code);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Night actions
+  // ────────────────────────────────────────────────────────────────
+
+  // Per-role allowed actions. Keeps the validation matrix readable and
+  // ensures a citizen can't smuggle a MAFIA_KILL into their submission.
+  private static readonly ROLE_ACTIONS: Record<
+    MafiaRole,
+    readonly MafiaNightActionType[]
+  > = {
+    [MafiaRole.MAFIA]: [MafiaNightActionType.MAFIA_KILL],
+    [MafiaRole.SHERIFF]: [
+      MafiaNightActionType.SHERIFF_CHECK,
+      MafiaNightActionType.SHERIFF_SHOOT
+    ],
+    [MafiaRole.DOCTOR]: [MafiaNightActionType.DOCTOR_HEAL],
+    [MafiaRole.CITIZEN]: [
+      MafiaNightActionType.CITIZEN_GUESS_KILL,
+      MafiaNightActionType.CITIZEN_GUESS_HEAL
+    ]
+  };
+
+  async submitNightAction(
+    input: RoomCodeAction & {
+      action: MafiaNightActionType;
+      targetPlayerId: string | null;
+    }
+  ) {
+    const room = await this.getRoomWithState(input.code);
+    if (!room || !room.mafiaGame) throw new Error("Room state topilmadi.");
+    if (room.gameType !== GameType.MAFIA) {
+      throw new Error("Bu Mafia o'yini emas.");
+    }
+    const game = room.mafiaGame;
+    if (game.phase !== MafiaPhase.NIGHT) {
+      throw new Error("Hozir tun bosqichi emas.");
+    }
+
+    const me = room.players.find((p) => p.sessionId === input.sessionId);
+    if (!me || !me.mafiaRole) throw new Error("O'yinchi topilmadi.");
+    if (!me.mafiaRole.isAlive) {
+      throw new Error("O'lgan o'yinchi harakat qila olmaydi.");
+    }
+    const myRole = me.mafiaRole.role;
+
+    const allowed = MafiaGameService.ROLE_ACTIONS[myRole];
+    if (!allowed.includes(input.action)) {
+      throw new Error("Bu harakat sizning rolingizga mos kelmaydi.");
+    }
+
+    // Sheriff shoot caps — the schema column tracks usage across all
+    // nights. We don't fail just because the sheriff *re-clicked* shoot
+    // during the same night (upsert replaces); we only enforce the cap
+    // at submit time so the state stays consistent.
+    if (input.action === MafiaNightActionType.SHERIFF_SHOOT) {
+      const remaining = MAFIA_SHERIFF_MAX_SHOTS - game.sheriffShotsUsed;
+      if (remaining <= 0) throw new Error("O'qlar tugagan.");
+    }
+
+    // Doctor self-heal cap — only enforced when the heal target is the
+    // doctor themselves. Healing others is unlimited per spec.
+    if (
+      input.action === MafiaNightActionType.DOCTOR_HEAL &&
+      input.targetPlayerId === me.id
+    ) {
+      const remaining =
+        MAFIA_DOCTOR_MAX_SELF_HEALS - game.doctorSelfHealsUsed;
+      if (remaining <= 0) {
+        throw new Error("O'zingizni boshqa davolab bo'lmaydi.");
+      }
+    }
+
+    // Validate target — must be alive and in the same game. Null target
+    // is allowed (mafia/sheriff/doctor tap "skip" or are still picking).
+    if (input.targetPlayerId !== null) {
+      const target = room.players.find((p) => p.id === input.targetPlayerId);
+      if (!target || !target.mafiaRole) throw new Error("Nishon topilmadi.");
+      if (!target.mafiaRole.isAlive) throw new Error("Nishon hayot emas.");
+    }
+
+    // Citizens — preserve the question that was preassigned in
+    // advanceToNight. The action they submit must match their seeded
+    // question; if the client somehow flips the action, we coerce it
+    // back to the seeded one so the dummy prompt stays stable.
+    let citizenQuestion: MafiaCitizenQuestion | null = null;
+    if (myRole === MafiaRole.CITIZEN) {
+      const seeded = await prisma.mafiaNightSubmission.findUnique({
+        where: {
+          gameId_nightNumber_actorPlayerId: {
+            gameId: game.id,
+            nightNumber: game.nightNumber,
+            actorPlayerId: me.id
+          }
+        }
+      });
+      citizenQuestion = seeded?.citizenQuestion ?? null;
+    }
+
+    await prisma.mafiaNightSubmission.upsert({
+      where: {
+        gameId_nightNumber_actorPlayerId: {
+          gameId: game.id,
+          nightNumber: game.nightNumber,
+          actorPlayerId: me.id
+        }
+      },
+      create: {
+        gameId: game.id,
+        nightNumber: game.nightNumber,
+        actorPlayerId: me.id,
+        action: input.action,
+        targetPlayerId: input.targetPlayerId,
+        citizenQuestion
+      },
+      update: {
+        action: input.action,
+        targetPlayerId: input.targetPlayerId,
+        submittedAt: new Date()
+      }
+    });
+  }
+
+  // Server-side resolution at the end of the 20s window. Tally mafia
+  // votes (mode, ties → most-recent submission), apply sheriff shoot
+  // and doctor heal, mark deaths, transition to NIGHT_RESULT. The
+  // public state's `lastNightVictims` array is derived from
+  // MafiaPlayerRole rows where `eliminatedRound === nightNumber` so we
+  // don't need to denormalise it on the game model.
+  private async resolveNight(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+    if (!room || !room.mafiaGame) return;
+    const game = room.mafiaGame;
+    if (game.phase !== MafiaPhase.NIGHT) return; // Race: another path advanced.
+
+    const submissions = await prisma.mafiaNightSubmission.findMany({
+      where: { gameId: game.id, nightNumber: game.nightNumber }
+    });
+
+    // ── Mafia kill: count targets, ties broken by latest submission.
+    const mafiaTallies = new Map<
+      string,
+      { count: number; latest: Date }
+    >();
+    for (const s of submissions) {
+      if (s.action !== MafiaNightActionType.MAFIA_KILL) continue;
+      if (!s.targetPlayerId) continue;
+      const cur = mafiaTallies.get(s.targetPlayerId) ?? {
+        count: 0,
+        latest: new Date(0)
+      };
+      cur.count += 1;
+      if (s.submittedAt > cur.latest) cur.latest = s.submittedAt;
+      mafiaTallies.set(s.targetPlayerId, cur);
+    }
+    let mafiaKillTarget: string | null = null;
+    let bestCount = 0;
+    let bestLatest = new Date(0);
+    for (const [target, { count, latest }] of mafiaTallies) {
+      if (
+        count > bestCount ||
+        (count === bestCount && latest > bestLatest)
+      ) {
+        mafiaKillTarget = target;
+        bestCount = count;
+        bestLatest = latest;
+      }
+    }
+
+    // ── Sheriff shoot (single submission).
+    const sheriffShootSub = submissions.find(
+      (s) => s.action === MafiaNightActionType.SHERIFF_SHOOT && s.targetPlayerId
+    );
+    const sheriffShootTarget = sheriffShootSub?.targetPlayerId ?? null;
+
+    // ── Doctor heal (single submission).
+    const doctorHealSub = submissions.find(
+      (s) => s.action === MafiaNightActionType.DOCTOR_HEAL && s.targetPlayerId
+    );
+    const doctorHealTarget = doctorHealSub?.targetPlayerId ?? null;
+    const doctorHealedSelf =
+      doctorHealSub != null &&
+      doctorHealSub.actorPlayerId === doctorHealSub.targetPlayerId;
+
+    // Doctor saves any attack whose target matches their heal. A single
+    // heal can save against both mafia kill AND sheriff shoot if both
+    // happened to converge on the same person.
+    const mafiaSaved =
+      mafiaKillTarget !== null && doctorHealTarget === mafiaKillTarget;
+    const sheriffSaved =
+      sheriffShootTarget !== null && doctorHealTarget === sheriffShootTarget;
+    const doctorSavedAny = mafiaSaved || sheriffSaved;
+
+    // Final death set — dedupe in case mafia + sheriff both targeted
+    // the same player (rare, but possible if Sheriff suspects them).
+    const deathRows: Array<{
+      playerId: string;
+      cause: MafiaEliminationCause;
+    }> = [];
+    if (mafiaKillTarget !== null && !mafiaSaved) {
+      deathRows.push({
+        playerId: mafiaKillTarget,
+        cause: MafiaEliminationCause.MAFIA_KILL
+      });
+    }
+    if (
+      sheriffShootTarget !== null &&
+      !sheriffSaved &&
+      sheriffShootTarget !== mafiaKillTarget
+    ) {
+      deathRows.push({
+        playerId: sheriffShootTarget,
+        cause: MafiaEliminationCause.SHERIFF_SHOOT
+      });
+    }
+
+    const sheriffShotIncrement = sheriffShootTarget !== null ? 1 : 0;
+    const doctorSelfHealIncrement = doctorHealedSelf ? 1 : 0;
+
+    await prisma.$transaction(async (tx) => {
+      for (const d of deathRows) {
+        await tx.mafiaPlayerRole.update({
+          where: { playerId: d.playerId },
+          data: {
+            isAlive: false,
+            eliminatedRound: game.nightNumber,
+            eliminatedCause: d.cause,
+            roleRevealed: true
+          }
+        });
+        await tx.player.update({
+          where: { id: d.playerId },
+          data: { isAlive: false }
+        });
+      }
+      await tx.mafiaGame.update({
+        where: { id: game.id },
+        data: {
+          phase: MafiaPhase.NIGHT_RESULT,
+          timerEndsAt: null,
+          sheriffShotsUsed: { increment: sheriffShotIncrement },
+          doctorSelfHealsUsed: { increment: doctorSelfHealIncrement },
+          lastNightDoctorSaved: doctorSavedAny
+        }
+      });
+    });
+
+    this.stopTimer(roomCode);
+    await this.realtime.broadcastRoomState(roomCode);
   }
 
   async endGame(input: RoomCodeAction) {
@@ -448,6 +770,75 @@ export class MafiaGameService {
       MAFIA_DOCTOR_MAX_SELF_HEALS - game.doctorSelfHealsUsed
     );
 
+    // Last-night victims — derive from the player roles eliminated this
+    // night via a night-cause. Avoids denormalising onto the game model.
+    const lastNightVictims = room.players
+      .filter(
+        (p) =>
+          p.mafiaRole &&
+          p.mafiaRole.eliminatedRound === game.nightNumber &&
+          (p.mafiaRole.eliminatedCause === MafiaEliminationCause.MAFIA_KILL ||
+            p.mafiaRole.eliminatedCause === MafiaEliminationCause.SHERIFF_SHOOT)
+      )
+      .map((p) => ({
+        playerId: p.id,
+        role: p.mafiaRole!.role
+      }));
+
+    // Mafia picks (real-time during NIGHT) — visible only to mafia members
+    // so the team can see each other's targets converge. We expose every
+    // mafia member's submission for the current night, even null targets
+    // (so the UI renders an empty slot for teammates still picking).
+    const mafiaPicks =
+      myRole?.role === "MAFIA"
+        ? game.nightSubmissions
+            .filter(
+              (s) =>
+                s.nightNumber === game.nightNumber &&
+                s.action === MafiaNightActionType.MAFIA_KILL
+            )
+            .map((s) => ({
+              actorPlayerId: s.actorPlayerId,
+              targetPlayerId: s.targetPlayerId
+            }))
+        : [];
+
+    // Sheriff check history — every SHERIFF_CHECK submission ever made by
+    // the current sheriff, joined with the target's role to determine
+    // isMafia. Surfaced after submission so the sheriff sees results in
+    // real-time during NIGHT, and on subsequent nights the past results
+    // remain visible.
+    const sheriffChecks =
+      myRole?.role === "SHERIFF" && me
+        ? game.nightSubmissions
+            .filter(
+              (s) =>
+                s.actorPlayerId === me.id &&
+                s.action === MafiaNightActionType.SHERIFF_CHECK &&
+                s.targetPlayerId
+            )
+            .map((s) => {
+              const target = room.players.find(
+                (p) => p.id === s.targetPlayerId
+              );
+              return {
+                playerId: s.targetPlayerId!,
+                isMafia: target?.mafiaRole?.role === MafiaRole.MAFIA,
+                nightNumber: s.nightNumber
+              };
+            })
+            .sort((a, b) => a.nightNumber - b.nightNumber)
+        : [];
+
+    // Current player's submission for this night (if any) — used by the
+    // UI to render the active pick / chosen sheriff mode.
+    const myCurrentSub = me
+      ? game.nightSubmissions.find(
+          (s) =>
+            s.actorPlayerId === me.id && s.nightNumber === game.nightNumber
+        ) ?? null
+      : null;
+
     return {
       room: {
         id: room.id,
@@ -473,8 +864,8 @@ export class MafiaGameService {
           total: aliveWithRole.length
         },
         winner: game.winner,
-        lastNightVictims: [],
-        lastNightDoctorSaved: false,
+        lastNightVictims,
+        lastNightDoctorSaved: game.lastNightDoctorSaved,
         lastEliminatedPlayerId: null,
         lastEliminatedRole: null,
         tiebreakCandidateIds: []
@@ -488,9 +879,10 @@ export class MafiaGameService {
             sessionId: me.sessionId,
             role: myRole?.role ?? null,
             mafiaTeammates,
-            sheriffChecks: [],
-            citizenQuestion: null,
-            pendingNightTargetId: null,
+            sheriffChecks,
+            citizenQuestion: myCurrentSub?.citizenQuestion ?? null,
+            pendingNightTargetId: myCurrentSub?.targetPlayerId ?? null,
+            pendingNightAction: myCurrentSub?.action ?? null,
             roleConfirmed: myRole?.roleConfirmed ?? false
           }
         : null,
@@ -512,7 +904,7 @@ export class MafiaGameService {
           revealedRole: showRole ? p.mafiaRole?.role ?? null : null
         };
       }),
-      mafiaPicks: [],
+      mafiaPicks,
       votes: { total: 0, submittedByMe: false }
     };
   }
@@ -541,7 +933,9 @@ export class MafiaGameService {
           include: { mafiaRole: true },
           orderBy: { seatOrder: "asc" }
         },
-        mafiaGame: true
+        mafiaGame: {
+          include: { nightSubmissions: true }
+        }
       }
     });
   }
@@ -561,5 +955,48 @@ export class MafiaGameService {
       0,
       Math.ceil((timerEndsAt.getTime() - Date.now()) / 1000)
     );
+  }
+
+  // 1Hz tick — broadcasts the remaining seconds to clients and triggers
+  // phase resolution when the deadline elapses. Same shape as Bunker's
+  // timer so the client only listens to one `timer_update` event type.
+  private startTimer(roomCode: string) {
+    this.stopTimer(roomCode);
+    const code = roomCode.toUpperCase();
+
+    const interval = setInterval(async () => {
+      try {
+        const room = await prisma.room.findUnique({
+          where: { code },
+          include: { mafiaGame: true }
+        });
+        if (!room?.mafiaGame?.timerEndsAt) {
+          this.stopTimer(code);
+          return;
+        }
+        const remaining = this.getRemainingSeconds(room.mafiaGame.timerEndsAt);
+        this.realtime.broadcastTimer(code, remaining);
+        if (remaining > 0) return;
+
+        this.stopTimer(code);
+        if (room.mafiaGame.phase === MafiaPhase.NIGHT) {
+          await this.resolveNight(code);
+        }
+      } catch (error) {
+        console.error(error);
+        this.stopTimer(code);
+      }
+    }, 1000);
+
+    this.timers.set(code, interval);
+  }
+
+  private stopTimer(roomCode: string) {
+    const code = roomCode.toUpperCase();
+    const timer = this.timers.get(code);
+    if (timer) {
+      clearInterval(timer);
+      this.timers.delete(code);
+    }
   }
 }

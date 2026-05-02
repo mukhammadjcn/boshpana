@@ -1,5 +1,6 @@
 import {
   MafiaCitizenQuestion,
+  MafiaNightActionType,
   MafiaPhase,
   MafiaRole,
   MafiaTeam,
@@ -77,6 +78,11 @@ export type MafiaPublicState = {
     // O'yinchining shu raunddagi tanlovi (mavjud bo'lsa). Mafia uchun
     // bu sherigi ham ko'radi (maydonni service tomonida to'ldiradi).
     pendingNightTargetId: string | null;
+    // Sherif uchun: tekshirish yoki o'q uzish modidan qaysi biri tanlangan.
+    // Boshqa rollar uchun ham mavjud (CITIZEN_GUESS_*, MAFIA_KILL,
+    // DOCTOR_HEAL) — UI shu maydondan kelib chiqib pendingNightTargetId
+    // ni qaysi action sifatida render qilishni biladi.
+    pendingNightAction: MafiaNightActionType | null;
     // True once the user tapped "Tasdiqlash" on their role-reveal modal.
     // Frontend uses this to flip the screen into the "host'ni kuting"
     // waiting state.

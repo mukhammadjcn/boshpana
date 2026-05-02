@@ -307,6 +307,12 @@ model MafiaGame {
   sheriffShotsUsed    Int        @default(0)
   doctorSelfHealsUsed Int        @default(0)
 
+  // True when the previous night's resolution prevented at least one
+  // death because the doctor's heal target matched an attack target.
+  // Frontend uses this to render "Doktor 1 fuqaroni saqlab qoldi" on
+  // the NIGHT_RESULT screen. Reset to false at the start of each night.
+  lastNightDoctorSaved Boolean   @default(false)
+
   winner              MafiaTeam?
 
   createdAt           DateTime   @default(now())

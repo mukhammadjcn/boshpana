@@ -16,6 +16,14 @@ export type MafiaPhase =
 
 export type MafiaCitizenQuestion = "GUESS_MAFIA_KILL" | "GUESS_DOCTOR_HEAL";
 
+export type MafiaNightActionType =
+  | "MAFIA_KILL"
+  | "SHERIFF_CHECK"
+  | "SHERIFF_SHOOT"
+  | "DOCTOR_HEAL"
+  | "CITIZEN_GUESS_KILL"
+  | "CITIZEN_GUESS_HEAL";
+
 export type MafiaPublicState = {
   room: {
     id: string;
@@ -61,6 +69,10 @@ export type MafiaPublicState = {
     }>;
     citizenQuestion: MafiaCitizenQuestion | null;
     pendingNightTargetId: string | null;
+    // Sherif uchun: tekshirish yoki o'q uzish modidan qaysi biri tanlangan.
+    // Boshqa rollar (MAFIA_KILL, DOCTOR_HEAL, CITIZEN_GUESS_*) uchun ham
+    // joriy raunddagi tanlovni ifodalaydi.
+    pendingNightAction: MafiaNightActionType | null;
     // True once the user has tapped "Tasdiqlash" on the role-reveal
     // modal — frontend uses this to render the "host'ni kuting" wait
     // state until everyone confirms and the night begins.
