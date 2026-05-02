@@ -4,6 +4,7 @@ import Script from "next/script";
 
 import { SafeAreaBlur } from "@/components/safe-area-blur";
 import { TelegramBootstrap } from "@/components/telegram-bootstrap";
+import { ToastViewport } from "@/components/toast-viewport";
 
 import "./globals.css";
 
@@ -93,6 +94,7 @@ export default function RootLayout({
         <TelegramBootstrap />
         {children}
         <SafeAreaBlur />
+        <ToastViewport />
       </body>
     </html>
   );

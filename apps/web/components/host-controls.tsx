@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 type HostControlsProps = {
   isHost: boolean;
   isLobby?: boolean;
@@ -39,9 +41,11 @@ export function HostControls({
   onSkipVoting,
   onEndGame,
 }: HostControlsProps) {
-  if (!isHost) {
-    return null;
-  }
+  // Optimistic pending state for host actions: clicking flips the button
+  // into a "yuborilmoqda" state immediately so taps feel instant. Cleared
+  // when the resulting phase change re-derives `primary`/`secondary`
+  // labels, or after a 4s safety timeout if the broadcast never arrives.
+  const [pending, setPending] = useState<"primary" | "secondary" | null>(null);
 
   // After voting resolved, the only useful host action is moving on.
   const primary = canStartGame
@@ -69,6 +73,33 @@ export function HostControls({
 
   const endLabel = isLobby ? "Roomni o'chirish" : "O‘yinni tugatish";
 
+  // Reset the optimistic flag when the available actions change — that's
+  // our signal that the server's state broadcast landed and the new phase
+  // is in effect.
+  useEffect(() => {
+    setPending(null);
+  }, [primary?.label, secondary?.label]);
+
+  // Safety timeout for the rare case where the broadcast never arrives
+  // (dropped socket, error swallowed). Without this, a user could see a
+  // stuck "Yuborilmoqda…" button forever.
+  useEffect(() => {
+    if (!pending) return;
+    const t = window.setTimeout(() => setPending(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [pending]);
+
+  if (!isHost) {
+    return null;
+  }
+
+  const fireOptimistic = (slot: "primary" | "secondary", fn: () => void) => () => {
+    setPending(slot);
+    fn();
+  };
+
+  const buttonsDisabled = pending !== null;
+
   return (
     <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3">
       <div className="mb-2 flex items-center justify-between">
@@ -88,18 +119,34 @@ export function HostControls({
         <div className="flex flex-wrap gap-2">
           {primary ? (
             <button
-              onClick={primary.onClick}
-              className="flex h-12 flex-1 min-w-[140px] items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+              onClick={fireOptimistic("primary", primary.onClick)}
+              disabled={buttonsDisabled}
+              className="flex h-12 flex-1 min-w-[140px] items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-60"
             >
-              {primary.label}
+              {pending === "primary" ? (
+                <>
+                  <Spinner />
+                  Yuborilmoqda…
+                </>
+              ) : (
+                primary.label
+              )}
             </button>
           ) : null}
           {secondary ? (
             <button
-              onClick={secondary.onClick}
-              className="flex h-12 items-center justify-center rounded-xl border border-line-strong bg-bg-elevated px-4 text-sm font-semibold text-ink-primary"
+              onClick={fireOptimistic("secondary", secondary.onClick)}
+              disabled={buttonsDisabled}
+              className="flex h-12 items-center justify-center gap-2 rounded-xl border border-line-strong bg-bg-elevated px-4 text-sm font-semibold text-ink-primary transition disabled:opacity-60"
             >
-              {secondary.label}
+              {pending === "secondary" ? (
+                <>
+                  <Spinner />
+                  Yuborilmoqda…
+                </>
+              ) : (
+                secondary.label
+              )}
             </button>
           ) : null}
           {isLobby ? (
@@ -118,5 +165,14 @@ export function HostControls({
         </p>
       )}
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent opacity-70"
+    />
   );
 }

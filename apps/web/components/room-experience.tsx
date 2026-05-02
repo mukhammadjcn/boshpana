@@ -30,6 +30,7 @@ import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import type { CardType, GamePhase, RoomState } from "@/lib/types";
 import { useGameStore } from "@/store/useGameStore";
+import { pushToast } from "@/store/useToastStore";
 
 const cardLabels: Record<CardType, string> = {
   PROFESSION: "Kasb",
@@ -84,6 +85,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   });
   const [origin, setOrigin] = useState("");
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [socketConnected, setSocketConnected] = useState(true);
   const [introOpen, setIntroOpen] = useState(false);
   const [situationOpen, setSituationOpen] = useState(false);
@@ -228,7 +230,13 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     const onTimer = ({ remainingSeconds }: { remainingSeconds: number }) => {
       patchTimer(remainingSeconds);
     };
-    const onErr = ({ message }: { message: string }) => setError(message);
+    const onErr = ({ message }: { message: string }) => {
+      // Surface server-side action errors as a transient toast — the inline
+      // error banner is easy to miss on tall screens, while a bottom toast
+      // catches the eye and dismisses itself.
+      pushToast({ kind: "error", text: message });
+      setError(message);
+    };
 
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
@@ -533,9 +541,14 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     if (!roomState) return;
     try {
       await navigator.clipboard.writeText(inviteUrl);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1800);
+      pushToast({ kind: "success", text: "Link nusxalandi" });
+      tgHaptic("light");
       setShareFeedback("Link nusxalandi");
       window.setTimeout(() => setShareFeedback(null), 2000);
     } catch {
+      pushToast({ kind: "error", text: "Nusxalab bo‘lmadi" });
       setShareFeedback("Nusxalab bo‘lmadi");
     }
   }
@@ -846,9 +859,20 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => void handleCopyInviteLink()}
-                        className="flex h-12 flex-1 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+                        className={`flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition active:scale-[0.98] ${
+                          linkCopied
+                            ? "bg-ok text-bg-base"
+                            : "bg-brand text-bg-base"
+                        }`}
                       >
-                        Linkni nusxalash
+                        {linkCopied ? (
+                          <>
+                            <span aria-hidden>✓</span>
+                            Nusxalandi
+                          </>
+                        ) : (
+                          "Linkni nusxalash"
+                        )}
                       </button>
                       <button
                         onClick={() => void handleShareInviteLink()}
