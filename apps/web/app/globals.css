@@ -90,3 +90,20 @@ code {
 .pt-safe {
   padding-top: calc(1rem + var(--safe-top));
 }
+
+/* Soft fade-in used on elements that change between game phases /
+   rounds — paired with a `key` prop so React mounts a fresh node and the
+   animation re-runs. Subtle by design: 220ms, light upward drift. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 220ms ease-out;
+}

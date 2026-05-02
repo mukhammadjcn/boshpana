@@ -38,8 +38,15 @@ export function VotePanel({
   onVote
 }: VotePanelProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  // Optimistic flag: flipped on click so the button immediately reflects
+  // "Ovoz yuborildi" without waiting for the server broadcast (~150–400ms
+  // round-trip on Telegram WebApp). The server's `hasVoted` prop catches
+  // up shortly after; if it doesn't (network drop / rejection), we time
+  // out and reset so the user can retry.
+  const [optimisticVoted, setOptimisticVoted] = useState(false);
   const tiebreakActive = tiebreakCandidateIds.length > 0;
   const meIsCandidate = !!meId && tiebreakCandidateIds.includes(meId);
+  const effectiveHasVoted = hasVoted || optimisticVoted;
 
   const options = useMemo(() => {
     if (tiebreakActive) {
@@ -69,10 +76,25 @@ export function VotePanel({
     };
   }, []);
 
-  // Reset selection if the active list changes (e.g. tiebreak begins).
+  // Reset selection if the active list changes (e.g. tiebreak begins) or
+  // when the server confirms our vote (we've moved into "submitted"
+  // mode). Tiebreak transition also clears the optimistic flag so the
+  // button re-enables for the second round of voting.
   useEffect(() => {
     setSelectedPlayerId(null);
   }, [tiebreakActive, hasVoted]);
+  useEffect(() => {
+    setOptimisticVoted(false);
+  }, [tiebreakActive]);
+
+  // Auto-rollback the optimistic flag if the server hasn't confirmed within
+  // 4 seconds — covers dropped sockets and explicit rejections so the user
+  // can retry without a refresh.
+  useEffect(() => {
+    if (!optimisticVoted || hasVoted) return;
+    const t = window.setTimeout(() => setOptimisticVoted(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [optimisticVoted, hasVoted]);
 
   const selectedPlayer =
     options.find((player) => player.id === selectedPlayerId) ?? null;
@@ -80,10 +102,10 @@ export function VotePanel({
   const headline = tiebreakActive
     ? meIsCandidate
       ? "Siz tenglikdasiz"
-      : hasVoted
+      : effectiveHasVoted
         ? "Siz ovoz berdingiz"
         : "Qayta ovoz berish"
-    : hasVoted
+    : effectiveHasVoted
       ? "Siz ovoz berdingiz"
       : canVote
         ? "Kim bunkerda qolmasligi kerak?"
@@ -92,10 +114,10 @@ export function VotePanel({
   const helper = tiebreakActive
     ? meIsCandidate
       ? `Siz ${tiedNames.filter((n) => n).join(", ")} bilan teng ovoz to‘pladingiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.`
-      : hasVoted
+      : effectiveHasVoted
         ? "Qolgan o‘yinchilarni kuting."
         : `${tiedNames.join(", ")} teng ovoz to‘pladi. Iltimos, faqat bir kishini bunkerda qoldiring.`
-    : hasVoted
+    : effectiveHasVoted
       ? "Qolgan o‘yinchilarni kuting."
       : canVote
         ? "Bitta o‘yinchini tanlang va tasdiqlang."
@@ -122,7 +144,7 @@ export function VotePanel({
             {typeof secondsLeft === "number" ? (
               <Timer
                 seconds={secondsLeft}
-                variant={hasVoted ? "muted" : "danger"}
+                variant={effectiveHasVoted ? "muted" : "danger"}
               />
             ) : null}
             {!meIsCandidate ? (
@@ -194,7 +216,7 @@ export function VotePanel({
               ([, value]) => value
             );
             const active = selectedPlayerId === player.id;
-            const disabled = !effectiveCanVote || hasVoted;
+            const disabled = !effectiveCanVote || effectiveHasVoted;
 
             return (
               <li key={player.id}>
@@ -254,11 +276,15 @@ export function VotePanel({
       {meIsCandidate ? null : (
         <div className="sticky bottom-0 border-t border-line-subtle bg-bg-base/95 px-5 pb-safe pt-3 backdrop-blur">
           <button
-            disabled={!effectiveCanVote || hasVoted || !selectedPlayerId}
-            onClick={() => selectedPlayerId && onVote(selectedPlayerId)}
+            disabled={!effectiveCanVote || effectiveHasVoted || !selectedPlayerId}
+            onClick={() => {
+              if (!selectedPlayerId) return;
+              setOptimisticVoted(true);
+              onVote(selectedPlayerId);
+            }}
             className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
           >
-            {hasVoted
+            {effectiveHasVoted
               ? "Ovoz yuborildi"
               : selectedPlayer
                 ? `${selectedPlayer.name} — tasdiqlash`

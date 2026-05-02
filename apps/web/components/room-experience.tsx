@@ -970,7 +970,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 : Math.max(room.round, 1)}{" "}
               · {room.code}
             </p>
-            <p className="truncate text-sm font-semibold text-ink-primary">
+            <p
+              key={`${game.phase}-${game.currentTurnPlayerId ?? "_"}`}
+              className="animate-fade-in truncate text-sm font-semibold text-ink-primary"
+            >
               {game.phase === "ROUND_REVEAL" && !game.currentTurnPlayerId
                 ? "Reveal kutilmoqda"
                 : votingFinished
@@ -1005,7 +1008,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       >
         {/* Disaster + situation summary */}
         {game.disaster || game.situation ? (
-          <div className="rounded-2xl border border-line-subtle bg-bg-surface">
+          <div
+            key={`${game.roundNumber}-${game.situation?.text ?? "intro"}`}
+            className="animate-fade-in rounded-2xl border border-line-subtle bg-bg-surface"
+          >
             {game.disaster ? (
               <button
                 type="button"
