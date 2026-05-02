@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/api";
 import type { GameType, RoomStatus } from "@/lib/types";
 
 import { BunkerExperience } from "./bunker/bunker-experience";
+import { MafiaExperience } from "./mafia/mafia-experience";
 
 type RoomInfo = {
   code: string;
@@ -60,10 +61,6 @@ export function GameRouter({ roomCode, view }: Props) {
     case "BUNKER":
       return <BunkerExperience roomCode={roomCode} view={view} />;
     case "MAFIA":
-      return (
-        <div className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-zinc-400">
-          Mafia o'yini hali ishga tushirilmagan.
-        </div>
-      );
+      return <MafiaExperience roomCode={roomCode} view={view} />;
   }
 }

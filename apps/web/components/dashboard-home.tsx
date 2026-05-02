@@ -24,6 +24,7 @@ type GameCard = {
   // real landscape art is wired up (replace with <Image> later).
   gradient: string;
   available: boolean;
+  image: string;
 };
 
 const games: GameCard[] = [
@@ -34,6 +35,7 @@ const games: GameCard[] = [
     players: "3-16 kishi · 30-60 daqiqa",
     gradient: "from-amber-700 via-orange-900 to-stone-950",
     available: true,
+    image: "../public/bunkerbanner.webp",
   },
   {
     href: "/games/mafia" as Route,
@@ -42,6 +44,7 @@ const games: GameCard[] = [
     players: "8-12 kishi · 30-45 daqiqa",
     gradient: "from-violet-800 via-slate-900 to-zinc-950",
     available: false,
+    image: "../public/mafiabanner.webp",
   },
 ];
 
@@ -190,7 +193,9 @@ function GameCardItem({ game }: { game: GameCard }) {
       {/* Landscape art slot. Gradient placeholder until real images
           are added — swap for <Image src={game.image} ... /> later. */}
       <div className="relative aspect-[16/9] w-full overflow-hidden">
-        <div className={`absolute inset-0 bg-gradient-to-br ${game.gradient}`} />
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${game.gradient}`}
+        />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.08),transparent_60%)]" />
         <span className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-xl bg-black/40 text-base font-bold text-white backdrop-blur">
           {game.title.slice(0, 1)}
@@ -227,7 +232,6 @@ function GameCardItem({ game }: { game: GameCard }) {
     </Link>
   );
 }
-
 
 function Avatar({ user }: { user: AuthUser | null }) {
   if (user?.photoUrl) {

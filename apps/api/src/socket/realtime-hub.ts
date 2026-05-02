@@ -2,6 +2,7 @@ import { BunkerCardType } from "@prisma/client";
 import { Server, Socket } from "socket.io";
 
 import { GameRegistry } from "../games/registry";
+import { prisma } from "../lib/prisma";
 
 type SocketActionPayload = {
   roomCode: string;
@@ -29,12 +30,23 @@ export class RealtimeHub {
     private readonly games: GameRegistry
   ) {}
 
-  // Game-specific actions (reveal_card, vote, etc.) currently route to the
-  // Bunker module — that's the only registered game. When Mafia is added,
-  // each handler should look up the room's gameType and dispatch via
-  // `this.games.for(gameType)` instead.
+  // Bunker-specific shortcut. Bunker has the richer per-phase action
+  // surface (reveal_card, advance_turn, etc.) that doesn't apply to
+  // Mafia, so those handlers keep calling Bunker directly. Shared
+  // lobby actions (start_game, leave_room, kick_player, end_game) and
+  // every state broadcast go through `serviceForRoom` instead so they
+  // dispatch to the right per-game module by gameType.
   private get gameService() {
     return this.games.bunker;
+  }
+
+  private async serviceForRoom(roomCode: string) {
+    const room = await prisma.room.findUnique({
+      where: { code: roomCode.toUpperCase() },
+      select: { gameType: true }
+    });
+    if (!room) return null;
+    return this.games.for(room.gameType);
   }
 
   isSessionOnline(roomCode: string, sessionId: string): boolean {
@@ -85,7 +97,9 @@ export class RealtimeHub {
 
       socket.on("start_game", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
-          await this.gameService.startGame({
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service) throw new Error("Room topilmadi.");
+          await service.startGame({
             code: payload.roomCode,
             sessionId: payload.sessionId
           });
@@ -173,7 +187,9 @@ export class RealtimeHub {
 
       socket.on("end_game", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
-          await this.gameService.endGame({
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service) throw new Error("Room topilmadi.");
+          await service.endGame({
             code: payload.roomCode,
             sessionId: payload.sessionId
           });
@@ -185,7 +201,9 @@ export class RealtimeHub {
         "kick_player",
         async (payload: SocketActionPayload & { targetPlayerId: string }) => {
           await this.handleAction(socket, async () => {
-            await this.gameService.kickPlayer({
+            const service = await this.serviceForRoom(payload.roomCode);
+            if (!service) throw new Error("Room topilmadi.");
+            await service.kickPlayer({
               code: payload.roomCode,
               sessionId: payload.sessionId,
               targetPlayerId: payload.targetPlayerId
@@ -197,7 +215,9 @@ export class RealtimeHub {
 
       socket.on("leave_room", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
-          await this.gameService.leaveRoom({
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service) throw new Error("Room topilmadi.");
+          await service.leaveRoom({
             code: payload.roomCode,
             sessionId: payload.sessionId
           });
@@ -222,14 +242,17 @@ export class RealtimeHub {
     const socketIds = await this.io.in(code).allSockets();
     if (socketIds.size === 0) return;
 
+    // Pick the per-game service for this room first so the broadcast
+    // shape matches what the right frontend expects.
+    const service = await this.serviceForRoom(code);
+    if (!service) return;
+
     // Fetch the room ONCE and derive per-session state in memory. Without
     // this, large lobbies hit the DB N times for what is effectively the
     // same query — measurable lag during phase transitions.
-    let prepared: Awaited<
-      ReturnType<typeof this.gameService.getRoomStateForBroadcast>
-    >;
+    let prepared: { perSession: (sessionId: string) => unknown };
     try {
-      prepared = await this.gameService.getRoomStateForBroadcast(code);
+      prepared = await service.getRoomStateForBroadcast(code);
     } catch (error) {
       const message = (error as Error).message;
       for (const socketId of socketIds) {
