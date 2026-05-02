@@ -1445,8 +1445,12 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         </div>
       ) : null}
 
-      {/* Winner modal */}
-      {winnerModalOpen ? (
+      {/* Winner modal — suppressed while the self-elimination modal is
+          open, so a final-round cut shows "Siz bunkerdan chiqarildingiz"
+          first and only reveals "O'yin tugadi" after the player
+          acknowledges. Once `eliminatedModalOpen` flips to false, this
+          condition flips to true on the next render. */}
+      {winnerModalOpen && !eliminatedModalOpen ? (
         <div
           role="dialog"
           aria-modal="true"

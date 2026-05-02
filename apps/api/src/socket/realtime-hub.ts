@@ -15,6 +15,15 @@ export class RealtimeHub {
   // (single source of truth) rather than in game-service.
   private readonly onlineByRoom = new Map<string, Set<string>>();
 
+  // Pending "go offline" timers, keyed by `${roomCode}:${sessionId}`.
+  // We don't flip a session offline the instant its socket dies — the
+  // client reconnects every 2s, so a brief network blip would otherwise
+  // produce a confusing online → offline → online flicker for everyone in
+  // the lobby. Instead we wait OFFLINE_GRACE_MS; if the same session
+  // re-attaches a new socket within the window, the timer is cancelled.
+  private readonly offlineTimers = new Map<string, NodeJS.Timeout>();
+  private static readonly OFFLINE_GRACE_MS = 3000;
+
   constructor(
     private readonly io: Server,
     private readonly games: GameRegistry
@@ -41,6 +50,13 @@ export class RealtimeHub {
           socket.data.roomCode = payload.roomCode.toUpperCase();
           socket.data.sessionId = payload.sessionId;
           await socket.join(socket.data.roomCode);
+          // Cancel any in-flight offline timer for this session — the
+          // client just (re)attached, so the previous disconnect was a
+          // transient blip we shouldn't surface to other players.
+          this.cancelOfflineTimer(
+            socket.data.roomCode,
+            socket.data.sessionId
+          );
           this.markOnline(socket.data.roomCode, socket.data.sessionId);
           await this.broadcastRoomState(socket.data.roomCode);
         } catch (error) {
@@ -60,10 +76,11 @@ export class RealtimeHub {
           sessionId,
           socket.id
         );
-        if (!stillConnected) {
-          this.markOffline(roomCode, sessionId);
-          await this.broadcastRoomState(roomCode);
-        }
+        if (stillConnected) return;
+        // Defer the offline transition so a quick reconnect (the client
+        // retries every 2s) doesn't trigger a visible online → offline →
+        // online flicker for everyone watching the lobby.
+        this.scheduleOfflineTransition(roomCode, sessionId, socket.id);
       });
 
       socket.on("start_game", async (payload: SocketActionPayload) => {
@@ -261,6 +278,54 @@ export class RealtimeHub {
     bucket.delete(sessionId);
     if (bucket.size === 0) {
       this.onlineByRoom.delete(roomCode);
+    }
+  }
+
+  private offlineTimerKey(roomCode: string, sessionId: string): string {
+    return `${roomCode}:${sessionId}`;
+  }
+
+  // After a socket disconnects, hold off on flipping the session offline
+  // for OFFLINE_GRACE_MS. If the client reconnects within that window,
+  // join_room cancels the pending timer and nobody sees a flicker. If
+  // the timer fires, we re-check that the session is still gone (in case
+  // a sibling socket attached after we scheduled), then mark it offline
+  // and broadcast the lobby state.
+  private scheduleOfflineTransition(
+    roomCode: string,
+    sessionId: string,
+    excludeSocketId: string
+  ) {
+    const key = this.offlineTimerKey(roomCode, sessionId);
+    // Replace any existing timer for this session — the most recent
+    // disconnect is the one whose grace window we want to honour.
+    const existing = this.offlineTimers.get(key);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(async () => {
+      this.offlineTimers.delete(key);
+      // The exclude id no longer matters once the grace window has
+      // elapsed (that socket is long gone), but passing it keeps the
+      // check defensive against any lingering reference.
+      const stillConnected = await this.hasOtherSocketForSession(
+        roomCode,
+        sessionId,
+        excludeSocketId
+      );
+      if (stillConnected) return;
+      this.markOffline(roomCode, sessionId);
+      await this.broadcastRoomState(roomCode);
+    }, RealtimeHub.OFFLINE_GRACE_MS);
+
+    this.offlineTimers.set(key, timer);
+  }
+
+  private cancelOfflineTimer(roomCode: string, sessionId: string) {
+    const key = this.offlineTimerKey(roomCode, sessionId);
+    const timer = this.offlineTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      this.offlineTimers.delete(key);
     }
   }
 

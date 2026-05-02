@@ -36,7 +36,12 @@ async function bootstrap() {
     cors: {
       origin: true,
       credentials: true
-    }
+    },
+    // Tighten heartbeat so we detect a dropped client within ~10s
+    // (default 25s + 20s = 45s is too sluggish for a presence-driven
+    // lobby UI). Pairs with the client's 2s reconnection delay.
+    pingInterval: 5000,
+    pingTimeout: 5000
   });
 
   const realtimeHub = new RealtimeHub(io, games);
