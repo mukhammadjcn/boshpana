@@ -167,20 +167,30 @@ export async function findUserById(id: string) {
 // are disjoint: a room is in GameHistory iff it's FINISHED/CANCELLED,
 // and we only count LOBBY/PLAYING from Room.
 export async function countHostedRoomsLast30d(userId: string): Promise<number> {
+  // Only games that actually STARTED count toward the monthly limit:
+  //   - history rows where outcome != CANCELLED (cancelled lobbies don't
+  //     count — the host gathered no real play time)
+  //   - currently PLAYING rooms (in flight, will land in history shortly)
+  // Pure LOBBY rooms are excluded, including stale lobbies that the
+  // sweeper auto-cancels at the 2h mark.
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [historyCount, activeCount] = await Promise.all([
+  const [historyCount, playingCount] = await Promise.all([
     prisma.gameHistory.count({
-      where: { userId, playedAt: { gte: since } }
+      where: {
+        userId,
+        playedAt: { gte: since },
+        outcome: { not: "CANCELLED" }
+      }
     }),
     prisma.room.count({
       where: {
         hostUserId: userId,
-        status: { in: ["LOBBY", "PLAYING"] },
+        status: "PLAYING",
         createdAt: { gte: since }
       }
     })
   ]);
-  return historyCount + activeCount;
+  return historyCount + playingCount;
 }
 
 export function publicUser(

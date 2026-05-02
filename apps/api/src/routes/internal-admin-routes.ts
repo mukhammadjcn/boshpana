@@ -30,26 +30,6 @@ const adminModelConfig: Record<
     include: { players: true, game: true, votes: true },
     orderBy: { createdAt: "desc" as const }
   },
-  players: {
-    delegate: prisma.player as AdminDelegate,
-    include: { attributes: true },
-    orderBy: { joinedAt: "desc" as const }
-  },
-  games: {
-    delegate: prisma.game as AdminDelegate,
-    include: { disaster: true, currentSituation: true, playerAttributes: true },
-    orderBy: { createdAt: "desc" as const }
-  },
-  playerAttributes: {
-    delegate: prisma.playerAttribute as AdminDelegate,
-    include: { player: true, game: true },
-    orderBy: { id: "desc" as const }
-  },
-  votes: {
-    delegate: prisma.vote as AdminDelegate,
-    include: { voterPlayer: true, targetPlayer: true, room: true },
-    orderBy: { createdAt: "desc" as const }
-  },
   cards: {
     delegate: prisma.card as AdminDelegate,
     include: undefined,
@@ -66,6 +46,11 @@ const adminModelConfig: Record<
     delegate: prisma.situation as AdminDelegate,
     include: undefined,
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
+  },
+  gameHistory: {
+    delegate: prisma.gameHistory as AdminDelegate,
+    include: { user: true },
+    orderBy: { playedAt: "desc" as const }
   }
 };
 

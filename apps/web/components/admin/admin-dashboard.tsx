@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import type { Route } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const STATS_TAB = "__stats__";
 
 type AdminSchemaResponse = {
   models: string[];
@@ -159,22 +163,6 @@ const modelDefinitions: Record<string, ModelDefinition> = {
       }
     ]
   },
-  players: {
-    label: "O‘yinchilar",
-    description: "Room‘ga qo‘shilgan foydalanuvchilar ro‘yxati.",
-    searchKeys: ["name", "roomId"],
-    editFields: [
-      { key: "name", label: "Nickname", type: "text", required: true },
-      { key: "isHost", label: "Host", type: "checkbox" },
-      { key: "isAlive", label: "Tirik", type: "checkbox" }
-    ],
-    columns: [
-      { key: "name", label: "Nickname", width: "w-40", render: (i) => String(i.name ?? "") },
-      { key: "roomId", label: "Room", width: "w-40", render: (i) => String(i.roomId ?? "") },
-      { key: "isAlive", label: "Holat", width: "w-24", render: (i) => (i.isAlive ? "Tirik" : "Chiqqan") },
-      { key: "isHost", label: "Roli", width: "w-24", render: (i) => (i.isHost ? "Host" : "Player") }
-    ]
-  },
   rooms: {
     label: "Room’lar",
     description: "Aktiv va tugagan xonalar holati.",
@@ -197,61 +185,114 @@ const modelDefinitions: Record<string, ModelDefinition> = {
       }
     ]
   },
-  games: {
-    label: "O‘yinlar",
-    description: "Game state va round jarayonlari.",
-    searchKeys: ["phase"],
+  gameHistory: {
+    label: "O‘yinlar tarixi",
+    description:
+      "Tugagan har bir o‘yinning durable yozuvi (room va player'lar o‘chirilgandan keyin ham qoladi).",
+    searchKeys: ["roomCode", "disasterName", "outcome"],
     columns: [
-      { key: "phase", label: "Phase", width: "w-32", render: (i) => String(i.phase ?? "") },
-      { key: "roundNumber", label: "Round", width: "w-20", render: (i) => String(i.roundNumber ?? 0) },
-      { key: "disaster", label: "Falokat", width: "w-40", render: (i) => String(i.disaster?.name ?? "-") },
-      { key: "situation", label: "Situation", render: (i) => String(i.currentSituation?.text ?? "-") }
-    ]
-  },
-  playerAttributes: {
-    label: "Player kartalari",
-    description: "Har bir player‘ga tushgan atributlar.",
-    columns: [
-      { key: "player", label: "Player", width: "w-32", render: (i) => String(i.player?.name ?? "") },
-      { key: "profession", label: "Kasb", width: "w-32", render: (i) => String(i.profession ?? "") },
-      { key: "health", label: "Sog‘liq", width: "w-32", render: (i) => String(i.health ?? "") },
-      { key: "character", label: "Xarakter", width: "w-32", render: (i) => String(i.character ?? "") },
-      { key: "skill", label: "Skill", render: (i) => String(i.skill ?? "") }
-    ]
-  },
-  votes: {
-    label: "Ovozlar",
-    description: "Round bo‘yicha berilgan ovozlar.",
-    columns: [
-      { key: "roundNumber", label: "Round", width: "w-20", render: (i) => String(i.roundNumber ?? 0) },
-      { key: "voter", label: "Kim berdi", width: "w-40", render: (i) => String(i.voterPlayer?.name ?? "") },
-      { key: "target", label: "Kimga", width: "w-40", render: (i) => String(i.targetPlayer?.name ?? "") },
-      { key: "room", label: "Room", width: "w-28", render: (i) => String(i.room?.code ?? "") },
       {
-        key: "createdAt",
-        label: "Vaqt",
+        key: "playedAt",
+        label: "Sana",
         width: "w-40",
-        render: (i) => formatDate(i.createdAt)
+        render: (i) => formatDate(i.playedAt)
+      },
+      {
+        key: "user",
+        label: "Host",
+        width: "w-44",
+        render: (i) => {
+          const u = i.user as
+            | {
+                nickname?: string;
+                firstName?: string;
+                lastName?: string;
+                telegramUsername?: string;
+              }
+            | undefined;
+          if (!u) return "—";
+          const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ");
+          return u.nickname || fullName || u.telegramUsername || "—";
+        }
+      },
+      {
+        key: "roomCode",
+        label: "Room",
+        width: "w-24",
+        render: (i) => String(i.roomCode ?? "—")
+      },
+      {
+        key: "disasterName",
+        label: "Falokat",
+        width: "w-40",
+        render: (i) => String(i.disasterName ?? "—")
+      },
+      {
+        key: "playerCount",
+        label: "O‘yinchi",
+        width: "w-20",
+        render: (i) => String(i.playerCount ?? "—")
+      },
+      {
+        key: "outcome",
+        label: "Outcome",
+        width: "w-28",
+        render: (i) => String(i.outcome ?? "—")
+      },
+      {
+        key: "duration",
+        label: "Davomiyligi",
+        width: "w-28",
+        render: (i) => {
+          const s = Number(i.durationSeconds ?? 0);
+          if (!s) return "—";
+          const m = Math.round((s / 60) * 10) / 10;
+          return `${m} daq`;
+        }
       }
     ]
   }
 };
 
 export function AdminDashboard() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Hydrate state from URL on first render so a refresh restores the same
+  // tab + filters + pagination the user was looking at.
+  const initialTab = searchParams.get("tab") || STATS_TAB;
+  const initialPageSize = (() => {
+    const raw = Number(searchParams.get("size") ?? 10);
+    return PAGE_SIZE_OPTIONS.includes(raw) ? raw : 10;
+  })();
+  const initialAdult = (searchParams.get("adult") ?? "all") as
+    | "all"
+    | "normal"
+    | "adult";
+
   const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState("");
+  const [selectedModel, setSelectedModel] = useState(initialTab);
   const [items, setItems] = useState<AdminItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   // Cards-only quick filters: limit table by card type and/or 18+ flag.
-  const [typeFilter, setTypeFilter] = useState<string>("");
-  const [adultFilter, setAdultFilter] = useState<"all" | "normal" | "adult">(
-    "all"
+  const [typeFilter, setTypeFilter] = useState<string>(
+    searchParams.get("type") ?? ""
   );
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [adultFilter, setAdultFilter] = useState<"all" | "normal" | "adult">(
+    ["all", "normal", "adult"].includes(initialAdult) ? initialAdult : "all"
+  );
+  const [page, setPage] = useState(Number(searchParams.get("page") ?? 1) || 1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // After the first render the URL becomes the source of truth. Switching
+  // tabs goes through `selectTab()` which resets transient params; routine
+  // state changes (search, page, filters) sync up via the effect below.
+  // The ref guards against the very first sync so we don't push a redundant
+  // "?tab=__stats__" to history when there were no params at all.
+  const initialSyncDoneRef = useRef(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createState, setCreateState] = useState<FormState>({});
@@ -268,37 +309,82 @@ export function AdminDashboard() {
   const createFields = definition?.createFields ?? [];
   const editFields = definition?.editFields ?? [];
 
-  // Load model list
+  // Load model list. Default to STATS_TAB if the URL didn't already pick a
+  // tab — never silently force the user off the tab they refreshed onto.
   useEffect(() => {
     void (async () => {
       try {
         const response = await fetch("/api/admin/schema", { cache: "no-store" });
         const data = (await response.json()) as AdminSchemaResponse;
         setModels(data.models);
-        setSelectedModel((current) => current || data.models[0] || "");
+        setSelectedModel((current) => current || STATS_TAB);
       } catch (e) {
         setError((e as Error).message);
       }
     })();
   }, []);
 
-  // Reset state on model change
+  // Load items when the selected model changes. Stats tab is data-less.
+  // We don't reset filter/page/search here — that's the job of selectTab(),
+  // which fires only on USER-initiated tab changes. Refresh + URL hydration
+  // need to preserve the existing params.
   useEffect(() => {
     if (!selectedModel) return;
     setError(null);
     setMessage(null);
-    setSearch("");
-    setTypeFilter("");
-    setAdultFilter("all");
-    setPage(1);
     setEditingItem(null);
     setConfirmDelete(null);
-    if (selectedModel === "__stats__") {
+    if (selectedModel === STATS_TAB) {
       setItems([]);
       return;
     }
     void loadItems(selectedModel);
   }, [selectedModel]);
+
+  // Mirror state into the URL so a refresh keeps the same view. Each param
+  // is only emitted when it diverges from the default to keep URLs clean.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (selectedModel && selectedModel !== STATS_TAB) {
+      params.set("tab", selectedModel);
+    }
+    if (search) params.set("q", search);
+    if (typeFilter) params.set("type", typeFilter);
+    if (adultFilter !== "all") params.set("adult", adultFilter);
+    if (page > 1) params.set("page", String(page));
+    if (pageSize !== 10) params.set("size", String(pageSize));
+    const query = params.toString();
+    const next = (query ? `${pathname}?${query}` : pathname) as Route;
+    if (!initialSyncDoneRef.current) {
+      initialSyncDoneRef.current = true;
+      // Skip the very first sync — leaves the original URL alone if the
+      // user landed on a clean /admin URL with no params.
+      return;
+    }
+    router.replace(next, { scroll: false });
+  }, [
+    selectedModel,
+    search,
+    typeFilter,
+    adultFilter,
+    page,
+    pageSize,
+    pathname,
+    router
+  ]);
+
+  // User-initiated tab switch: reset every transient param so the new tab
+  // starts fresh. Refresh / back-button navigations don't go through here —
+  // they hydrate state directly from the URL on first render.
+  function selectTab(model: string) {
+    if (model === selectedModel) return;
+    setSelectedModel(model);
+    setSearch("");
+    setTypeFilter("");
+    setAdultFilter("all");
+    setPage(1);
+    setPageSize(10);
+  }
 
   // Auto-clear message
   useEffect(() => {
@@ -431,9 +517,9 @@ export function AdminDashboard() {
       {/* Model tabs */}
       <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 no-scrollbar">
         <button
-          onClick={() => setSelectedModel("__stats__")}
+          onClick={() => selectTab(STATS_TAB)}
           className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-            selectedModel === "__stats__"
+            selectedModel === STATS_TAB
               ? "border-brand bg-brand text-bg-base"
               : "border-line-subtle bg-bg-surface text-ink-secondary hover:border-line-strong"
           }`}
@@ -446,7 +532,7 @@ export function AdminDashboard() {
           return (
             <button
               key={model}
-              onClick={() => setSelectedModel(model)}
+              onClick={() => selectTab(model)}
               className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 active
                   ? "border-brand bg-brand text-bg-base"
@@ -459,7 +545,7 @@ export function AdminDashboard() {
         })}
       </nav>
 
-      {selectedModel === "__stats__" ? <AdminStats /> : (<>
+      {selectedModel === STATS_TAB ? <AdminStats /> : (<>
 
       {/* Header bar */}
       <div className="flex flex-col gap-2 rounded-xl border border-line-subtle bg-bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">

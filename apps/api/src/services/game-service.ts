@@ -81,26 +81,41 @@ export class GameService {
   }
 
   // Periodic janitor:
-  //   1. Auto-cancel rooms that were created >24h ago but never finished
-  //      (host abandoned, etc.) — record CANCELLED history snapshot.
-  //   2. Delete FINISHED/CANCELLED rooms that are older than ageMs so DB
+  //   1. Auto-cancel rooms that the host abandoned:
+  //        - LOBBY older than lobbyTimeoutMs (default 2h): the host
+  //          created the room but the game never started. Doesn't count
+  //          toward the monthly limit.
+  //        - PLAYING older than playingTimeoutMs (default 24h): the game
+  //          started but stalled. Counts as cancelled in history.
+  //   2. Delete FINISHED/CANCELLED rooms older than ageMs so the DB
   //      doesn't grow unbounded. History rows survive (separate table).
   startCleanupSweeper(
     intervalMs = 10 * 60 * 1000,
     // Keep finished rooms for 2 hours so per-user card history survives a
     // few back-to-back games and the dealer can de-duplicate against it.
     ageMs = 2 * 60 * 60 * 1000,
-    cancelAfterMs = 24 * 60 * 60 * 1000
+    lobbyTimeoutMs = 2 * 60 * 60 * 1000,
+    playingTimeoutMs = 24 * 60 * 60 * 1000
   ) {
     if (this.cleanupTimer) return;
     const sweep = async () => {
       try {
         // Step 1: cancel stale rooms.
-        const cancelCutoff = new Date(Date.now() - cancelAfterMs);
+        const now = Date.now();
+        const lobbyCutoff = new Date(now - lobbyTimeoutMs);
+        const playingCutoff = new Date(now - playingTimeoutMs);
         const stale = await prisma.room.findMany({
           where: {
-            status: { in: [RoomStatus.LOBBY, RoomStatus.PLAYING] },
-            createdAt: { lt: cancelCutoff }
+            OR: [
+              {
+                status: RoomStatus.LOBBY,
+                createdAt: { lt: lobbyCutoff }
+              },
+              {
+                status: RoomStatus.PLAYING,
+                createdAt: { lt: playingCutoff }
+              }
+            ]
           },
           select: { id: true, game: { select: { id: true } } }
         });
@@ -620,6 +635,18 @@ export class GameService {
       throw new Error("O'yin state topilmadi.");
     }
 
+    // Idempotency guard: if the room is already wrapped up there's nothing
+    // to do. Without this, a rapid double-click on "tugatish" would race —
+    // the second call would see status=CANCELLED and incorrectly classify
+    // the end as "manualEnd" → HOSTED, producing both a CANCELLED and a
+    // HOSTED history row for the same lobby.
+    if (
+      room.status === RoomStatus.FINISHED ||
+      room.status === RoomStatus.CANCELLED
+    ) {
+      return;
+    }
+
     this.stopTimer(room.code);
 
     // Lobby vaqtida tugatish = o'yin umuman boshlanmagan. Status CANCELLED
@@ -662,6 +689,21 @@ export class GameService {
         }
       });
       if (!room?.hostUserId) return;
+
+      // Idempotency: skip if a history row for this room already exists in
+      // the last 60 seconds. Multiple end-paths can fire in quick
+      // succession (e.g. kickPlayer → didFinish AND a queued endGame call,
+      // or voting resolution running concurrently with a manual tugatish),
+      // and we don't want duplicate rows.
+      const recent = await prisma.gameHistory.findFirst({
+        where: {
+          userId: room.hostUserId,
+          roomCode: room.code,
+          playedAt: { gte: new Date(Date.now() - 60_000) }
+        },
+        select: { id: true }
+      });
+      if (recent) return;
 
       const hostPlayer = room.players.find(
         (p) => p.sessionId === room.hostSessionId
