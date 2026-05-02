@@ -107,3 +107,19 @@ code {
 .animate-fade-in {
   animation: fade-in 220ms ease-out;
 }
+
+/* 3D card flip — used by the reveal modal so a freshly opened attribute
+   feels physical: the card lands face-down for a moment, then flips
+   forward to expose the value. Both faces stack in the same grid cell;
+   the one currently rotated 180deg is hidden by `backface-visibility`. */
+@keyframes card-flip {
+  from {
+    transform: rotateY(180deg);
+  }
+  to {
+    transform: rotateY(0deg);
+  }
+}
+.animate-card-flip {
+  animation: card-flip 720ms cubic-bezier(0.4, 0.1, 0.2, 1) 120ms backwards;
+}

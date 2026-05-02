@@ -1639,13 +1639,44 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
               {revealModal.playerName}
             </h3>
 
-            <div className="mt-5 rounded-2xl border border-brand/40 bg-brand-soft/40 p-4">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
-                {cardLabels[revealModal.newCardType]} · yangi
-              </p>
-              <p className="mt-2 text-base font-semibold leading-7 text-ink-primary">
-                {revealModal.newCardValue}
-              </p>
+            <div
+              className="mt-5"
+              style={{ perspective: 1200 }}
+              key={`${revealModal.playerId}-${revealModal.newCardType}`}
+            >
+              <div
+                className="animate-card-flip relative grid"
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                {/* Back of the card — visible during the first ~120ms
+                    while the flip animation is delayed. */}
+                <div
+                  className="col-start-1 row-start-1 grid place-items-center rounded-2xl border border-line-strong bg-bg-elevated p-4"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden",
+                    transform: "rotateY(180deg)"
+                  } as React.CSSProperties}
+                >
+                  <span className="text-4xl font-bold text-ink-muted">?</span>
+                </div>
+                {/* Front — the actual revealed value. Same grid cell, so
+                    both faces share dimensions. */}
+                <div
+                  className="col-start-1 row-start-1 rounded-2xl border border-brand/40 bg-brand-soft/40 p-4"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    WebkitBackfaceVisibility: "hidden"
+                  } as React.CSSProperties}
+                >
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
+                    {cardLabels[revealModal.newCardType]} · yangi
+                  </p>
+                  <p className="mt-2 text-base font-semibold leading-7 text-ink-primary">
+                    {revealModal.newCardValue}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {revealModal.olderCards.length > 0 ? (
