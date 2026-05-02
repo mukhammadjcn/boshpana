@@ -57,6 +57,7 @@ export type RoomState = {
     name: string;
     isHost: boolean;
     isAlive: boolean;
+    online: boolean;
     seatOrder: number;
     visibleCards: Partial<Record<string, string>>;
     revealedCards: Partial<Record<string, string>>;

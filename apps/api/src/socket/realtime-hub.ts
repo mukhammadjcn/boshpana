@@ -9,10 +9,22 @@ type SocketActionPayload = {
 };
 
 export class RealtimeHub {
+  // Presence tracking: which player sessions currently have a live socket
+  // attached to which room. Used by `isSessionOnline` so room-state
+  // broadcasts can surface lobby online/offline dots. Maintained here
+  // (single source of truth) rather than in game-service.
+  private readonly onlineByRoom = new Map<string, Set<string>>();
+
   constructor(
     private readonly io: Server,
     private readonly gameService: GameService
   ) {}
+
+  isSessionOnline(roomCode: string, sessionId: string): boolean {
+    return (
+      this.onlineByRoom.get(roomCode.toUpperCase())?.has(sessionId) ?? false
+    );
+  }
 
   register() {
     this.io.on("connection", (socket) => {
@@ -21,9 +33,28 @@ export class RealtimeHub {
           socket.data.roomCode = payload.roomCode.toUpperCase();
           socket.data.sessionId = payload.sessionId;
           await socket.join(socket.data.roomCode);
+          this.markOnline(socket.data.roomCode, socket.data.sessionId);
           await this.broadcastRoomState(socket.data.roomCode);
         } catch (error) {
           socket.emit("action_error", { message: (error as Error).message });
+        }
+      });
+
+      socket.on("disconnect", async () => {
+        const roomCode = socket.data.roomCode as string | undefined;
+        const sessionId = socket.data.sessionId as string | undefined;
+        if (!roomCode || !sessionId) return;
+        // Other tabs / devices for the same session may still be connected
+        // — only flip to offline when no socket for this sessionId remains
+        // in the room.
+        const stillConnected = await this.hasOtherSocketForSession(
+          roomCode,
+          sessionId,
+          socket.id
+        );
+        if (!stillConnected) {
+          this.markOffline(roomCode, sessionId);
+          await this.broadcastRoomState(roomCode);
         }
       });
 
@@ -205,5 +236,40 @@ export class RealtimeHub {
     } catch (error) {
       socket.emit("action_error", { message: (error as Error).message });
     }
+  }
+
+  private markOnline(roomCode: string, sessionId: string) {
+    let bucket = this.onlineByRoom.get(roomCode);
+    if (!bucket) {
+      bucket = new Set();
+      this.onlineByRoom.set(roomCode, bucket);
+    }
+    bucket.add(sessionId);
+  }
+
+  private markOffline(roomCode: string, sessionId: string) {
+    const bucket = this.onlineByRoom.get(roomCode);
+    if (!bucket) return;
+    bucket.delete(sessionId);
+    if (bucket.size === 0) {
+      this.onlineByRoom.delete(roomCode);
+    }
+  }
+
+  // True when any socket OTHER than `excludeSocketId` (the one currently
+  // disconnecting) is still attached to the room with the same sessionId.
+  // Lets us keep the user "online" while their second tab/device remains.
+  private async hasOtherSocketForSession(
+    roomCode: string,
+    sessionId: string,
+    excludeSocketId: string
+  ): Promise<boolean> {
+    const socketIds = await this.io.in(roomCode).allSockets();
+    for (const id of socketIds) {
+      if (id === excludeSocketId) continue;
+      const s = this.io.sockets.sockets.get(id);
+      if (s?.data.sessionId === sessionId) return true;
+    }
+    return false;
   }
 }

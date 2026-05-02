@@ -377,6 +377,14 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     if (!player) return;
 
     seenElimAnnouncementRef.current.add(key);
+    // Light haptic so non-eliminated players feel the moment the round
+    // resolved. The eliminated player gets a stronger error notification
+    // from the dedicated self-elimination effect, so guard against firing
+    // both for them.
+    const meId = roomState.me?.id;
+    if (!meId || meId !== roomState.game.lastEliminatedPlayerId) {
+      tgHaptic("medium");
+    }
     setAnnouncement({
       key,
       title: `${player.name} o‘yindan chiqdi`,
@@ -385,7 +393,8 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     });
   }, [
     roomState?.game.lastEliminatedPlayerId,
-    roomState?.game.roundNumber
+    roomState?.game.roundNumber,
+    roomState?.me?.id
   ]);
 
   // Auto-clear announcement after a fixed delay; runs only when the
@@ -907,6 +916,8 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                   name={p.name}
                   isHost={p.isHost}
                   isAlive={p.isAlive}
+                  online={p.online}
+                  showPresence
                   revealedCards={{}}
                   isMe={p.id === me.id}
                   variant="tile"

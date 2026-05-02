@@ -13,6 +13,12 @@ import { CARD_TYPES, PublicRoomState } from "../types/game";
 type RealtimePublisher = {
   broadcastRoomState: (roomCode: string) => Promise<void>;
   broadcastTimer: (roomCode: string, remainingSeconds: number) => void;
+  // Whether a given player session currently has a live socket attached
+  // to the room. Used to render lobby presence — players who joined but
+  // disconnected/closed their tab show as offline so the host can decide
+  // whether to wait or kick. Returns true when unknown so we never lie
+  // about a player being offline.
+  isSessionOnline?: (roomCode: string, sessionId: string) => boolean;
 };
 
 type CreateRoomInput = {
@@ -66,7 +72,8 @@ type RoomWithState = Prisma.RoomGetPayload<{
 
 const noopRealtime: RealtimePublisher = {
   broadcastRoomState: async () => undefined,
-  broadcastTimer: () => undefined
+  broadcastTimer: () => undefined,
+  isSessionOnline: () => true
 };
 
 export class GameService {
@@ -348,11 +355,14 @@ export class GameService {
         // except for cards the player has chosen to reveal.
         const gameOver = room.status === RoomStatus.FINISHED;
         const showAll = gameOver || !player.isAlive;
+        const isOnline =
+          this.realtime.isSessionOnline?.(room.code, player.sessionId) ?? true;
         return {
           id: player.id,
           name: player.name,
           isHost: player.isHost,
           isAlive: player.isAlive,
+          online: isOnline,
           seatOrder: player.seatOrder,
           visibleCards: showAll
             ? this.extractCards(player.attributes)

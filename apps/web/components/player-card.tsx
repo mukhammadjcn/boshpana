@@ -18,6 +18,12 @@ type PlayerCardProps = {
   isCurrentTurn?: boolean;
   variant?: "row" | "tile";
   gameOver?: boolean;
+  // Whether this player currently has a live socket attached. Only renders
+  // a green/gray dot when `showPresence` is true — we deliberately hide
+  // presence in the in-game view (alive/dead and current-turn already
+  // dominate the row) and surface it only in the lobby tile layout.
+  online?: boolean;
+  showPresence?: boolean;
   onKick?: () => void;
 };
 
@@ -30,6 +36,8 @@ export function PlayerCard({
   isCurrentTurn,
   variant = "row",
   gameOver = false,
+  online,
+  showPresence = false,
   onKick
 }: PlayerCardProps) {
   const entries = Object.entries(revealedCards).filter(([, value]) => value);
@@ -48,9 +56,12 @@ export function PlayerCard({
         : "border-bad/30 bg-bad/5 opacity-80";
 
   if (variant === "tile") {
+    const showOffline = showPresence && online === false;
     return (
       <div
-        className={`flex flex-col gap-2 rounded-2xl border p-3 transition ${containerTone}`}
+        className={`flex flex-col gap-2 rounded-2xl border p-3 transition ${containerTone} ${
+          showOffline ? "opacity-60" : ""
+        }`}
       >
         <div className="flex items-center gap-2">
           <Avatar
@@ -62,14 +73,24 @@ export function PlayerCard({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{name}</p>
             <p className="text-[11px] text-ink-muted">
-              {isMe ? "Siz" : isHost ? "Host" : "O‘yinchi"}
+              {showPresence && online === false
+                ? "Tarmoqda emas"
+                : isMe
+                  ? "Siz"
+                  : isHost
+                    ? "Host"
+                    : "O‘yinchi"}
             </p>
           </div>
-          <StatusDot
-            isAlive={isAlive}
-            isCurrentTurn={isCurrentTurn}
-            gameOver={gameOver}
-          />
+          {showPresence ? (
+            <PresenceDot online={!!online} />
+          ) : (
+            <StatusDot
+              isAlive={isAlive}
+              isCurrentTurn={isCurrentTurn}
+              gameOver={gameOver}
+            />
+          )}
         </div>
       </div>
     );
@@ -225,6 +246,28 @@ function StatusDot({
         isAlive ? "bg-ok" : "bg-bad"
       }`}
     />
+  );
+}
+
+function PresenceDot({ online }: { online: boolean }) {
+  return (
+    <span
+      aria-label={online ? "Tarmoqda" : "Tarmoqdan tushgan"}
+      title={online ? "Tarmoqda" : "Tarmoqdan tushgan"}
+      className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${
+        online
+          ? "bg-ok/15 text-ok"
+          : "bg-bg-elevated text-ink-muted"
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 rounded-full ${
+          online ? "bg-ok" : "bg-ink-muted"
+        }`}
+      />
+      {online ? "Onlayn" : "Offlayn"}
+    </span>
   );
 }
 
