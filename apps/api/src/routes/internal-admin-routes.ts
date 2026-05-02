@@ -18,16 +18,30 @@ const adminModelConfig: Record<
     delegate: AdminDelegate;
     include?: Record<string, boolean>;
     orderBy?: OrderByEntry | OrderByEntry[];
+    where?: Record<string, unknown>;
   }
 > = {
-  users: {
-    delegate: prisma.user as AdminDelegate,
-    include: undefined,
-    orderBy: { createdAt: "desc" as const }
+  // Order here drives tab order in the admin UI: keep it ordered by
+  // operator priority — durable history first, then live state, then
+  // accounts, then content tables.
+  gameHistory: {
+    delegate: prisma.gameHistory as AdminDelegate,
+    include: { user: true },
+    orderBy: { playedAt: "desc" as const },
+    // Lobby cancellations aren't real games — they're aborted rooms with
+    // no disaster, no players beyond the host, no duration. Stats track
+    // them separately as "Bekor qilingan"; this list shows actual played
+    // games only.
+    where: { outcome: { not: "CANCELLED" } }
   },
   rooms: {
     delegate: prisma.room as AdminDelegate,
     include: { players: true, game: true, votes: true },
+    orderBy: { createdAt: "desc" as const }
+  },
+  users: {
+    delegate: prisma.user as AdminDelegate,
+    include: undefined,
     orderBy: { createdAt: "desc" as const }
   },
   cards: {
@@ -46,11 +60,6 @@ const adminModelConfig: Record<
     delegate: prisma.situation as AdminDelegate,
     include: undefined,
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
-  },
-  gameHistory: {
-    delegate: prisma.gameHistory as AdminDelegate,
-    include: { user: true },
-    orderBy: { playedAt: "desc" as const }
   }
 };
 
@@ -116,17 +125,15 @@ export async function registerInternalAdminRoutes(app: FastifyInstance) {
       const cancelledGames = historyRows.filter(
         (row) => row.outcome === "CANCELLED"
       );
-      // A game is "started" if it ever entered PLAYING (lobby cancellations
-      // are excluded). For currently-running rooms the row isn't in history
-      // yet, so add the live PLAYING count.
-      const gamesStarted = finishedGames.length + playingRooms;
 
-      // Average duration counts every finished game (anything that wasn't
-      // cancelled in lobby). Manual ends count too — host pressing
-      // "tugatish" still represents real play time.
+      // Average duration only counts real sessions — under-5-minute games
+      // are excluded so accidental host "tugatish" clicks and walk-aways
+      // don't drag the mean down. Manual ends past the 5-minute mark are
+      // genuine play time and stay in the average.
+      const MIN_DURATION_SECONDS = 5 * 60;
       const durations = finishedGames
         .map((row) => row.durationSeconds ?? 0)
-        .filter((n) => n > 0);
+        .filter((n) => n >= MIN_DURATION_SECONDS);
       const avgDurationSeconds = durations.length
         ? Math.round(
             durations.reduce((sum, n) => sum + n, 0) / durations.length
@@ -140,7 +147,6 @@ export async function registerInternalAdminRoutes(app: FastifyInstance) {
         finishedRooms: finishedGames.length,
         cancelledRooms: cancelledGames.length,
         playingRooms,
-        gamesStarted,
         avgDurationSeconds,
         avgDurationMinutes:
           avgDurationSeconds > 0
@@ -160,7 +166,8 @@ export async function registerInternalAdminRoutes(app: FastifyInstance) {
       const model = getModelOrThrow(request.params.model);
       const items = await model.delegate.findMany({
         include: model.include,
-        orderBy: model.orderBy
+        orderBy: model.orderBy,
+        where: model.where
       });
       return reply.send({ items });
     } catch (error) {

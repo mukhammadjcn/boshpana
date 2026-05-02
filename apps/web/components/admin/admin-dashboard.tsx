@@ -888,7 +888,6 @@ type StatsResponse = {
   finishedRooms: number;
   cancelledRooms: number;
   playingRooms: number;
-  gamesStarted: number;
   avgDurationSeconds: number;
   avgDurationMinutes: number;
   finishedGamesCounted: number;
@@ -953,16 +952,10 @@ function AdminStats() {
           hint="Telegram orqali ro‘yxatdan o‘tganlar"
         />
         <StatCard
-          label="Boshlangan o‘yinlar"
-          value={data?.gamesStarted}
-          loading={loading}
-          hint="startedAt belgilangan Game‘lar"
-        />
-        <StatCard
           label="Tugagan o‘yinlar"
           value={data?.finishedRooms}
           loading={loading}
-          hint="status = FINISHED"
+          hint="GameHistory (CANCELLED'siz)"
         />
         <StatCard
           label="O‘rtacha vaqt"
@@ -974,8 +967,8 @@ function AdminStats() {
           loading={loading}
           hint={
             data?.finishedGamesCounted
-              ? `${data.finishedGamesCounted} ta o‘yin asosida`
-              : "Ma'lumot yo‘q"
+              ? `5 daqiqadan ko‘p o‘ynalgan ${data.finishedGamesCounted} ta o‘yin asosida`
+              : "5 daqiqadan ko‘p o‘ynalgan o‘yin yo‘q"
           }
         />
         <StatCard
