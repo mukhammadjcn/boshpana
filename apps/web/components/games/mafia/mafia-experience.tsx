@@ -10,6 +10,8 @@ import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import { pushToast } from "@/store/useToastStore";
 
+import { MafiaDay } from "./mafia-day";
+import { MafiaFinished } from "./mafia-finished";
 import { MafiaNight } from "./mafia-night";
 import { MafiaNightResult } from "./mafia-night-result";
 import { MafiaRoleReveal } from "./mafia-role-reveal";
@@ -232,9 +234,42 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     );
   }
 
-  // PLAYING (post-ASSIGN_ROLES) / FINISHED — placeholder until per-
-  // phase screens (NIGHT, DAY_*) land. The host can still end the
-  // game from here.
+  // DAY phases — discussion / vote / tiebreak / result share one
+  // component since they're variations of the same shell.
+  if (
+    (game.phase === "DAY_DISCUSSION" ||
+      game.phase === "DAY_VOTE" ||
+      game.phase === "DAY_TIEBREAK" ||
+      game.phase === "DAY_RESULT") &&
+    room.status === "PLAYING"
+  ) {
+    return (
+      <>
+        <MafiaDay
+          state={roomState}
+          onAdvancePhase={() => emit("mafia:advance_phase")}
+          onSubmitVote={(targetPlayerId) =>
+            emit("mafia:submit_day_vote", { targetPlayerId })
+          }
+        />
+        {!socketConnected ? <ReconnectingBanner /> : null}
+      </>
+    );
+  }
+
+  // Game over — winner banner + role reveal grid.
+  if (game.phase === "FINISHED" || room.status === "FINISHED") {
+    return (
+      <>
+        <MafiaFinished state={roomState} />
+        {!socketConnected ? <ReconnectingBanner /> : null}
+      </>
+    );
+  }
+
+  // Fallback — should be unreachable because every (status, phase)
+  // combination is handled above. Render the dashboard link so the
+  // user isn't stuck on a blank screen if a new phase is added.
   return (
     <>
       <main className="min-h-screen bg-bg-base text-ink-primary">
@@ -248,15 +283,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
 
           <section className="mt-6 grid gap-4 rounded-2xl border border-dashed border-line-strong bg-bg-surface p-6 text-center">
             <p className="text-2xl">🚧</p>
-            <p className="text-base font-semibold">
-              {room.status === "FINISHED"
-                ? "O'yin yakunlandi"
-                : "O'yin bosqichlari ishlab chiqilmoqda"}
-            </p>
+            <p className="text-base font-semibold">Noma'lum holat</p>
             <p className="text-sm text-ink-muted">
-              {room.status === "FINISHED"
-                ? "Bosh sahifaga qayting."
-                : `Hozirgi faza: ${game.phase}. Tun/kun ekranlari keyingi commit'larda yoziladi.`}
+              Hozirgi faza: {game.phase}.
             </p>
           </section>
 
@@ -268,7 +297,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             >
               Bosh sahifaga qaytish
             </button>
-            {me?.isHost && room.status !== "FINISHED" ? (
+            {me?.isHost ? (
               <button
                 type="button"
                 onClick={() => setEndGameConfirmOpen(true)}

@@ -313,6 +313,11 @@ model MafiaGame {
   // the NIGHT_RESULT screen. Reset to false at the start of each night.
   lastNightDoctorSaved Boolean   @default(false)
 
+  // Set when DAY_VOTE produces a tie — the IDs of the candidates that
+  // advance to DAY_TIEBREAK. Cleared as we leave the tiebreak. Read by
+  // the vote-submit path to constrain valid targets in the second pass.
+  tiebreakCandidateIds String[]   @default([])
+
   winner              MafiaTeam?
 
   createdAt           DateTime   @default(now())

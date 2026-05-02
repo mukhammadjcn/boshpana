@@ -271,6 +271,45 @@ export class RealtimeHub {
         }
       );
 
+      // Day vote (and tiebreak re-vote). The service handles auto-
+      // resolution once every alive player has submitted, so the
+      // client just needs to fire-and-forget here.
+      socket.on(
+        "mafia:submit_day_vote",
+        async (
+          payload: SocketActionPayload & { targetPlayerId: string }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const service = await this.serviceForRoom(payload.roomCode);
+            if (!service || !("submitDayVote" in service)) {
+              throw new Error("Bu xona Mafia o'yini emas.");
+            }
+            await service.submitDayVote({
+              code: payload.roomCode,
+              sessionId: payload.sessionId,
+              targetPlayerId: payload.targetPlayerId
+            });
+            await this.broadcastRoomState(payload.roomCode);
+          });
+        }
+      );
+
+      // Host short-circuit: skip discussion to vote, or force-resolve
+      // a vote round before the timer expires.
+      socket.on("mafia:advance_phase", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service || !("advancePhase" in service)) {
+            throw new Error("Bu xona Mafia o'yini emas.");
+          }
+          await service.advancePhase({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
       socket.on("next_phase", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
           await this.gameService.nextPhase({

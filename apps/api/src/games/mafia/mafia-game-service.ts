@@ -6,6 +6,7 @@ import {
   MafiaNightActionType,
   MafiaPhase,
   MafiaRole,
+  MafiaTeam,
   Prisma,
   RoomStatus
 } from "@prisma/client";
@@ -14,8 +15,13 @@ import { randomBytes, randomInt } from "node:crypto";
 import { prisma } from "../../lib/prisma";
 
 import {
+  MAFIA_DAY_DISCUSSION_DURATION_SECONDS,
+  MAFIA_DAY_RESULT_DURATION_SECONDS,
+  MAFIA_DAY_TIEBREAK_DURATION_SECONDS,
+  MAFIA_DAY_VOTE_DURATION_SECONDS,
   MAFIA_DOCTOR_MAX_SELF_HEALS,
   MAFIA_NIGHT_DURATION_SECONDS,
+  MAFIA_NIGHT_RESULT_DURATION_SECONDS,
   MAFIA_SHERIFF_MAX_SHOTS,
   type MafiaPublicState
 } from "./mafia-types";
@@ -59,6 +65,7 @@ type RoomWithMafiaState = Prisma.RoomGetPayload<{
     mafiaGame: {
       include: {
         nightSubmissions: true;
+        dayVotes: true;
       };
     };
   };
@@ -656,7 +663,11 @@ export class MafiaGameService {
         where: { id: game.id },
         data: {
           phase: MafiaPhase.NIGHT_RESULT,
-          timerEndsAt: null,
+          // NIGHT_RESULT auto-advances after the reveal animation
+          // window — host doesn't need to tap anything.
+          timerEndsAt: new Date(
+            Date.now() + MAFIA_NIGHT_RESULT_DURATION_SECONDS * 1000
+          ),
           sheriffShotsUsed: { increment: sheriffShotIncrement },
           doctorSelfHealsUsed: { increment: doctorSelfHealIncrement },
           lastNightDoctorSaved: doctorSavedAny
@@ -664,8 +675,352 @@ export class MafiaGameService {
       });
     });
 
-    this.stopTimer(roomCode);
+    this.startTimer(roomCode);
     await this.realtime.broadcastRoomState(roomCode);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Day cycle: NIGHT_RESULT → DAY_DISCUSSION → DAY_VOTE → [TIEBREAK]
+  //            → DAY_RESULT → (NIGHT or FINISHED)
+  // ────────────────────────────────────────────────────────────────
+
+  // Reveal animation ended — check the win condition. If a team has
+  // already won, jump straight to FINISHED so the table sees the win
+  // banner instead of an empty discussion screen.
+  private async advanceFromNightResult(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+    if (!room || !room.mafiaGame) return;
+    if (room.mafiaGame.phase !== MafiaPhase.NIGHT_RESULT) return;
+
+    const winner = this.computeWinner(room.players);
+    if (winner) {
+      await this.finishGame(room, winner);
+      return;
+    }
+    await this.advanceToDayDiscussion(room.mafiaGame.id, roomCode);
+  }
+
+  private async advanceToDayDiscussion(gameId: string, roomCode: string) {
+    const game = await prisma.mafiaGame.findUnique({ where: { id: gameId } });
+    if (!game) return;
+    await prisma.mafiaGame.update({
+      where: { id: gameId },
+      data: {
+        phase: MafiaPhase.DAY_DISCUSSION,
+        dayNumber: game.dayNumber + 1,
+        // 3 minute discussion window. Host can advance early via
+        // mafia:advance_phase.
+        timerEndsAt: new Date(
+          Date.now() + MAFIA_DAY_DISCUSSION_DURATION_SECONDS * 1000
+        ),
+        // New day → reset the previous day's tiebreak / saved flags.
+        tiebreakCandidateIds: [],
+        lastNightDoctorSaved: false
+      }
+    });
+    this.startTimer(roomCode);
+    await this.realtime.broadcastRoomState(roomCode);
+  }
+
+  private async advanceToDayVote(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+    if (!room || !room.mafiaGame) return;
+    if (room.mafiaGame.phase !== MafiaPhase.DAY_DISCUSSION) return;
+    await prisma.mafiaGame.update({
+      where: { id: room.mafiaGame.id },
+      data: {
+        phase: MafiaPhase.DAY_VOTE,
+        timerEndsAt: new Date(
+          Date.now() + MAFIA_DAY_VOTE_DURATION_SECONDS * 1000
+        ),
+        tiebreakCandidateIds: []
+      }
+    });
+    this.startTimer(roomCode);
+    await this.realtime.broadcastRoomState(roomCode);
+  }
+
+  async submitDayVote(
+    input: RoomCodeAction & { targetPlayerId: string }
+  ) {
+    const room = await this.getRoomWithState(input.code);
+    if (!room || !room.mafiaGame) throw new Error("Room state topilmadi.");
+    if (room.gameType !== GameType.MAFIA) {
+      throw new Error("Bu Mafia o'yini emas.");
+    }
+    const game = room.mafiaGame;
+    if (
+      game.phase !== MafiaPhase.DAY_VOTE &&
+      game.phase !== MafiaPhase.DAY_TIEBREAK
+    ) {
+      throw new Error("Hozir ovoz berish bosqichi emas.");
+    }
+    const me = room.players.find((p) => p.sessionId === input.sessionId);
+    if (!me || !me.mafiaRole) throw new Error("O'yinchi topilmadi.");
+    if (!me.mafiaRole.isAlive) throw new Error("O'lganlar ovoz bermaydi.");
+
+    const target = room.players.find((p) => p.id === input.targetPlayerId);
+    if (!target || !target.mafiaRole) throw new Error("Nishon topilmadi.");
+    if (!target.mafiaRole.isAlive) throw new Error("O'lganga ovoz berib bo'lmaydi.");
+    if (target.id === me.id) throw new Error("O'zingizga ovoz bera olmaysiz.");
+
+    // Tiebreak — target must be one of the tied candidates from the
+    // first pass. The set is stored on the game model.
+    const isTiebreak = game.phase === MafiaPhase.DAY_TIEBREAK;
+    if (isTiebreak && !game.tiebreakCandidateIds.includes(target.id)) {
+      throw new Error("Bu o'yinchi tiebreak nomzodi emas.");
+    }
+
+    await prisma.mafiaDayVote.upsert({
+      where: {
+        gameId_dayNumber_voterPlayerId_isTiebreak: {
+          gameId: game.id,
+          dayNumber: game.dayNumber,
+          voterPlayerId: me.id,
+          isTiebreak
+        }
+      },
+      create: {
+        gameId: game.id,
+        dayNumber: game.dayNumber,
+        voterPlayerId: me.id,
+        targetPlayerId: target.id,
+        isTiebreak
+      },
+      update: {
+        targetPlayerId: target.id,
+        createdAt: new Date()
+      }
+    });
+
+    // Auto-resolve once every alive player has voted — keeps the day
+    // snappy when the table reaches consensus before the timer.
+    const aliveCount = room.players.filter(
+      (p) => p.mafiaRole?.isAlive
+    ).length;
+    const submittedCount = await prisma.mafiaDayVote.count({
+      where: {
+        gameId: game.id,
+        dayNumber: game.dayNumber,
+        isTiebreak
+      }
+    });
+    if (submittedCount >= aliveCount) {
+      await this.resolveDayVote(input.code);
+    }
+  }
+
+  // Tally votes for the current day. Single highest → elimination.
+  // Tie on the first pass → DAY_TIEBREAK with just the tied candidates.
+  // Tie on the tiebreak → no elimination this day.
+  private async resolveDayVote(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+    if (!room || !room.mafiaGame) return;
+    const game = room.mafiaGame;
+    if (
+      game.phase !== MafiaPhase.DAY_VOTE &&
+      game.phase !== MafiaPhase.DAY_TIEBREAK
+    ) {
+      return;
+    }
+    const isTiebreak = game.phase === MafiaPhase.DAY_TIEBREAK;
+
+    const votes = await prisma.mafiaDayVote.findMany({
+      where: {
+        gameId: game.id,
+        dayNumber: game.dayNumber,
+        isTiebreak
+      }
+    });
+    const tally = new Map<string, number>();
+    for (const v of votes) {
+      tally.set(v.targetPlayerId, (tally.get(v.targetPlayerId) ?? 0) + 1);
+    }
+
+    let topCount = 0;
+    let topTargets: string[] = [];
+    for (const [target, count] of tally) {
+      if (count > topCount) {
+        topCount = count;
+        topTargets = [target];
+      } else if (count === topCount) {
+        topTargets.push(target);
+      }
+    }
+
+    // No votes at all (everyone abstained — possible if the timer
+    // expires before anyone submits). Treat as no elimination so the
+    // game keeps moving.
+    if (topCount === 0) {
+      await this.transitionToDayResult(room, null);
+      return;
+    }
+
+    if (topTargets.length === 1) {
+      await this.transitionToDayResult(room, topTargets[0]);
+      return;
+    }
+
+    // Tie. If we're already in tiebreak, no elimination this round —
+    // can't loop forever.
+    if (isTiebreak) {
+      await this.transitionToDayResult(room, null);
+      return;
+    }
+
+    // First-pass tie → enter DAY_TIEBREAK with just the tied targets
+    // as valid choices.
+    await prisma.mafiaGame.update({
+      where: { id: game.id },
+      data: {
+        phase: MafiaPhase.DAY_TIEBREAK,
+        timerEndsAt: new Date(
+          Date.now() + MAFIA_DAY_TIEBREAK_DURATION_SECONDS * 1000
+        ),
+        tiebreakCandidateIds: topTargets
+      }
+    });
+    this.startTimer(roomCode);
+    await this.realtime.broadcastRoomState(roomCode);
+  }
+
+  private async transitionToDayResult(
+    room: RoomWithMafiaState,
+    eliminatedPlayerId: string | null
+  ) {
+    if (!room.mafiaGame) return;
+    const game = room.mafiaGame;
+    await prisma.$transaction(async (tx) => {
+      if (eliminatedPlayerId) {
+        await tx.mafiaPlayerRole.update({
+          where: { playerId: eliminatedPlayerId },
+          data: {
+            isAlive: false,
+            eliminatedRound: game.dayNumber,
+            eliminatedCause: MafiaEliminationCause.DAY_VOTE,
+            roleRevealed: true
+          }
+        });
+        await tx.player.update({
+          where: { id: eliminatedPlayerId },
+          data: { isAlive: false }
+        });
+      }
+      await tx.mafiaGame.update({
+        where: { id: game.id },
+        data: {
+          phase: MafiaPhase.DAY_RESULT,
+          // Reveal animation window — auto-advances to the next NIGHT
+          // (or FINISHED if the elimination decided the game).
+          timerEndsAt: new Date(
+            Date.now() + MAFIA_DAY_RESULT_DURATION_SECONDS * 1000
+          ),
+          tiebreakCandidateIds: []
+        }
+      });
+    });
+    this.startTimer(room.code);
+    await this.realtime.broadcastRoomState(room.code);
+  }
+
+  private async advanceFromDayResult(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+    if (!room || !room.mafiaGame) return;
+    if (room.mafiaGame.phase !== MafiaPhase.DAY_RESULT) return;
+
+    const winner = this.computeWinner(room.players);
+    if (winner) {
+      await this.finishGame(room, winner);
+      return;
+    }
+    await this.advanceToNight(room.mafiaGame.id);
+    await this.realtime.broadcastRoomState(roomCode);
+  }
+
+  // Host short-circuit: skip the discussion timer or force-resolve a
+  // vote round. Other phases ignore the call so a stray tap during
+  // animation doesn't corrupt state.
+  async advancePhase(input: RoomCodeAction) {
+    const room = await this.requireHostRoom(input);
+    if (!room.mafiaGame) throw new Error("O'yin state topilmadi.");
+    const phase = room.mafiaGame.phase;
+    if (phase === MafiaPhase.DAY_DISCUSSION) {
+      this.stopTimer(input.code);
+      await this.advanceToDayVote(input.code);
+    } else if (
+      phase === MafiaPhase.DAY_VOTE ||
+      phase === MafiaPhase.DAY_TIEBREAK
+    ) {
+      this.stopTimer(input.code);
+      await this.resolveDayVote(input.code);
+    }
+    // NIGHT / NIGHT_RESULT / DAY_RESULT advance on their own timers —
+    // no host override needed.
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Win condition + finish
+  // ────────────────────────────────────────────────────────────────
+
+  // City wins when no mafia remain. Mafia wins when alive mafia ≥ alive
+  // city — at parity they can no longer be voted out, so the city has
+  // effectively lost.
+  private computeWinner(
+    players: RoomWithMafiaState["players"]
+  ): MafiaTeam | null {
+    let mafiaAlive = 0;
+    let cityAlive = 0;
+    for (const p of players) {
+      if (!p.mafiaRole || !p.mafiaRole.isAlive) continue;
+      if (p.mafiaRole.role === MafiaRole.MAFIA) mafiaAlive += 1;
+      else cityAlive += 1;
+    }
+    if (mafiaAlive === 0) return MafiaTeam.CITY;
+    if (mafiaAlive >= cityAlive) return MafiaTeam.MAFIA;
+    return null;
+  }
+
+  private async finishGame(room: RoomWithMafiaState, winner: MafiaTeam) {
+    if (!room.mafiaGame) return;
+    this.stopTimer(room.code);
+    await prisma.$transaction([
+      prisma.room.update({
+        where: { id: room.id },
+        data: { status: RoomStatus.FINISHED }
+      }),
+      prisma.mafiaGame.update({
+        where: { id: room.mafiaGame.id },
+        data: {
+          phase: MafiaPhase.FINISHED,
+          timerEndsAt: null,
+          winner
+        }
+      }),
+      // Reveal every role on the finish screen — the post-game review
+      // is part of the social fun and matches the Bunker pattern.
+      prisma.mafiaPlayerRole.updateMany({
+        where: { gameId: room.mafiaGame.id },
+        data: { roleRevealed: true }
+      })
+    ]);
+
+    if (room.hostUserId) {
+      await prisma.gameHistory.create({
+        data: {
+          userId: room.hostUserId,
+          gameType: GameType.MAFIA,
+          playedAt: new Date(),
+          startedAt: room.mafiaGame.startedAt,
+          endedAt: new Date(),
+          outcome: GameOutcome.PLAYED,
+          roomCode: room.code,
+          playerCount: room.players.length,
+          metadata: { winner }
+        }
+      });
+    }
+
+    await this.realtime.broadcastRoomState(room.code);
   }
 
   async endGame(input: RoomCodeAction) {
@@ -839,6 +1194,31 @@ export class MafiaGameService {
         ) ?? null
       : null;
 
+    // Day vote tally — only the count and "submitted-by-me" flag are
+    // exposed publicly. The targets aren't surfaced live so a vote
+    // can't be coerced by who's already in the lead. The reveal
+    // happens at DAY_RESULT.
+    const isVotePhase =
+      game.phase === MafiaPhase.DAY_VOTE ||
+      game.phase === MafiaPhase.DAY_TIEBREAK;
+    const isTiebreakRound = game.phase === MafiaPhase.DAY_TIEBREAK;
+    const dayVotesThisRound = isVotePhase
+      ? game.dayVotes.filter(
+          (v) =>
+            v.dayNumber === game.dayNumber && v.isTiebreak === isTiebreakRound
+        )
+      : [];
+    const submittedByMe =
+      me != null && dayVotesThisRound.some((v) => v.voterPlayerId === me.id);
+
+    // Last day-vote elimination — for the DAY_RESULT screen. Like the
+    // night-victims derivation, we read it off MafiaPlayerRole rows.
+    const dayEliminated = room.players.find(
+      (p) =>
+        p.mafiaRole?.eliminatedCause === MafiaEliminationCause.DAY_VOTE &&
+        p.mafiaRole?.eliminatedRound === game.dayNumber
+    );
+
     return {
       room: {
         id: room.id,
@@ -866,9 +1246,9 @@ export class MafiaGameService {
         winner: game.winner,
         lastNightVictims,
         lastNightDoctorSaved: game.lastNightDoctorSaved,
-        lastEliminatedPlayerId: null,
-        lastEliminatedRole: null,
-        tiebreakCandidateIds: []
+        lastEliminatedPlayerId: dayEliminated?.id ?? null,
+        lastEliminatedRole: dayEliminated?.mafiaRole?.role ?? null,
+        tiebreakCandidateIds: game.tiebreakCandidateIds
       },
       me: me
         ? {
@@ -905,7 +1285,10 @@ export class MafiaGameService {
         };
       }),
       mafiaPicks,
-      votes: { total: 0, submittedByMe: false }
+      votes: {
+        total: dayVotesThisRound.length,
+        submittedByMe
+      }
     };
   }
 
@@ -934,7 +1317,7 @@ export class MafiaGameService {
           orderBy: { seatOrder: "asc" }
         },
         mafiaGame: {
-          include: { nightSubmissions: true }
+          include: { nightSubmissions: true, dayVotes: true }
         }
       }
     });
@@ -979,8 +1362,20 @@ export class MafiaGameService {
         if (remaining > 0) return;
 
         this.stopTimer(code);
-        if (room.mafiaGame.phase === MafiaPhase.NIGHT) {
+        const phase = room.mafiaGame.phase;
+        if (phase === MafiaPhase.NIGHT) {
           await this.resolveNight(code);
+        } else if (phase === MafiaPhase.NIGHT_RESULT) {
+          await this.advanceFromNightResult(code);
+        } else if (phase === MafiaPhase.DAY_DISCUSSION) {
+          await this.advanceToDayVote(code);
+        } else if (
+          phase === MafiaPhase.DAY_VOTE ||
+          phase === MafiaPhase.DAY_TIEBREAK
+        ) {
+          await this.resolveDayVote(code);
+        } else if (phase === MafiaPhase.DAY_RESULT) {
+          await this.advanceFromDayResult(code);
         }
       } catch (error) {
         console.error(error);
