@@ -288,24 +288,28 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }
   );
 
-  app.get<{ Querystring: { limit?: string; cursor?: string } }>(
+  app.get<{ Querystring: { page?: string; pageSize?: string } }>(
     "/api/me/games",
     { preHandler: requireAuth },
     async (request, reply) => {
       const user = request.authUser!;
-      const limit = Math.min(Math.max(Number(request.query.limit ?? 20), 1), 50);
-      const items = await prisma.gameHistory.findMany({
-        where: { userId: user.id },
-        orderBy: { playedAt: "desc" },
-        take: limit + 1,
-        ...(request.query.cursor
-          ? { cursor: { id: request.query.cursor }, skip: 1 }
-          : {})
-      });
-      const hasMore = items.length > limit;
-      const trimmed = hasMore ? items.slice(0, limit) : items;
+      const pageSize = Math.min(
+        Math.max(Number(request.query.pageSize ?? 10), 1),
+        50
+      );
+      const page = Math.max(Number(request.query.page ?? 1), 1);
+      const where = { userId: user.id };
+      const [total, items] = await Promise.all([
+        prisma.gameHistory.count({ where }),
+        prisma.gameHistory.findMany({
+          where,
+          orderBy: { playedAt: "desc" },
+          take: pageSize,
+          skip: (page - 1) * pageSize
+        })
+      ]);
       return reply.send({
-        items: trimmed.map((row) => ({
+        items: items.map((row) => ({
           id: row.id,
           playedAt: row.playedAt.toISOString(),
           disasterName: row.disasterName,
@@ -313,7 +317,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           roomCode: row.roomCode,
           playerCount: row.playerCount
         })),
-        nextCursor: hasMore ? trimmed[trimmed.length - 1]?.id ?? null : null
+        total,
+        page,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
       });
     }
   );

@@ -6,7 +6,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
 
-type Outcome = "HOSTED" | "WON" | "ELIMINATED" | "PLAYED";
+type Outcome = "HOSTED" | "WON" | "ELIMINATED" | "PLAYED" | "CANCELLED";
 
 type HistoryItem = {
   id: string;
@@ -19,14 +19,18 @@ type HistoryItem = {
 
 type HistoryResponse = {
   items: HistoryItem[];
-  nextCursor: string | null;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 };
 
 const outcomeLabel: Record<Outcome, string> = {
   WON: "G‘olib",
   ELIMINATED: "Yakunlangan",
   HOSTED: "Yakunlangan",
-  PLAYED: "Yakunlangan"
+  PLAYED: "Yakunlangan",
+  CANCELLED: "Bekor qilingan"
 };
 
 // Sub-label clarifies the nuance under the badge when relevant. For host
@@ -36,15 +40,19 @@ const outcomeNote: Record<Outcome, string | null> = {
   WON: null,
   ELIMINATED: "Siz chiqib ketgan",
   HOSTED: "Qo‘lda tugatildi",
-  PLAYED: null
+  PLAYED: null,
+  CANCELLED: "O‘yin boshlanmagan"
 };
 
 const outcomeStyles: Record<Outcome, string> = {
   WON: "bg-ok/15 text-ok border-ok/30",
   ELIMINATED: "bg-bg-elevated text-ink-secondary border-line-strong",
   HOSTED: "bg-bg-elevated text-ink-secondary border-line-strong",
-  PLAYED: "bg-bg-elevated text-ink-secondary border-line-strong"
+  PLAYED: "bg-bg-elevated text-ink-secondary border-line-strong",
+  CANCELLED: "bg-bad/10 text-bad border-bad/30"
 };
+
+const PAGE_SIZE = 10;
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -59,9 +67,10 @@ function formatDate(iso: string) {
 
 export function GameHistoryView() {
   const [items, setItems] = useState<HistoryItem[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -77,10 +86,14 @@ export function GameHistoryView() {
     let active = true;
     void (async () => {
       try {
-        const res = await apiRequest<HistoryResponse>("/api/me/games?limit=20");
+        setLoading(true);
+        const res = await apiRequest<HistoryResponse>(
+          `/api/me/games?page=${page}&pageSize=${PAGE_SIZE}`
+        );
         if (!active) return;
         setItems(res.items);
-        setNextCursor(res.nextCursor);
+        setTotal(res.total);
+        setTotalPages(res.totalPages);
       } catch (e) {
         if (active) setError((e as Error).message);
       } finally {
@@ -90,23 +103,10 @@ export function GameHistoryView() {
     return () => {
       active = false;
     };
-  }, [authReady]);
+  }, [authReady, page]);
 
-  async function loadMore() {
-    if (!nextCursor || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      const res = await apiRequest<HistoryResponse>(
-        `/api/me/games?limit=20&cursor=${encodeURIComponent(nextCursor)}`
-      );
-      setItems((prev) => [...prev, ...res.items]);
-      setNextCursor(res.nextCursor);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
 
   return (
     <main className="mx-auto min-h-screen max-w-xl px-4 pt-safe pb-safe">
@@ -155,51 +155,77 @@ export function GameHistoryView() {
           </div>
         ) : (
           <ul className="grid gap-3">
-            {items.map((it) => (
-              <li
-                key={it.id}
-                className="rounded-2xl border border-line-subtle bg-bg-surface p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-                      {formatDate(it.playedAt)}
-                    </p>
-                    <p className="mt-1 truncate text-base font-semibold">
-                      {it.disasterName ?? "Falokat noma'lum"}
-                    </p>
-                    <p className="mt-1 text-xs text-ink-secondary">
-                      {it.roomCode ? `Xona: ${it.roomCode}` : null}
-                      {it.roomCode && it.playerCount ? " · " : null}
-                      {it.playerCount ? `${it.playerCount} o‘yinchi` : null}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${outcomeStyles[it.outcome]}`}
-                    >
-                      {outcomeLabel[it.outcome]}
-                    </span>
-                    {outcomeNote[it.outcome] ? (
-                      <span className="text-[10px] text-ink-muted">
-                        {outcomeNote[it.outcome]}
+            {items.map((it) => {
+              const isCancelled = it.outcome === "CANCELLED";
+              const title =
+                it.disasterName ??
+                (isCancelled ? "O‘yin yaratilmagan" : "Falokat noma‘lum");
+              return (
+                <li
+                  key={it.id}
+                  className="rounded-2xl border border-line-subtle bg-bg-surface p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
+                        {formatDate(it.playedAt)}
+                      </p>
+                      <p
+                        className={`mt-1 truncate text-base font-semibold ${
+                          isCancelled ? "text-ink-secondary" : ""
+                        }`}
+                      >
+                        {title}
+                      </p>
+                      <p className="mt-1 text-xs text-ink-secondary">
+                        {it.roomCode ? `Xona: ${it.roomCode}` : null}
+                        {it.roomCode && it.playerCount ? " · " : null}
+                        {it.playerCount ? `${it.playerCount} o‘yinchi` : null}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${outcomeStyles[it.outcome]}`}
+                      >
+                        {outcomeLabel[it.outcome]}
                       </span>
-                    ) : null}
+                      {outcomeNote[it.outcome] ? (
+                        <span className="text-[10px] text-ink-muted">
+                          {outcomeNote[it.outcome]}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
 
-        {nextCursor ? (
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="mt-4 flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold disabled:opacity-50"
-          >
-            {loadingMore ? "Yuklanmoqda..." : "Ko‘proq yuklash"}
-          </button>
+        {!loading && !error && totalPages > 1 ? (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-line-subtle bg-bg-surface px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={!canPrev}
+              className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:opacity-40"
+              aria-label="Oldingi sahifa"
+            >
+              ←
+            </button>
+            <p className="text-xs text-ink-muted">
+              {page} / {totalPages} · jami {total}
+            </p>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={!canNext}
+              className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:opacity-40"
+              aria-label="Keyingi sahifa"
+            >
+              →
+            </button>
+          </div>
         ) : null}
       </section>
       <BottomNav />

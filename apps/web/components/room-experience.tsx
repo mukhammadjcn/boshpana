@@ -983,6 +983,12 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
           onConfirm={() => {
             emit("end_game");
             setEndGameConfirmOpen(false);
+            // Host explicitly tore the lobby down — they don't need to see
+            // the "O'yin yaratilmadi" modal that other participants get.
+            // Send them straight to the dashboard so the click feels
+            // immediate; the broadcast continues to the rest of the room
+            // in the background.
+            router.push("/");
           }}
           onClose={() => setEndGameConfirmOpen(false)}
         />
