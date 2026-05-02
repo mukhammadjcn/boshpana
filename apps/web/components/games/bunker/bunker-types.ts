@@ -1,15 +1,23 @@
-import { BunkerCardType, BunkerDifficulty, BunkerPhase, RoomStatus } from "@prisma/client";
+import type { RoomStatus } from "@/lib/types";
 
-export const CARD_TYPES = [
-  BunkerCardType.PROFESSION,
-  BunkerCardType.HEALTH,
-  BunkerCardType.CHARACTER,
-  BunkerCardType.SKILL,
-  BunkerCardType.BAGGAGE,
-  BunkerCardType.FACT
-] as const;
+export type BunkerPhase =
+  | "LOBBY"
+  | "INTRO"
+  | "ROUND_REVEAL"
+  | "ROUND_PITCH"
+  | "ROUND_COMPLETE"
+  | "VOTING"
+  | "FINISHED";
 
-export type PublicRoomState = {
+export type BunkerCardType =
+  | "PROFESSION"
+  | "HEALTH"
+  | "CHARACTER"
+  | "SKILL"
+  | "BAGGAGE"
+  | "FACT";
+
+export type BunkerRoomState = {
   room: {
     id: string;
     code: string;
@@ -34,7 +42,7 @@ export type PublicRoomState = {
     } | null;
     situation: {
       text: string;
-      difficulty: BunkerDifficulty;
+      difficulty: string;
     } | null;
   };
   me: {

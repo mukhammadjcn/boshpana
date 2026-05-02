@@ -99,29 +99,17 @@ export function VotePanel({
   const selectedPlayer =
     options.find((player) => player.id === selectedPlayerId) ?? null;
 
-  const headline = tiebreakActive
-    ? meIsCandidate
-      ? "Siz tenglikdasiz"
-      : effectiveHasVoted
-        ? "Siz ovoz berdingiz"
-        : "Qayta ovoz berish"
-    : effectiveHasVoted
-      ? "Siz ovoz berdingiz"
-      : canVote
-        ? "Kim bunkerda qolmasligi kerak?"
-        : "Ovoz natijasini kuting";
-
   const helper = tiebreakActive
     ? meIsCandidate
-      ? `Siz ${tiedNames.filter((n) => n).join(", ")} bilan teng ovoz to‘pladingiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.`
+      ? `Siz tenglikdasiz — ${tiedNames.filter((n) => n).join(", ")} bilan teng ovoz to‘pladingiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.`
       : effectiveHasVoted
-        ? "Qolgan o‘yinchilarni kuting."
-        : `${tiedNames.join(", ")} teng ovoz to‘pladi. Iltimos, faqat bir kishini bunkerda qoldiring.`
+        ? "Siz ovoz berdingiz. Qolgan o‘yinchilarni kuting."
+        : `${tiedNames.join(", ")} teng ovoz to‘pladi — faqat bir kishini bunkerda qoldiring.`
     : effectiveHasVoted
-      ? "Qolgan o‘yinchilarni kuting."
+      ? "Siz ovoz berdingiz. Qolgan o‘yinchilarni kuting."
       : canVote
-        ? "Bitta o‘yinchini tanlang va tasdiqlang."
-        : "Bu bosqichda siz faqat kuzatasiz.";
+        ? "Kim bunkerda qolmasligi kerak, uni tanlang!"
+        : "Ovoz natijasini kuting — bu bosqichda siz faqat kuzatasiz.";
 
   const effectiveCanVote = canVote && !meIsCandidate;
 
@@ -131,30 +119,27 @@ export function VotePanel({
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg-base">
       <header className="sticky top-0 z-10 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
-        <div className="flex items-center justify-between px-5 pt-safe">
-          <div>
-            <p
-              className={`text-xs font-medium uppercase tracking-wider ${accent}`}
-            >
-              {sectionLabel}
-            </p>
-            <h2 className="mt-0.5 text-lg font-semibold">{headline}</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            {typeof secondsLeft === "number" ? (
-              <Timer
-                seconds={secondsLeft}
-                variant={effectiveHasVoted ? "muted" : "danger"}
-              />
-            ) : null}
-            {!meIsCandidate ? (
-              <span className="rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-xs font-medium text-ink-secondary">
-                {options.length} ta nomzod
-              </span>
-            ) : null}
-          </div>
+        <div className="flex flex-wrap items-center gap-2 px-5 pt-safe">
+          <p
+            className={`flex-1 text-xs font-medium uppercase tracking-wider ${accent}`}
+          >
+            {sectionLabel}
+          </p>
+          {typeof secondsLeft === "number" ? (
+            <Timer
+              seconds={secondsLeft}
+              variant={effectiveHasVoted ? "muted" : "danger"}
+            />
+          ) : null}
+          {!meIsCandidate ? (
+            <span className="rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-xs font-medium text-ink-secondary">
+              {options.length} ta nomzod
+            </span>
+          ) : null}
         </div>
-        <p className="px-5 pb-3 pt-1 text-sm text-ink-secondary">{helper}</p>
+        <p className="px-5 pb-3 pt-2 text-base font-semibold leading-snug text-ink-primary">
+          {helper}
+        </p>
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 pb-40">

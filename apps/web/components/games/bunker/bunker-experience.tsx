@@ -11,8 +11,8 @@ import {
 } from "react";
 
 import { ConfirmModal } from "@/components/confirm-modal";
-import { HostControls } from "@/components/host-controls";
-import { PlayerCard } from "@/components/player-card";
+import { HostControls } from "./bunker-host-controls";
+import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
 import {
@@ -23,16 +23,16 @@ import {
   tgHaptic,
   tgHapticNotify
 } from "@/lib/telegram";
-import { VotePanel } from "@/components/vote-panel";
-import { useGameAudio } from "@/components/game/use-game-audio";
+import { VotePanel } from "./bunker-vote-panel";
+import { useGameAudio } from "./use-bunker-audio";
 import { apiRequest } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
-import type { CardType, GamePhase, RoomState } from "@/lib/types";
-import { useGameStore } from "@/store/useGameStore";
+import type { BunkerCardType, BunkerPhase, BunkerRoomState } from "./bunker-types";
+import { useGameStore } from "./use-bunker-store";
 import { pushToast } from "@/store/useToastStore";
 
-const cardLabels: Record<CardType, string> = {
+const cardLabels: Record<BunkerCardType, string> = {
   PROFESSION: "Kasb",
   HEALTH: "Sog‘liq",
   CHARACTER: "Xarakter",
@@ -41,7 +41,7 @@ const cardLabels: Record<CardType, string> = {
   FACT: "Fakt"
 };
 
-const cardOrder: CardType[] = [
+const cardOrder: BunkerCardType[] = [
   "PROFESSION",
   "HEALTH",
   "CHARACTER",
@@ -50,7 +50,7 @@ const cardOrder: CardType[] = [
   "FACT"
 ];
 
-const phaseHelp: Record<GamePhase, string> = {
+const phaseHelp: Record<BunkerPhase, string> = {
   LOBBY: "Lobby — kuting",
   INTRO: "Tanishuv",
   ROUND_REVEAL: "Karta ochish navbati",
@@ -60,7 +60,7 @@ const phaseHelp: Record<GamePhase, string> = {
   FINISHED: "Yakun"
 };
 
-type RoomExperienceProps = {
+type BunkerExperienceProps = {
   roomCode: string;
   view: "room" | "game";
 };
@@ -71,7 +71,7 @@ type Announcement = {
   description: string;
 };
 
-export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
+export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState("");
   const [joinName, setJoinName] = useState("");
@@ -84,7 +84,6 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     return !cached || cached.room.code !== roomCode.toUpperCase();
   });
   const [origin, setOrigin] = useState("");
-  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const [socketConnected, setSocketConnected] = useState(true);
   const [introOpen, setIntroOpen] = useState(false);
@@ -103,9 +102,9 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const [revealModal, setRevealModal] = useState<{
     playerId: string;
     playerName: string;
-    newCardType: CardType;
+    newCardType: BunkerCardType;
     newCardValue: string;
-    olderCards: Array<{ type: CardType; value: string }>;
+    olderCards: Array<{ type: BunkerCardType; value: string }>;
   } | null>(null);
 
   const connectedRef = useRef(false);
@@ -115,7 +114,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
   const seenSelfEliminationRef = useRef<Set<string>>(new Set());
   const seenWinnerModalRef = useRef<Set<string>>(new Set());
   const seenCancelledModalRef = useRef<Set<string>>(new Set());
-  const playersRef = useRef<RoomState["players"]>([]);
+  const playersRef = useRef<BunkerRoomState["players"]>([]);
 
   const bottomBarRef = useRef<HTMLDivElement | null>(null);
   const bottomBarObserverRef = useRef<ResizeObserver | null>(null);
@@ -166,7 +165,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
 
     void (async () => {
       try {
-        const state = await apiRequest<RoomState>(
+        const state = await apiRequest<BunkerRoomState>(
           `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
         );
         if (active) setRoomState(state);
@@ -208,7 +207,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       socket.emit("join_room", { roomCode, sessionId });
       if (isReconnect) {
         // Recover any broadcasts missed during the disconnect window.
-        void apiRequest<RoomState>(
+        void apiRequest<BunkerRoomState>(
           `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
         )
           .then((s) => setRoomState(s))
@@ -223,7 +222,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       setSocketConnected(false);
     };
 
-    const onState = (s: RoomState) => {
+    const onState = (s: BunkerRoomState) => {
       setRoomState(s);
       setLoading(false);
     };
@@ -246,7 +245,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       if (!socket.connected) {
         socket.connect();
       } else {
-        void apiRequest<RoomState>(
+        void apiRequest<BunkerRoomState>(
           `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
         )
           .then((s) => setRoomState(s))
@@ -344,10 +343,10 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     const newCardValue = player.revealedCards?.[cardType] ?? "";
     if (!newCardValue) return;
 
-    const olderCards: Array<{ type: CardType; value: string }> = Object
+    const olderCards: Array<{ type: BunkerCardType; value: string }> = Object
       .entries(player.revealedCards ?? {})
       .filter(([t, v]) => t !== cardType && !!v)
-      .map(([t, v]) => ({ type: t as CardType, value: v as string }));
+      .map(([t, v]) => ({ type: t as BunkerCardType, value: v as string }));
 
     seenRevealAnnouncementRef.current.add(key);
     tgHaptic("light");
@@ -515,7 +514,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
     });
     const socket = getSocket();
     socket.emit("join_room", { roomCode, sessionId });
-    const state = await apiRequest<RoomState>(
+    const state = await apiRequest<BunkerRoomState>(
       `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
     );
     setRoomState(state);
@@ -554,11 +553,8 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
       window.setTimeout(() => setLinkCopied(false), 1800);
       pushToast({ kind: "success", text: "Link nusxalandi" });
       tgHaptic("light");
-      setShareFeedback("Link nusxalandi");
-      window.setTimeout(() => setShareFeedback(null), 2000);
     } catch {
       pushToast({ kind: "error", text: "Nusxalab bo‘lmadi" });
-      setShareFeedback("Nusxalab bo‘lmadi");
     }
   }
 
@@ -895,9 +891,6 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
                 <p className="break-all rounded-xl bg-bg-base/60 px-3 py-2 text-xs text-ink-muted">
                   {inviteUrl}
                 </p>
-                {shareFeedback ? (
-                  <p className="text-xs text-ok">{shareFeedback}</p>
-                ) : null}
               </div>
             ) : null}
           </section>
@@ -1148,7 +1141,7 @@ export function RoomExperience({ roomCode, view }: RoomExperienceProps) {
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 backdrop-blur"
       >
         <div className="mx-auto max-w-xl px-4 pt-3 pb-safe">
-          {me.isHost ? (
+          {me.isHost && room.status !== "FINISHED" ? (
             <div className="mb-2">
               <HostControls
                 isHost={me.isHost}

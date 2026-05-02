@@ -3,11 +3,12 @@ import { FastifyInstance } from "fastify";
 
 import { requireAuth } from "../lib/auth-decorator";
 import { env } from "../lib/env";
+import { prisma } from "../lib/prisma";
 import { countHostedRoomsLast30d } from "../services/auth-service";
-import { GameService } from "../services/game-service";
+import { GameRegistry } from "../games/registry";
 
 type RouteDeps = {
-  gameService: GameService;
+  games: GameRegistry;
 };
 
 export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps) {
@@ -34,7 +35,7 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
           });
         }
 
-        const result = await deps.gameService.createRoom({
+        const result = await deps.games.bunker.createRoom({
           ...request.body,
           hostUserId: user.id
         });
@@ -56,7 +57,7 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
     { preHandler: requireAuth },
     async (request, reply) => {
       try {
-        const result = await deps.gameService.joinRoom({
+        const result = await deps.games.bunker.joinRoom({
           code: request.params.code,
           ...request.body,
           userId: request.authUserId
@@ -68,12 +69,29 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
     }
   );
 
+  // Lightweight, game-agnostic room metadata. The frontend room/game pages
+  // call this first so they can route to the correct per-game experience
+  // (Bunker / Mafia / ...) before fetching the full game state.
+  app.get<{ Params: { code: string } }>(
+    "/api/rooms/:code/info",
+    async (request, reply) => {
+      const room = await prisma.room.findUnique({
+        where: { code: request.params.code.toUpperCase() },
+        select: { code: true, gameType: true, status: true }
+      });
+      if (!room) {
+        return reply.status(404).send({ message: "Xona topilmadi." });
+      }
+      return reply.send(room);
+    }
+  );
+
   app.get<{
     Params: { code: string };
     Querystring: { sessionId: string };
   }>("/api/rooms/:code/state", async (request, reply) => {
     try {
-      const result = await deps.gameService.getRoomState(
+      const result = await deps.games.bunker.getRoomState(
         request.params.code,
         request.query.sessionId
       );

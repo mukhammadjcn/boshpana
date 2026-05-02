@@ -78,7 +78,7 @@ model GameHistory {
   id              String      @id @default(cuid())
   userId          String
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  gameType        GameType
+  gameType        GameType    @default(BUNKER)
   playedAt        DateTime
   startedAt       DateTime?
   endedAt         DateTime?

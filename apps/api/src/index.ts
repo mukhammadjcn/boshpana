@@ -9,7 +9,7 @@ import { closeRedis, getRedis } from "./lib/redis";
 import { registerAuthRoutes } from "./routes/auth-routes";
 import { registerInternalAdminRoutes } from "./routes/internal-admin-routes";
 import { registerPublicRoutes } from "./routes/public-routes";
-import { GameService } from "./services/game-service";
+import { GameRegistry } from "./games/registry";
 import { RealtimeHub } from "./socket/realtime-hub";
 
 async function bootstrap() {
@@ -26,10 +26,10 @@ async function bootstrap() {
   // rather than on the first auth-session call.
   getRedis();
 
-  const gameService = new GameService();
-  gameService.startCleanupSweeper();
+  const games = new GameRegistry();
+  games.startCleanupSweeper();
   await registerAuthRoutes(app);
-  await registerPublicRoutes(app, { gameService });
+  await registerPublicRoutes(app, { games });
   await registerInternalAdminRoutes(app);
 
   const io = new Server(app.server, {
@@ -39,15 +39,15 @@ async function bootstrap() {
     }
   });
 
-  const realtimeHub = new RealtimeHub(io, gameService);
-  gameService.setRealtime(realtimeHub);
+  const realtimeHub = new RealtimeHub(io, games);
+  games.setRealtime(realtimeHub);
   realtimeHub.register();
 
   void startTelegramBot();
 
   const shutdown = async () => {
     await stopTelegramBot();
-    await gameService.shutdown();
+    await games.shutdown();
     await closeRedis();
     await prisma.$disconnect();
     await app.close();

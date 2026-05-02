@@ -1,7 +1,7 @@
 import { BunkerCardType } from "@prisma/client";
 import { Server, Socket } from "socket.io";
 
-import { GameService } from "../services/game-service";
+import { GameRegistry } from "../games/registry";
 
 type SocketActionPayload = {
   roomCode: string;
@@ -17,8 +17,16 @@ export class RealtimeHub {
 
   constructor(
     private readonly io: Server,
-    private readonly gameService: GameService
+    private readonly games: GameRegistry
   ) {}
+
+  // Game-specific actions (reveal_card, vote, etc.) currently route to the
+  // Bunker module — that's the only registered game. When Mafia is added,
+  // each handler should look up the room's gameType and dispatch via
+  // `this.games.for(gameType)` instead.
+  private get gameService() {
+    return this.games.bunker;
+  }
 
   isSessionOnline(roomCode: string, sessionId: string): boolean {
     return (

@@ -8,8 +8,8 @@ import {
 } from "@prisma/client";
 import { randomBytes, randomInt } from "node:crypto";
 
-import { prisma } from "../lib/prisma";
-import { CARD_TYPES, PublicRoomState } from "../types/game";
+import { prisma } from "../../lib/prisma";
+import { CARD_TYPES, BunkerPublicState } from "./bunker-types";
 
 type RealtimePublisher = {
   broadcastRoomState: (roomCode: string) => Promise<void>;
@@ -77,7 +77,7 @@ const noopRealtime: RealtimePublisher = {
   isSessionOnline: () => true
 };
 
-export class GameService {
+export class BunkerGameService {
   private realtime: RealtimePublisher = noopRealtime;
 
   private readonly timers = new Map<string, NodeJS.Timeout>();
@@ -267,7 +267,7 @@ export class GameService {
     return { roomCode: room.code, playerId: player.id };
   }
 
-  async getRoomState(code: string, sessionId: string): Promise<PublicRoomState> {
+  async getRoomState(code: string, sessionId: string): Promise<BunkerPublicState> {
     const room = await this.getRoomWithState(code);
 
     if (!room || !room.bunkerGame) {
@@ -282,8 +282,8 @@ export class GameService {
   // the result for every connected socket — large lobbies used to do N+1
   // queries per phase change.
   async getRoomStateForBroadcast(code: string): Promise<{
-    room: NonNullable<Awaited<ReturnType<GameService["getRoomWithState"]>>>;
-    perSession: (sessionId: string) => PublicRoomState;
+    room: NonNullable<Awaited<ReturnType<BunkerGameService["getRoomWithState"]>>>;
+    perSession: (sessionId: string) => BunkerPublicState;
   }> {
     const room = await this.getRoomWithState(code);
     if (!room || !room.bunkerGame) {
@@ -296,9 +296,9 @@ export class GameService {
   }
 
   private buildRoomState(
-    room: NonNullable<Awaited<ReturnType<GameService["getRoomWithState"]>>>,
+    room: NonNullable<Awaited<ReturnType<BunkerGameService["getRoomWithState"]>>>,
     sessionId: string
-  ): PublicRoomState {
+  ): BunkerPublicState {
     if (!room.bunkerGame) {
       throw new Error("Room state topilmadi.");
     }
@@ -410,15 +410,15 @@ export class GameService {
     // back to the full pool if cooldown filtered everyone out.
     const hostKey = this.hostCooldownKey(room);
     const selectedDisaster = (() => {
-      const recent = GameService.cooldownActive(
-        GameService.recentDisasters,
+      const recent = BunkerGameService.cooldownActive(
+        BunkerGameService.recentDisasters,
         hostKey,
-        GameService.RECENT_DISASTER_TTL_MS
+        BunkerGameService.RECENT_DISASTER_TTL_MS
       );
       const fresh = disasters.filter((d) => !recent.has(d.id));
       const pool = fresh.length > 0 ? fresh : disasters;
       const picked = pool[randomInt(pool.length)];
-      GameService.cooldownAdd(GameService.recentDisasters, hostKey, [
+      BunkerGameService.cooldownAdd(BunkerGameService.recentDisasters, hostKey, [
         picked.id
       ]);
       return picked;
@@ -1321,17 +1321,17 @@ export class GameService {
     // prioritised so the whole game-night cycles through fresh prompts.
     // Falls back to the full pool when cooldown filters everything.
     const now = Date.now();
-    for (const [id, ts] of GameService.recentSituations) {
-      if (now - ts > GameService.RECENT_SITUATION_TTL_MS) {
-        GameService.recentSituations.delete(id);
+    for (const [id, ts] of BunkerGameService.recentSituations) {
+      if (now - ts > BunkerGameService.RECENT_SITUATION_TTL_MS) {
+        BunkerGameService.recentSituations.delete(id);
       }
     }
     const fresh = situations.filter(
-      (s) => !GameService.recentSituations.has(s.id)
+      (s) => !BunkerGameService.recentSituations.has(s.id)
     );
     const pool = fresh.length > 0 ? fresh : situations;
     const picked = pool[randomInt(pool.length)];
-    GameService.recentSituations.set(picked.id, now);
+    BunkerGameService.recentSituations.set(picked.id, now);
     return picked;
   }
 
@@ -1439,10 +1439,10 @@ export class GameService {
 
     // Snapshot each player's personal cooldown once up front.
     const cooldownByIdx = players.map((p) =>
-      GameService.cooldownActive(
-        GameService.recentCardsByUser,
+      BunkerGameService.cooldownActive(
+        BunkerGameService.recentCardsByUser,
         p.userKey,
-        GameService.RECENT_CARD_TTL_MS
+        BunkerGameService.RECENT_CARD_TTL_MS
       )
     );
 
@@ -1551,8 +1551,8 @@ export class GameService {
 
     // Persist each player's hand into their personal cooldown.
     for (const [userKey, ids] of dealtIdsByUser) {
-      GameService.cooldownAdd(
-        GameService.recentCardsByUser,
+      BunkerGameService.cooldownAdd(
+        BunkerGameService.recentCardsByUser,
         userKey,
         ids
       );
