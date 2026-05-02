@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum GameType {
+  BUNKER
+  MAFIA
+}
+
 enum RoomStatus {
   LOBBY
   PLAYING
@@ -14,7 +19,7 @@ enum RoomStatus {
   CANCELLED
 }
 
-enum GamePhase {
+enum BunkerPhase {
   LOBBY
   DISCUSSION
   REVEAL
@@ -26,7 +31,7 @@ enum GamePhase {
   FINISHED
 }
 
-enum CardType {
+enum BunkerCardType {
   PROFESSION
   HEALTH
   CHARACTER
@@ -35,7 +40,7 @@ enum CardType {
   FACT
 }
 
-enum Difficulty {
+enum BunkerDifficulty {
   EASY
   MEDIUM
   HARD
@@ -73,14 +78,15 @@ model GameHistory {
   id              String      @id @default(cuid())
   userId          String
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameType        GameType
   playedAt        DateTime
   startedAt       DateTime?
   endedAt         DateTime?
   durationSeconds Int?
-  disasterName    String?
   outcome         GameOutcome @default(PLAYED)
   roomCode        String?
   playerCount     Int?
+  metadata        Json?
   createdAt       DateTime    @default(now())
 
   @@index([userId, playedAt])
@@ -93,6 +99,7 @@ model GameHistory {
 model Room {
   id            String      @id @default(cuid())
   code          String      @unique
+  gameType      GameType    @default(BUNKER)
   hostSessionId String
   hostUserId    String?
   hostUser      User?       @relation("HostUser", fields: [hostUserId], references: [id], onDelete: SetNull)
@@ -104,8 +111,8 @@ model Room {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   players       Player[]
-  game          Game?
-  votes         Vote[]
+  bunkerGame    BunkerGame?
+  bunkerVotes   BunkerVote[]
 
   @@index([hostUserId, createdAt])
   // The cleanup sweeper scans for stale LOBBY/PLAYING rooms by status +
@@ -127,68 +134,68 @@ model Player {
   seatOrder     Int
   joinedAt      DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
-  attributes    PlayerAttribute?
-  votesCast     Vote[]          @relation("VotesCast")
-  votesReceived Vote[]          @relation("VotesReceived")
+  bunkerAttributes BunkerPlayerAttribute?
+  bunkerVotesCast     BunkerVote[]      @relation("BunkerVotesCast")
+  bunkerVotesReceived BunkerVote[]      @relation("BunkerVotesReceived")
 
   @@unique([roomId, sessionId])
   @@index([userId])
 }
 
-model Game {
+model BunkerGame {
   id                 String           @id @default(cuid())
   roomId             String           @unique
   room               Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
   disasterId         String?
-  disaster           Disaster?        @relation(fields: [disasterId], references: [id], onDelete: SetNull)
+  disaster           BunkerDisaster?  @relation(fields: [disasterId], references: [id], onDelete: SetNull)
   currentSituationId String?
-  currentSituation   Situation?       @relation(fields: [currentSituationId], references: [id], onDelete: SetNull)
-  phase              GamePhase        @default(LOBBY)
+  currentSituation   BunkerSituation? @relation(fields: [currentSituationId], references: [id], onDelete: SetNull)
+  phase              BunkerPhase      @default(LOBBY)
   timerEndsAt        DateTime?
   startedAt          DateTime?
   roundNumber        Int              @default(0)
   currentTurnPlayerId String?
   lastRevealedPlayerId String?
-  lastRevealedCardType CardType?
+  lastRevealedCardType BunkerCardType?
   lastEliminatedPlayerId String?
   tiebreakCandidateIds String[]       @default([])
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
-  playerAttributes   PlayerAttribute[]
+  playerAttributes   BunkerPlayerAttribute[]
 }
 
-model PlayerAttribute {
+model BunkerPlayerAttribute {
   id         String   @id @default(cuid())
-  playerId    String   @unique
-  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  gameId      String
-  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  playerId   String   @unique
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameId     String
+  game       BunkerGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
   profession String
   health     String
   character  String
   skill      String
   baggage    String
   fact       String
-  revealed   CardType[] @default([])
+  revealed   BunkerCardType[] @default([])
 }
 
-model Vote {
-  id            String   @id @default(cuid())
+model BunkerVote {
+  id             String   @id @default(cuid())
   roomId         String
   room           Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   roundNumber    Int
   voterPlayerId  String
-  voterPlayer    Player   @relation("VotesCast", fields: [voterPlayerId], references: [id], onDelete: Cascade)
+  voterPlayer    Player   @relation("BunkerVotesCast", fields: [voterPlayerId], references: [id], onDelete: Cascade)
   targetPlayerId String
-  targetPlayer   Player   @relation("VotesReceived", fields: [targetPlayerId], references: [id], onDelete: Cascade)
+  targetPlayer   Player   @relation("BunkerVotesReceived", fields: [targetPlayerId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
 
   @@unique([roomId, roundNumber, voterPlayerId])
 }
 
-model Card {
+model BunkerCard {
   id        String   @id @default(cuid())
-  type      CardType
+  type      BunkerCardType
   text      String
   isAdult   Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -198,22 +205,22 @@ model Card {
   @@index([type, isAdult])
 }
 
-model Disaster {
+model BunkerDisaster {
   id          String   @id @default(cuid())
   name        String   @unique
   description String
   isAdult     Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  games       Game[]
+  games       BunkerGame[]
 }
 
-model Situation {
+model BunkerSituation {
   id         String     @id @default(cuid())
   text       String     @unique
-  difficulty Difficulty @default(MEDIUM)
+  difficulty BunkerDifficulty @default(MEDIUM)
   isAdult    Boolean    @default(false)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
-  games      Game[]
+  games      BunkerGame[]
 }

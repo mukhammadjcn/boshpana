@@ -1,4 +1,4 @@
-import { CardType } from "@prisma/client";
+import { BunkerCardType } from "@prisma/client";
 import { Server, Socket } from "socket.io";
 
 import { GameService } from "../services/game-service";
@@ -90,7 +90,7 @@ export class RealtimeHub {
 
       socket.on(
         "reveal_card",
-        async (payload: SocketActionPayload & { cardType: CardType }) => {
+        async (payload: SocketActionPayload & { cardType: BunkerCardType }) => {
           await this.handleAction(socket, async () => {
             await this.gameService.revealCard({
               code: payload.roomCode,

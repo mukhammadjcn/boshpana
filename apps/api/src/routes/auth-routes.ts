@@ -212,7 +212,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: {
           room: {
             include: {
-              game: { include: { disaster: true } }
+              bunkerGame: { include: { disaster: true } }
             }
           }
         },
@@ -228,8 +228,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             code: p.room.code,
             status: p.room.status,
             createdAt: p.room.createdAt.toISOString(),
-            phase: p.room.game?.phase ?? "LOBBY",
-            disasterName: p.room.game?.disaster?.name ?? null
+            phase: p.room.bunkerGame?.phase ?? "LOBBY",
+            disasterName: p.room.bunkerGame?.disaster?.name ?? null
           }
         }))
       });
@@ -309,14 +309,21 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         })
       ]);
       return reply.send({
-        items: items.map((row) => ({
-          id: row.id,
-          playedAt: row.playedAt.toISOString(),
-          disasterName: row.disasterName,
-          outcome: row.outcome,
-          roomCode: row.roomCode,
-          playerCount: row.playerCount
-        })),
+        items: items.map((row) => {
+          const meta = (row.metadata ?? null) as Record<string, unknown> | null;
+          return {
+            id: row.id,
+            gameType: row.gameType,
+            playedAt: row.playedAt.toISOString(),
+            disasterName:
+              meta && typeof meta.disasterName === "string"
+                ? (meta.disasterName as string)
+                : null,
+            outcome: row.outcome,
+            roomCode: row.roomCode,
+            playerCount: row.playerCount
+          };
+        }),
         total,
         page,
         pageSize,

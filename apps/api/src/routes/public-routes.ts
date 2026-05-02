@@ -1,4 +1,4 @@
-import { CardType } from "@prisma/client";
+import { BunkerCardType } from "@prisma/client";
 import { FastifyInstance } from "fastify";
 
 import { requireAuth } from "../lib/auth-decorator";
@@ -84,6 +84,6 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
   });
 
   app.get("/api/meta/card-types", async () => ({
-    items: CardType
+    items: BunkerCardType
   }));
 }
