@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -16,8 +16,13 @@ import { MafiaDay } from "./mafia-day";
 import { MafiaFinished } from "./mafia-finished";
 import { MafiaNight } from "./mafia-night";
 import { MafiaNightResult } from "./mafia-night-result";
+import {
+  getMafiaRoleMeta,
+  MafiaRoleCardContent
+} from "./mafia-role-card-content";
 import { MafiaRoleReveal } from "./mafia-role-reveal";
 import type { MafiaPublicState } from "./mafia-types";
+import { useMafiaAudio } from "./use-mafia-audio";
 
 type MafiaExperienceProps = {
   roomCode: string;
@@ -43,10 +48,13 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   } | null>(null);
   const [joinName, setJoinName] = useState("");
   const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
+  const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
   const connectedRef = useRef(false);
   // Tracks which (roomCode, playerId) pairs already saw the cancelled
   // modal so reconnects / state refetches don't keep popping it back.
   const seenCancelledModalRef = useRef<Set<string>>(new Set());
+  const seenSelfEliminationRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
@@ -238,6 +246,169 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     }
   }
 
+  const meId = roomState?.me?.id ?? null;
+  const phase = roomState?.game.phase ?? null;
+  const nightNumber = roomState?.game.nightNumber ?? 0;
+  const dayNumber = roomState?.game.dayNumber ?? 0;
+  const lastNightVictims = roomState?.game.lastNightVictims ?? [];
+  const lastEliminatedPlayerId = roomState?.game.lastEliminatedPlayerId ?? null;
+  const votingActive =
+    phase === "DAY_VOTE" || phase === "DAY_TIEBREAK";
+  const selfEliminationModalKey = useMemo(() => {
+    if (!meId) return null;
+    if (
+      phase === "NIGHT_RESULT" &&
+      lastNightVictims.some((victim) => victim.playerId === meId)
+    ) {
+      return `night-result-${nightNumber}-${meId}`;
+    }
+    if (
+      phase === "DAY_RESULT" &&
+      lastEliminatedPlayerId === meId
+    ) {
+      return `day-result-${dayNumber}-${meId}`;
+    }
+    return null;
+  }, [
+    dayNumber,
+    lastEliminatedPlayerId,
+    lastNightVictims,
+    meId,
+    nightNumber,
+    phase
+  ]);
+
+  useEffect(() => {
+    if (!selfEliminationModalKey) return;
+    if (seenSelfEliminationRef.current.has(selfEliminationModalKey)) return;
+    seenSelfEliminationRef.current.add(selfEliminationModalKey);
+    setEliminatedModalOpen(true);
+  }, [selfEliminationModalKey]);
+
+  useEffect(() => {
+    if (!eliminatedModalOpen) return;
+    setRoleModalOpen(false);
+  }, [eliminatedModalOpen]);
+
+  useMafiaAudio({
+    votingActive,
+    selfEliminationAudioKey: eliminatedModalOpen
+      ? selfEliminationModalKey
+      : null
+  });
+
+  const selfEliminationModal = eliminatedModalOpen ? (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-md sm:items-center"
+    >
+      <div className="absolute inset-0" />
+      <div
+        className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-bad/40 bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%), linear-gradient(180deg, rgba(239,68,68,0.04) 0%, rgba(11,13,18,0) 60%)"
+        }}
+      >
+        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
+
+        <div className="px-6 pt-6 text-center">
+          <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-bad/30 bg-bad/10">
+            <svg
+              width="38"
+              height="38"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-bad"
+              aria-hidden
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+          </div>
+          <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-bad">
+            Eliminatsiya
+          </p>
+          <h2 className="mt-2 text-2xl font-bold text-ink-primary">
+            Siz o'yindan chiqdingiz
+          </h2>
+          <p className="mt-3 text-sm leading-7 text-ink-secondary">
+            Siz endi bu raundda qatnasha olmaysiz, lekin o'yin tugaguncha
+            kuzatishda davom etishingiz mumkin.
+          </p>
+        </div>
+
+        <div className="px-5 pt-5 pb-5">
+          <button
+            onClick={() => setEliminatedModalOpen(false)}
+            className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98]"
+          >
+            Kuzatishda davom etish
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+  const myRoleMeta = getMafiaRoleMeta(roomState?.me?.role ?? null);
+  const showRoleReminder =
+    roomState?.room.status === "PLAYING" &&
+    roomState?.game.phase !== "ASSIGN_ROLES" &&
+    !!roomState?.me?.role &&
+    !eliminatedModalOpen;
+  const roleReminderButton = showRoleReminder ? (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-5 pb-4 pb-safe sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-2xl justify-end">
+        <button
+          type="button"
+          onClick={() => setRoleModalOpen(true)}
+          className="pointer-events-auto rounded-full border border-line-strong bg-bg-surface/95 px-4 py-2 text-sm font-semibold text-ink-primary shadow-pop backdrop-blur transition active:scale-[0.98]"
+        >
+          Mening kartam
+        </button>
+      </div>
+    </div>
+  ) : null;
+  const roleReminderModal =
+    roleModalOpen && roomState?.me?.role && myRoleMeta ? (
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-md sm:items-center"
+      >
+        <div
+          className="absolute inset-0"
+          onClick={() => setRoleModalOpen(false)}
+        />
+        <div className="relative z-10 w-full max-w-xl px-5 sm:px-0">
+          <div
+            className="overflow-hidden rounded-3xl border border-line-strong bg-bg-surface shadow-pop"
+            style={{ backgroundImage: myRoleMeta.bgGradient }}
+          >
+            <div className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
+              <p className="text-sm font-semibold text-ink-primary">
+                Mening kartam
+              </p>
+              <button
+                type="button"
+                onClick={() => setRoleModalOpen(false)}
+                className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-base/60 text-ink-secondary transition active:scale-95"
+                aria-label="Yopish"
+              >
+                ×
+              </button>
+            </div>
+            <MafiaRoleCardContent state={roomState} className="py-8" />
+          </div>
+        </div>
+      </div>
+    ) : null;
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-ink-muted">
@@ -426,6 +597,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           state={roomState}
           onConfirm={() => emit("mafia:confirm_role")}
         />
+        {selfEliminationModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );
@@ -442,6 +614,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             emit("mafia:submit_night_action", { action, targetPlayerId })
           }
         />
+        {selfEliminationModal}
+        {roleReminderButton}
+        {roleReminderModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );
@@ -452,6 +627,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     return (
       <>
         <MafiaNightResult state={roomState} />
+        {selfEliminationModal}
+        {roleReminderButton}
+        {roleReminderModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );
@@ -475,6 +653,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             emit("mafia:submit_day_vote", { targetPlayerId })
           }
         />
+        {selfEliminationModal}
+        {roleReminderButton}
+        {roleReminderModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );
@@ -491,6 +672,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     return (
       <>
         <MafiaFinished state={roomState} />
+        {selfEliminationModal}
         <CancelledRoomModal
           open={cancelledModalOpen}
           onDismiss={() => {
@@ -557,6 +739,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         }}
         onClose={() => setEndGameConfirmOpen(false)}
       />
+      {selfEliminationModal}
       {!socketConnected ? (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">

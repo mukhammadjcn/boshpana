@@ -94,5 +94,6 @@ export type MafiaPublicState = {
   votes: {
     total: number;
     submittedByMe: boolean;
+    myTargetPlayerId: string | null;
   };
 };

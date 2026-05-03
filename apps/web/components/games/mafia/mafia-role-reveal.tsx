@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { MafiaPublicState, MafiaRole } from "./mafia-types";
+import {
+  getMafiaRoleMeta,
+  MafiaRoleCardContent
+} from "./mafia-role-card-content";
+import type { MafiaPublicState } from "./mafia-types";
 
 type Props = {
   state: MafiaPublicState;
@@ -10,50 +14,6 @@ type Props = {
 };
 
 const HIDE_AFTER_MS = 3000;
-
-const roleMeta: Record<
-  MafiaRole,
-  {
-    title: string;
-    team: string;
-    blurb: string;
-    accent: string;
-    bgGradient: string;
-  }
-> = {
-  CITIZEN: {
-    title: "Oddiy aholi",
-    team: "Shahar",
-    blurb: "Mafiyani topib chetlatishga harakat qiling.",
-    accent: "text-ok",
-    bgGradient:
-      "radial-gradient(circle at 50% 0%, rgba(34,197,94,0.18), transparent 55%)",
-  },
-  MAFIA: {
-    title: "Mafia",
-    team: "Mafia",
-    blurb: "Tunda nishon tanlab, kunduzi yashirinib qoling.",
-    accent: "text-bad",
-    bgGradient:
-      "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%)",
-  },
-  SHERIFF: {
-    title: "Komisar",
-    team: "Shahar",
-    blurb: "Tunda bittasini tekshiring yoki o'q uzing (2 ta o'q).",
-    accent: "text-brand",
-    bgGradient:
-      "radial-gradient(circle at 50% 0%, rgba(244,168,58,0.22), transparent 55%)",
-  },
-  DOCTOR: {
-    title: "Doktor",
-    team: "Shahar",
-    blurb: "Tunda kimnidir davolab, mafia/komisar nishonidan qutqaring.",
-    accent: "text-ok",
-    bgGradient:
-      "radial-gradient(circle at 50% 0%, rgba(34,197,94,0.18), transparent 55%)",
-  },
-};
 
 // O'yinchi o'zining rolini ko'radigan ekran. Tap-to-show: default'da
 // rol yashirilgan (xavfsizlik — boshqa odam yelkadan qaramasin), tap
@@ -63,11 +23,7 @@ const roleMeta: Record<
 export function MafiaRoleReveal({ state, onConfirm }: Props) {
   const me = state.me;
   const role = me?.role ?? null;
-  const meta = role ? roleMeta[role] : null;
-  const teammates = me?.mafiaTeammates ?? [];
-  const teammateNames = teammates
-    .map((id) => state.players.find((p) => p.id === id)?.name)
-    .filter((n): n is string => !!n);
+  const meta = getMafiaRoleMeta(role);
 
   const [revealed, setRevealed] = useState(false);
   const hideTimer = useRef<number | null>(null);
@@ -116,7 +72,7 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
             type="button"
             onClick={handleReveal}
             disabled={!role}
-            className="relative mx-auto mt-6 flex aspect-[15/14] w-full max-w-sm overflow-hidden rounded-3xl border border-line-strong bg-bg-surface shadow-pop disabled:opacity-60"
+            className="relative mx-auto mt-6 flex aspect-[3/2] w-full max-w-sm overflow-hidden rounded-3xl border border-line-strong bg-bg-surface shadow-pop disabled:opacity-60 md:max-w-none"
             aria-pressed={revealed}
             style={
               revealed && meta
@@ -125,30 +81,11 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
             }
           >
             {revealed && meta && role ? (
-              <div
-                className="flex w-full flex-col items-center justify-center gap-3 p-6 text-center animate-fade-in"
+              <MafiaRoleCardContent
+                state={state}
+                className="animate-fade-in"
                 key="revealed"
-              >
-                <p
-                  className={`text-xs font-medium uppercase tracking-[0.25em] ${meta.accent}`}
-                >
-                  {meta.team} jamoasi
-                </p>
-                <h2 className="text-3xl font-bold">{meta.title}</h2>
-                <p className="max-w-xs text-sm leading-7 text-ink-secondary">
-                  {meta.blurb}
-                </p>
-                {role === "MAFIA" && teammateNames.length > 0 ? (
-                  <div className="mt-3 grid w-full gap-1 rounded-2xl border border-bad/30 bg-bad/10 px-4 py-3 text-sm">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-bad">
-                      Sheriklaringiz
-                    </p>
-                    <p className="font-semibold text-ink-primary">
-                      {teammateNames.join(", ")}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
+              />
             ) : (
               <div className="flex w-full flex-col items-center justify-center gap-3 p-6 text-center">
                 <span className="grid h-16 w-16 place-items-center rounded-2xl border border-line-strong bg-bg-elevated text-2xl">

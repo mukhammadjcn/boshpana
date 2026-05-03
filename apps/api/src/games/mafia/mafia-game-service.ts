@@ -1208,8 +1208,11 @@ export class MafiaGameService {
             v.dayNumber === game.dayNumber && v.isTiebreak === isTiebreakRound
         )
       : [];
-    const submittedByMe =
-      me != null && dayVotesThisRound.some((v) => v.voterPlayerId === me.id);
+    const myDayVote =
+      me != null
+        ? dayVotesThisRound.find((v) => v.voterPlayerId === me.id) ?? null
+        : null;
+    const submittedByMe = myDayVote != null;
 
     // Last day-vote elimination — for the DAY_RESULT screen. Like the
     // night-victims derivation, we read it off MafiaPlayerRole rows.
@@ -1287,7 +1290,8 @@ export class MafiaGameService {
       mafiaPicks,
       votes: {
         total: dayVotesThisRound.length,
-        submittedByMe
+        submittedByMe,
+        myTargetPlayerId: myDayVote?.targetPlayerId ?? null
       }
     };
   }

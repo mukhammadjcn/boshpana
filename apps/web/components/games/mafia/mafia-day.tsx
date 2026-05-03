@@ -172,7 +172,7 @@ function Discussion({
           onClick={onAdvancePhase}
           className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
         >
-          Ovoz berishni boshlash
+          Ovoz berish
         </button>
       ) : null}
     </DayShell>
@@ -195,6 +195,8 @@ function VoteView({
   const { game, players, me, votes } = state;
   const isTiebreak = game.phase === "DAY_TIEBREAK";
   const totalSeconds = isTiebreak ? 30 : 60;
+  const myTargetPlayerId = votes.myTargetPlayerId;
+  const myTarget = players.find((p) => p.id === myTargetPlayerId) ?? null;
 
   // For tiebreak, only the tied candidates are eligible. Otherwise any
   // alive non-self player can be voted.
@@ -231,25 +233,48 @@ function VoteView({
         </div>
       ) : (
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {candidates.map((p) => (
-            <li key={p.id}>
-              <button
-                type="button"
-                onClick={() => onSubmitVote(p.id)}
-                className="flex w-full items-center gap-3 rounded-2xl border border-line-strong bg-bg-surface p-3 text-left text-sm transition active:scale-[0.98]"
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-xs font-semibold uppercase text-brand">
-                  {p.name.slice(0, 2)}
-                </span>
-                <span className="flex-1 truncate font-medium">{p.name}</span>
-                <span className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
-                  Ovoz
-                </span>
-              </button>
-            </li>
-          ))}
+          {candidates.map((p) => {
+            const selected = myTargetPlayerId === p.id;
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => onSubmitVote(p.id)}
+                  className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition active:scale-[0.98] ${
+                    selected
+                      ? "border-brand bg-brand/15 text-brand"
+                      : "border-line-strong bg-bg-surface text-ink-primary"
+                  }`}
+                >
+                  <span
+                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold uppercase ${
+                      selected
+                        ? "bg-brand text-bg-base"
+                        : "bg-brand-soft text-brand"
+                    }`}
+                  >
+                    {p.name.slice(0, 2)}
+                  </span>
+                  <span className="flex-1 truncate font-medium">{p.name}</span>
+                  <span
+                    className={`text-[10px] font-medium uppercase tracking-wider ${
+                      selected ? "text-brand" : "text-ink-muted"
+                    }`}
+                  >
+                    {selected ? "Tanlandi" : "Ovoz"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
+
+      {myTarget ? (
+        <p className="rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-center text-sm text-brand">
+          Siz {myTarget.name}ni tanladingiz.
+        </p>
+      ) : null}
 
       <p
         className={`text-center text-xs ${

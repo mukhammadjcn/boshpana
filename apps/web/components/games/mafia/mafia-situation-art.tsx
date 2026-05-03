@@ -14,16 +14,18 @@ export function MafiaSituationArt({
   alt: string;
   size?: "md" | "lg";
 }) {
-  const dimension = size === "lg" ? "h-32 w-32" : "h-24 w-24";
-  const sizesAttr = size === "lg" ? "128px" : "96px";
+  const dimension = size === "lg" ? "h-40 w-40" : "h-28 w-28";
+  const sizesAttr = size === "lg" ? "160px" : "112px";
   return (
-    <div className={`relative mx-auto ${dimension}`}>
+    <div
+      className={`relative mx-auto overflow-hidden rounded-full border border-line-strong bg-bg-elevated ${dimension}`}
+    >
       <Image
         src={src}
         alt={alt}
         fill
         sizes={sizesAttr}
-        className="object-contain"
+        className="object-cover"
       />
     </div>
   );
