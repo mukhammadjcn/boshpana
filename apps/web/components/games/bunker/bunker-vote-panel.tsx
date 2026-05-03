@@ -46,6 +46,14 @@ export function VotePanel({
   const [optimisticVoted, setOptimisticVoted] = useState(false);
   const tiebreakActive = tiebreakCandidateIds.length > 0;
   const meIsCandidate = !!meId && tiebreakCandidateIds.includes(meId);
+  const alivePlayers = useMemo(
+    () => players.filter((player) => player.isAlive),
+    [players]
+  );
+  const allAliveAreTied =
+    tiebreakActive &&
+    alivePlayers.length > 0 &&
+    alivePlayers.every((player) => tiebreakCandidateIds.includes(player.id));
   const effectiveHasVoted = hasVoted || optimisticVoted;
 
   const options = useMemo(() => {
@@ -100,8 +108,10 @@ export function VotePanel({
     options.find((player) => player.id === selectedPlayerId) ?? null;
 
   const helper = tiebreakActive
-    ? meIsCandidate
+    ? meIsCandidate && !allAliveAreTied
       ? `Siz tenglikdasiz — ${tiedNames.filter((n) => n).join(", ")} bilan teng ovoz to‘pladingiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.`
+      : allAliveAreTied
+        ? "Barchaning ovozi teng bo‘ldi — endi aniq bir odamni chiqarishga harakat qiling, bo‘lmasa tizim random odamni chiqarib yuboradi."
       : effectiveHasVoted
         ? "Siz ovoz berdingiz. Qolgan o‘yinchilarni kuting."
         : `${tiedNames.join(", ")} teng ovoz to‘pladi — faqat bir kishini bunkerda qoldiring.`
@@ -111,7 +121,7 @@ export function VotePanel({
         ? "Kim bunkerda qolmasligi kerak, uni tanlang!"
         : "Ovoz natijasini kuting — bu bosqichda siz faqat kuzatasiz.";
 
-  const effectiveCanVote = canVote && !meIsCandidate;
+  const effectiveCanVote = canVote && (!meIsCandidate || allAliveAreTied);
 
   const accent = tiebreakActive ? "text-warn" : "text-bad";
   const sectionLabel = tiebreakActive ? "Qayta ovoz" : "Ovoz berish";
@@ -121,7 +131,7 @@ export function VotePanel({
       <header className="sticky top-0 z-10 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
         <div className="flex flex-wrap items-center gap-2 px-5 pt-safe">
           <p
-            className={`flex-1 text-xs font-medium uppercase tracking-wider ${accent}`}
+            className={`flex-1 text-sm font-semibold uppercase tracking-[0.2em] ${accent}`}
           >
             {sectionLabel}
           </p>
@@ -132,7 +142,7 @@ export function VotePanel({
             />
           ) : null}
           {!meIsCandidate ? (
-            <span className="rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-xs font-medium text-ink-secondary">
+            <span className="inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-sm font-semibold text-ink-secondary">
               {options.length} ta nomzod
             </span>
           ) : null}
@@ -143,7 +153,7 @@ export function VotePanel({
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 pb-40">
-        {tiebreakActive && !meIsCandidate ? (
+        {tiebreakActive && (!meIsCandidate || allAliveAreTied) ? (
           <div className="mb-4 flex items-start gap-3 rounded-2xl border border-warn/40 bg-warn/10 p-4">
             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-warn/20 text-lg">
               ⚖️
@@ -154,14 +164,16 @@ export function VotePanel({
               </p>
               <p className="mt-1 text-sm leading-6 text-ink-primary">
                 <span className="font-semibold">{tiedNames.join(", ")}</span>{" "}
-                bir xil ovoz to‘pladi. Iltimos, faqat bir kishini bunkerda
-                qoldiring.
+                bir xil ovoz to‘pladi.{" "}
+                {allAliveAreTied
+                  ? "Hamma tenglikda qolgani uchun qayta ovoz barcha tiriklar uchun ochildi. Bu safar bitta aniq odamni chiqarishga kelishing, aks holda random odam chiqib ketadi."
+                  : "Iltimos, faqat bir kishini bunkerda qoldiring."}
               </p>
             </div>
           </div>
         ) : null}
 
-        {meIsCandidate ? (
+        {meIsCandidate && !allAliveAreTied ? (
           <div className="rounded-2xl border border-warn/40 bg-warn/10 p-5 text-sm leading-6 text-ink-primary">
             <div className="flex items-center gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warn/20 text-xl">
@@ -195,7 +207,11 @@ export function VotePanel({
           </div>
         ) : null}
 
-        <ul className={`grid gap-3 ${meIsCandidate ? "mt-4 hidden" : ""}`}>
+        <ul
+          className={`grid gap-3 ${
+            meIsCandidate && !allAliveAreTied ? "mt-4 hidden" : ""
+          }`}
+        >
           {options.map((player) => {
             const entries = Object.entries(player.visibleCards).filter(
               ([, value]) => value
