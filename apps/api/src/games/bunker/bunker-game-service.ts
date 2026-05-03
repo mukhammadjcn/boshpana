@@ -903,9 +903,14 @@ export class BunkerGameService {
 
     const tiebreakCandidates = room.bunkerGame.tiebreakCandidateIds;
     const tiebreakActive = tiebreakCandidates.length > 0;
+    const alivePlayers = room.players.filter((player) => player.isAlive);
+    const allAliveAreTied =
+      tiebreakActive &&
+      alivePlayers.length > 0 &&
+      alivePlayers.every((player) => tiebreakCandidates.includes(player.id));
 
     if (tiebreakActive) {
-      if (tiebreakCandidates.includes(me.id)) {
+      if (tiebreakCandidates.includes(me.id) && !allAliveAreTied) {
         throw new Error("Tenglikdagi nomzodlar ovoz bera olmaydi.");
       }
       if (!tiebreakCandidates.includes(target.id)) {
@@ -932,9 +937,10 @@ export class BunkerGameService {
       }
     });
 
-    const alivePlayers = room.players.filter((player) => player.isAlive);
     const expectedVoters = tiebreakActive
-      ? alivePlayers.filter((p) => !tiebreakCandidates.includes(p.id)).length
+      ? allAliveAreTied
+        ? alivePlayers.length
+        : alivePlayers.filter((p) => !tiebreakCandidates.includes(p.id)).length
       : alivePlayers.length;
     const roundVotes = await prisma.bunkerVote.count({
       where: {
@@ -1130,6 +1136,7 @@ export class BunkerGameService {
 
     const aliveBeforeVote = room.players.filter((p) => p.isAlive);
     const isEndgame = aliveBeforeVote.length <= room.winnerTarget + 1;
+    const tiebreakActive = room.bunkerGame.tiebreakCandidateIds.length > 0;
 
     let eliminatedId: string;
 
@@ -1173,8 +1180,9 @@ export class BunkerGameService {
         const eligibleVoters = aliveBeforeVote.filter(
           (p) => !candidates.includes(p.id)
         );
+        const allAliveAreTied = candidates.length === aliveBeforeVote.length;
 
-        if (eligibleVoters.length > 0) {
+        if (eligibleVoters.length > 0 || (!tiebreakActive && allAliveAreTied)) {
           this.stopTimer(room.code);
           await prisma.$transaction([
             prisma.bunkerVote.deleteMany({

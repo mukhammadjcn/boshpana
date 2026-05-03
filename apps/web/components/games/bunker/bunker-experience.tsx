@@ -104,6 +104,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const [introOpen, setIntroOpen] = useState(false);
   const [situationOpen, setSituationOpen] = useState(false);
   const [myCardsOpen, setMyCardsOpen] = useState(false);
+  const [myCardsClosing, setMyCardsClosing] = useState(false);
   const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
   const [winnerModalOpen, setWinnerModalOpen] = useState(false);
   const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
@@ -336,6 +337,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     roomState?.game.situation,
     roomState?.room.status
   ]);
+
+  useEffect(() => {
+    if (!situationOpen) return;
+    const timer = window.setTimeout(() => {
+      setSituationOpen(false);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [situationOpen]);
 
   // Keep latest players in a ref so announcement effects can read names
   // without re-running on every socket update.
@@ -625,13 +634,6 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const currentTurnPlayer = players.find(
     (p) => p.id === game?.currentTurnPlayerId
   );
-  // After the game ends every player (including self) is shown with full
-  // cards open; mid-game we hide the self row because cards live in the
-  // bottom-sheet "Mening kartalarim" instead.
-  const isFinished = roomState?.room.status === "FINISHED";
-  const otherPlayers = isFinished
-    ? players
-    : players.filter((p) => p.id !== me?.id);
 
   const myCards = useMemo(() => {
     if (!me) return [];
@@ -642,6 +644,29 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       isRevealed: me.revealed.includes(type)
     }));
   }, [me]);
+  const myVisibleCards = useMemo(
+    () =>
+      Object.fromEntries(
+        myCards
+          .filter((card) => card.isRevealed)
+          .map((card) => [card.type, card.value])
+      ) as Partial<Record<BunkerCardType, string>>,
+    [myCards]
+  );
+  const isFinished = roomState?.room.status === "FINISHED";
+  const displayPlayers = useMemo(() => {
+    if (!me) return players;
+    const selfPlayer = players.find((p) => p.id === me.id);
+    const others = players.filter((p) => p.id !== me.id);
+    if (!selfPlayer) return players;
+    return [
+      {
+        ...selfPlayer,
+        visibleCards: isFinished ? selfPlayer.visibleCards : myVisibleCards
+      },
+      ...others
+    ];
+  }, [isFinished, me, myVisibleCards, players]);
 
   const revealOptions = useMemo(
     () =>
@@ -679,6 +704,33 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     room?.status === "PLAYING" &&
     game?.phase === "ROUND_REVEAL" &&
     !game.currentTurnPlayerId;
+
+  const openMyCards = useCallback(() => {
+    setMyCardsOpen(true);
+    setMyCardsClosing(false);
+  }, []);
+
+  const closeMyCards = useCallback(() => {
+    if (!myCardsOpen || myCardsClosing) return;
+    setMyCardsClosing(true);
+  }, [myCardsClosing, myCardsOpen]);
+
+  useEffect(() => {
+    if (!myCardsOpen || myCardsClosing) return;
+    const timer = window.setTimeout(() => {
+      setMyCardsClosing(true);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [myCardsClosing, myCardsOpen]);
+
+  useEffect(() => {
+    if (!myCardsClosing) return;
+    const timer = window.setTimeout(() => {
+      setMyCardsOpen(false);
+      setMyCardsClosing(false);
+    }, 240);
+    return () => window.clearTimeout(timer);
+  }, [myCardsClosing]);
 
   // Loading & error states. Order matters: only show the spinner when we
   // truly have nothing to render. If the store still has state (e.g. we just
@@ -1132,7 +1184,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             </p>
           </div>
           <ul className="grid gap-2">
-            {otherPlayers.map((p) => (
+            {displayPlayers.map((p) => (
               <PlayerCard
                 key={p.id}
                 name={p.name}
@@ -1224,7 +1276,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           ) : (
             <button
               type="button"
-              onClick={() => setMyCardsOpen(true)}
+              onClick={openMyCards}
               className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
             >
               <div>
@@ -1247,10 +1299,16 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex flex-col justify-end bg-bg-overlay backdrop-blur-sm"
+          className={`fixed inset-0 z-50 flex flex-col justify-end bg-bg-overlay backdrop-blur-sm ${
+            myCardsClosing ? "animate-overlay-out" : "animate-overlay-in"
+          }`}
         >
-          <div className="absolute inset-0" />
-          <div className="relative z-10 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-line-subtle bg-bg-surface px-5 pt-4 pb-safe">
+          <div className="absolute inset-0" onClick={closeMyCards} />
+          <div
+            className={`relative z-10 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-line-subtle bg-bg-surface px-5 pt-4 pb-safe ${
+              myCardsClosing ? "animate-sheet-out" : "animate-sheet-in"
+            }`}
+          >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong" />
             <div className="flex items-center justify-between">
               <div>
@@ -1262,7 +1320,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 </h2>
               </div>
               <button
-                onClick={() => setMyCardsOpen(false)}
+                onClick={closeMyCards}
                 className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-elevated"
               >
                 ×
