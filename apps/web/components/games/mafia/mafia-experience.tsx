@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
+import { TelegramChrome } from "@/components/telegram-chrome";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
 import { getSocket } from "@/lib/socket";
@@ -55,6 +56,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   // modal so reconnects / state refetches don't keep popping it back.
   const seenCancelledModalRef = useRef<Set<string>>(new Set());
   const seenSelfEliminationRef = useRef<Set<string>>(new Set());
+  const closingConfirmation =
+    !!roomState?.room &&
+    roomState.room.status !== "FINISHED" &&
+    roomState.room.status !== "CANCELLED";
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
@@ -411,17 +416,19 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-ink-muted">
+      <main className="flex min-h-screen items-center justify-center text-sm text-ink-muted">
+        <TelegramChrome backHref="/dashboard" />
         Yuklanmoqda…
-      </div>
+      </main>
     );
   }
 
   if (error || !roomState) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-bad">
+      <main className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-bad">
+        <TelegramChrome backHref="/dashboard" />
         {error ?? "Xona topilmadi."}
-      </div>
+      </main>
     );
   }
 
@@ -436,6 +443,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         room.status === "FINISHED" || room.status === "CANCELLED";
       return (
         <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+          <TelegramChrome backHref="/dashboard" />
           <div className="mx-auto max-w-md pt-6">
             <p
               className={`text-xs font-medium uppercase tracking-wider ${
@@ -475,6 +483,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       const loginHref = `/login?redirect=${encodeURIComponent(`/room/${roomCode}`)}`;
       return (
         <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+          <TelegramChrome backHref="/dashboard" />
           <div className="mx-auto max-w-md pt-6">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
               Taklif · Mafia
@@ -546,6 +555,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   if (room.status === "LOBBY") {
     return (
       <>
+        <TelegramChrome
+          backHref="/dashboard"
+          closingConfirmation={closingConfirmation}
+        />
         <Lobby
           room={room}
           game={game}
@@ -593,6 +606,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   if (game.phase === "ASSIGN_ROLES" && room.status === "PLAYING") {
     return (
       <>
+        <TelegramChrome
+          backHref="/dashboard"
+          closingConfirmation={closingConfirmation}
+        />
         <MafiaRoleReveal
           state={roomState}
           onConfirm={() => emit("mafia:confirm_role")}
@@ -608,6 +625,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   if (game.phase === "NIGHT" && room.status === "PLAYING") {
     return (
       <>
+        <TelegramChrome
+          backHref="/dashboard"
+          closingConfirmation={closingConfirmation}
+        />
         <MafiaNight
           state={roomState}
           onSubmit={(action, targetPlayerId) =>
@@ -626,6 +647,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   if (game.phase === "NIGHT_RESULT" && room.status === "PLAYING") {
     return (
       <>
+        <TelegramChrome
+          backHref="/dashboard"
+          closingConfirmation={closingConfirmation}
+        />
         <MafiaNightResult state={roomState} />
         {selfEliminationModal}
         {roleReminderButton}
@@ -646,6 +671,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   ) {
     return (
       <>
+        <TelegramChrome
+          backHref="/dashboard"
+          closingConfirmation={closingConfirmation}
+        />
         <MafiaDay
           state={roomState}
           onAdvancePhase={() => emit("mafia:advance_phase")}
@@ -671,6 +700,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   ) {
     return (
       <>
+        <TelegramChrome backHref="/dashboard" />
         <MafiaFinished state={roomState} />
         {selfEliminationModal}
         <CancelledRoomModal
@@ -690,6 +720,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   // user isn't stuck on a blank screen if a new phase is added.
   return (
     <>
+      <TelegramChrome
+        backHref="/dashboard"
+        closingConfirmation={closingConfirmation}
+      />
       <main className="min-h-screen bg-bg-base text-ink-primary">
         <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
           <header className="flex items-center justify-between py-3">

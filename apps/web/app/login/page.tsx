@@ -1,9 +1,15 @@
+import { buildPublicMetadata } from "@/lib/site";
 import { Suspense } from "react";
 
 import { LoginPage } from "@/components/login-page";
 
 export const metadata = {
-  title: "Tizimga kirish — Jamoaviy.uz"
+  ...buildPublicMetadata({
+    title: "Tizimga kirish — Jamoaviy.uz",
+    description: "Telegram orqali Jamoaviy.uz hisobingizga kiring.",
+    path: "/login"
+  }),
+  robots: { index: false, follow: false }
 };
 
 export default function LoginRoute() {

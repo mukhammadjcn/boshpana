@@ -1,5 +1,9 @@
 import { GameRouter } from "@/components/games/game-router";
 
+export const metadata = {
+  robots: { index: false, follow: false }
+};
+
 export default async function RoomPage({
   params
 }: {

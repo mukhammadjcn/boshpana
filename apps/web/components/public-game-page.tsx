@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { BrandMark } from "@/components/brand-mark";
+import { TelegramChrome } from "@/components/telegram-chrome";
 
 type HeroStat = {
   label: string;
@@ -61,6 +62,7 @@ export function PublicGamePage({
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
+      <TelegramChrome backHref="/" />
       <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link href={"/" as Route} className="flex items-center gap-3">

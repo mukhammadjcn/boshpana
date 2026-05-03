@@ -13,6 +13,7 @@ import {
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
+import { TelegramChrome } from "@/components/telegram-chrome";
 import { HostControls } from "./bunker-host-controls";
 import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
@@ -629,6 +630,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const room = roomState?.room;
   const me = roomState?.me;
   const game = roomState?.game;
+  const closingConfirmation =
+    !!room &&
+    room.status !== "FINISHED" &&
+    room.status !== "CANCELLED";
   const players = roomState?.players ?? [];
   const alivePlayers = players.filter((p) => p.isAlive);
   const currentTurnPlayer = players.find(
@@ -740,6 +745,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     if (loading) {
       return (
         <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
+          <TelegramChrome backHref="/dashboard" />
           <div className="flex items-center gap-2 text-sm">
             <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
             Room yuklanmoqda...
@@ -749,6 +755,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     }
     return (
       <main className="grid min-h-screen place-items-center bg-bg-base px-5 text-ink-secondary">
+        <TelegramChrome backHref="/dashboard" />
         <div className="flex flex-col items-center gap-4 text-center">
           <p className="text-base font-semibold text-ink-primary">
             Room topilmadi.
@@ -1071,6 +1078,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   // ─── GAME VIEW ───────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
+      <TelegramChrome
+        backHref="/dashboard"
+        closingConfirmation={closingConfirmation}
+      />
       <ConnectionBanner connected={socketConnected} />
       {/* Sticky header */}
       <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/95 backdrop-blur">

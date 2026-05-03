@@ -5,6 +5,13 @@ import Script from "next/script";
 import { SafeAreaBlur } from "@/components/safe-area-blur";
 import { TelegramBootstrap } from "@/components/telegram-bootstrap";
 import { ToastViewport } from "@/components/toast-viewport";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_OG_IMAGE,
+  SITE_TITLE,
+  SITE_URL
+} from "@/lib/site";
 
 import "./globals.css";
 
@@ -18,12 +25,6 @@ const mono = IBM_Plex_Mono({
   weight: ["400", "500"],
   variable: "--font-mono"
 });
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://jamoaviy.uz";
-const SITE_TITLE = "Jamoaviy.uz — Jamoaviy o'yinlar";
-const SITE_DESCRIPTION =
-  "Telegramda birga o'ynaladigan Bunker, Mafia va boshqa jamoaviy o'yinlar platformasi.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -54,10 +55,11 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     url: SITE_URL,
-    siteName: "Jamoaviy.uz",
+    siteName: SITE_NAME,
+    locale: "uz_UZ",
     images: [
       {
-        url: "/banner.png",
+        url: SITE_OG_IMAGE,
         width: 1200,
         height: 630,
         alt: "Jamoaviy.uz — Jamoaviy o'yinlar"
@@ -68,7 +70,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: ["/banner.png"]
+    images: [SITE_OG_IMAGE]
   }
 };
 

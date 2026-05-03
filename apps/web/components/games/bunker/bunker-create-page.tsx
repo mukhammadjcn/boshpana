@@ -1,6 +1,7 @@
 "use client";
 
 import type { Route } from "next";
+import { TelegramChrome } from "@/components/telegram-chrome";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -107,6 +108,7 @@ export function BunkerCreatePage() {
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
+      <TelegramChrome backHref="/dashboard" />
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
         <header className="flex items-center justify-between py-3 lg:py-5">
           <Link

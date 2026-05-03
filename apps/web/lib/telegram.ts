@@ -20,12 +20,18 @@ type TgInset = { top?: number; bottom?: number; left?: number; right?: number };
 type TgWebApp = {
   initData: string;
   initDataUnsafe?: { user?: TgUser; start_param?: string };
+  version?: string;
+  isFullscreen?: boolean;
   viewportHeight?: number;
   viewportStableHeight?: number;
   safeAreaInset?: TgInset;
   contentSafeAreaInset?: TgInset;
   ready: () => void;
   expand: () => void;
+  requestFullscreen?: () => void;
+  exitFullscreen?: () => void;
+  enableClosingConfirmation?: () => void;
+  disableClosingConfirmation?: () => void;
   close: () => void;
   disableVerticalSwipes?: () => void;
   enableVerticalSwipes?: () => void;
@@ -95,6 +101,21 @@ export function readyExpand() {
   try {
     wa.ready();
     wa.expand();
+    // On newer Telegram clients (Bot API 8.0+) we can ask for true
+    // fullscreen, not just the maximum sheet height.
+    wa.requestFullscreen?.();
+    // Some clients ignore the first fullscreen request if it races the
+    // initial layout. Retry once after the app has settled a bit.
+    window.setTimeout(() => {
+      try {
+        if (!wa.isFullscreen) {
+          wa.expand();
+          wa.requestFullscreen?.();
+        }
+      } catch {
+        // ignore
+      }
+    }, 250);
     // Disable swipe-down to close — accidental drags during gameplay
     // shouldn't dismiss the WebApp. Only available on Bot API ≥ 7.7,
     // call is wrapped in optional-chain so older clients ignore it.
@@ -104,6 +125,20 @@ export function readyExpand() {
     wa.setHeaderColor?.("#0b0d12");
     wa.setBackgroundColor?.("#0b0d12");
     wa.setBottomBarColor?.("#0b0d12");
+  } catch {
+    // ignore
+  }
+}
+
+export function setClosingConfirmation(enabled: boolean) {
+  const wa = getTelegramWebApp();
+  if (!wa) return;
+  try {
+    if (enabled) {
+      wa.enableClosingConfirmation?.();
+    } else {
+      wa.disableClosingConfirmation?.();
+    }
   } catch {
     // ignore
   }
