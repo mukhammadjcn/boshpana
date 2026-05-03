@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { BrandMark } from "@/components/brand-mark";
 import { apiRequest } from "@/lib/api";
 import {
   type AuthUser,
@@ -141,18 +142,9 @@ export function TelegramAuthGate() {
   if (stage.kind === "loading" || stage.kind === "outside") {
     return (
       <main className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-bg-base px-6 text-ink-primary">
-        <div
-          className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-3xl bg-cover bg-center shadow-pop"
-          style={{ backgroundImage: "url(/banner.png)" }}
-          aria-hidden
-        >
-          <div className="absolute inset-0 bg-bg-base/40" />
-          <span className="relative grid h-12 w-12 place-items-center rounded-full bg-bg-base/85 text-2xl font-bold text-brand">
-            B
-          </span>
-        </div>
+        <BrandMark size={128} className="rounded-[2rem] shadow-pop" />
         <p className="mt-6 text-xs font-medium uppercase tracking-[0.3em] text-brand">
-          Boshpana
+          Jamoaviy.uz
         </p>
         <div className="mt-3 flex items-center gap-2 text-sm text-ink-secondary">
           <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
@@ -168,7 +160,7 @@ export function TelegramAuthGate() {
     <main className="fixed inset-0 z-[100] flex items-end justify-center bg-bg-base px-5 sm:items-center">
       <div className="relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-6 pb-safe shadow-pop sm:rounded-3xl sm:border">
         <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-          Boshpana
+          Jamoaviy.uz
         </p>
         {stage.kind === "needs-phone" || stage.kind === "submitting-phone" ? (
           <>

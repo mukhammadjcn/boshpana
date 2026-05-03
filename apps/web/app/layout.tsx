@@ -20,10 +20,10 @@ const mono = IBM_Plex_Mono({
 });
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://bunker.alijonov.tech";
-const SITE_TITLE = "Boshpana — Bunker Online";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://jamoaviy.uz";
+const SITE_TITLE = "Jamoaviy.uz — Jamoaviy o'yinlar";
 const SITE_DESCRIPTION =
-  "Telegramda do‘stlar bilan o‘ynaydigan real-time party o‘yin. Halokat ortidan bunkerda kim qoladi?";
+  "Telegramda birga o'ynaladigan Bunker, Mafia va boshqa jamoaviy o'yinlar platformasi.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -54,13 +54,13 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     url: SITE_URL,
-    siteName: "Boshpana",
+    siteName: "Jamoaviy.uz",
     images: [
       {
         url: "/banner.png",
         width: 1200,
         height: 630,
-        alt: "Boshpana — Bunker Online"
+        alt: "Jamoaviy.uz — Jamoaviy o'yinlar"
       }
     ]
   },

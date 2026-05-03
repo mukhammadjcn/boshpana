@@ -1,75 +1,69 @@
 "use client";
 
 import type { Route } from "next";
+import { BrandMark } from "@/components/brand-mark";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { getAuthToken } from "@/lib/auth";
 
-const FEATURES = [
+const GAMES = [
   {
-    title: "6 yashirin atribut",
-    body: "Har bir o'yinchiga kasb, sog'liq, xarakter, skill, bagaj va fakt tushadi. Ularni qachon ochishni o'zingiz hal qilasiz.",
-    icon: "🃏",
+    title: "Bunker",
+    body: "Apokalipsisdan keyin bunkerga kim qolishini pitch va ovoz bilan hal qiladigan ijtimoiy o'yin.",
+    meta: "3-16 o'yinchi · 30-60 daqiqa",
+    href: "/games/bunker" as Route,
+    image: "/bunkerbanner.webp",
+    cta: "Bunker sahifasini ochish"
   },
   {
-    title: "Real-time o'yin",
-    body: "Hammasi telefoningizda — round, taymerli pitch, ovoz berish va eliminatsiya jonli ravishda yuradi.",
-    icon: "⚡",
-  },
-  {
-    title: "3-10 o'yinchi",
-    body: "Kichkina davradan to'liq mehmonxonagacha. Limitga qarab finish — 1, 2 yoki 3 kishi qolganda tugaydi.",
-    icon: "👥",
-  },
-  {
-    title: "Aniq tiebreak",
-    body: "Ovozlar teng kelsa tizim random tanlamaydi — qayta ovoz bosqichi ochiladi va hayotingizni himoya qilasiz.",
-    icon: "⚖️",
-  },
-  {
-    title: "Telegram-first",
-    body: "Hisob — Telegram orqali. Lobbyni do'stlarga forward qilasiz, kod kiritish shart emas.",
-    icon: "📨",
-  },
-  {
-    title: "O'yinlar tarixi",
-    body: "Tugagan o'yinlaringiz tarixda saqlanadi — qaysi falokat, kim g'olib bo'lgan, qancha vaqt bo'lgan.",
-    icon: "🗂️",
+    title: "Mafia",
+    body: "Kun va tun rejimida yashirin rollar bilan xiyonatkorlarni topishga qurilgan klassik strategik davra o'yini.",
+    meta: "4-16 o'yinchi · 30-45 daqiqa",
+    href: "/games/mafia" as Route,
+    image: "/mafiabanner.webp",
+    cta: "Mafia sahifasini ochish"
   },
 ];
 
 const STEPS = [
   {
     n: 1,
-    title: "Telegramda kirasiz",
-    body: "Bot orqali bir martalik avtorizatsiya. Telefon raqamingiz so'raladi, keyingi kirishlarda avtomatik kirib turasiz.",
+    title: "O'yinni tanlaysiz",
+    body: "Landing ichida qaysi format sizning davrangizga mosligini ko'rasiz va alohida route ichida batafsil ma'lumotni ochasiz.",
   },
   {
     n: 2,
-    title: "Room yaratasiz yoki qo'shilasiz",
-    body: "Host yaratadi va lobbyni Telegramda forward qiladi. Qolganlar bir bosishda ichkariga tushadi.",
+    title: "Configlarni oldindan ko'rasiz",
+    body: "Har bir game page ichida create vaqtida chiqadigan asosiy sozlamalar va ularning nima uchun kerakligi yozilgan bo'ladi.",
   },
   {
     n: 3,
-    title: "Karta ochib, gaplashasiz",
-    body: "Har round bitta atribut ochiladi va 2 daqiqada o'zingizni himoya qilasiz.",
+    title: "Telegram orqali kirasiz",
+    body: "Yaratish tugmasi login sahifasiga olib boradi. Avtorizatsiyadan keyin siz o'sha o'yinning create sahifasiga redirect bo'lasiz.",
   },
   {
     n: 4,
-    title: "Ovoz va eliminatsiya",
-    body: "Round oxirida kim ortiqcha ekanligi aniqlanadi. Tirik qolganlar finish‑ga yetib boradi.",
+    title: "Roomni ishga tushirasiz",
+    body: "Host room yaratadi, jamoaga havolani yuboradi va barcha o'yinchilar bir joydan jonli o'yinga kiradi.",
   },
 ];
 
-const ATTRIBUTES = [
-  { label: "Kasb", hint: "Bunkerga foyda?" },
-  { label: "Sog'liq", hint: "Halokatga chidaysiz?" },
-  { label: "Xarakter", hint: "Jamoa bilan til topasiz?" },
-  { label: "Skill", hint: "Qaysi yo'nalishda yordam berasiz?" },
-  { label: "Bagaj", hint: "Yoningizda nima bor?" },
-  { label: "Fakt", hint: "Sir yoki ustunlik" },
+const BRAND_POINTS = [
+  {
+    title: "Platforma nima uchun bor",
+    body: "Jamoaviy.uz birgalikda o'ynaladigan o'yinlarni bitta qulay kirish nuqtasiga yig'adi, shunda har safar alohida bot yoki alohida sayt qidirmaysiz.",
+  },
+  {
+    title: "Game route nima uchun bor",
+    body: "Har bir o'yin uchun alohida route userni chalg'itmaydi: qoidalar, kimlar uchunligi va create configlari bir joyda turadi.",
+  },
+  {
+    title: "Login redirect nima uchun kerak",
+    body: "Public landing hamma uchun ochiq, lekin room yaratish host identifikatsiyasi bilan bog'liq. Shu sabab create bosilganda login qilinadi va keyin kerakli create page ochiladi.",
+  },
 ];
 
 export function HomePage() {
@@ -97,17 +91,16 @@ export function HomePage() {
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
-      {/* Header */}
       <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-base font-bold text-bg-base">
-              B
-            </span>
+          <div className="flex items-center gap-3">
+            <BrandMark size={40} />
             <div className="leading-tight">
-              <p className="text-sm font-semibold sm:text-base">Boshpana</p>
+              <p className="text-sm font-semibold sm:text-base">
+                Jamoaviy.uz
+              </p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
-                Bunker Online
+                Jamoaviy o'yinlar
               </p>
             </div>
           </div>
@@ -120,81 +113,86 @@ export function HomePage() {
         </div>
       </header>
 
-      {/* Hero */}
       <section className="relative overflow-hidden border-b border-line-subtle">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_50%_0%,rgba(255,107,46,0.18),transparent)]" />
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16 lg:px-8 lg:py-24">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(55%_55%_at_50%_0%,rgba(255,107,46,0.18),transparent)]" />
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16 lg:px-8 lg:py-24">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand">
-              Telegram party game · Real-time
+              Telegram party games platform
             </p>
             <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-              Halokat ortidan bunkerda{" "}
-              <span className="text-brand">kim qoladi?</span>
+              <span className="text-brand">Jamoaviy.uz</span>{" "}
+              ichida
+              do'stlar bilan o'ynaladigan o'yinlar jamlangan
             </h1>
             <p className="mt-4 text-base leading-7 text-ink-secondary sm:text-lg sm:leading-8">
-              6 ta yashirin atribut, jonli pitch va ovoz berish. Telegramda
-              do'stlaringiz bilan 10 daqiqada bunkerga kim loyiqligini hal
-              qilasiz — barchasi telefondan, hech qanday o'rnatuvchi ilovasiz.
+              Bu yerda Bunker va Mafia kabi jamoaviy o'yinlar alohida
+              routelar bilan taqdim etiladi. Har bir route ichida o'yin haqida
+              kengaytirilgan ma'lumot, create configlari va ularning nima uchun
+              kerakligi yozilgan bo'ladi.
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="sm:hidden">
-                <BotCta
-                  href={loginHref}
-                  label="Telegramda boshlash"
-                  variant="primary"
-                  size="lg"
-                />
-              </div>
               <p className="text-xs text-ink-muted sm:text-sm">
-                O'yin yaratish va qo'shilish uchun Telegram orqali kiring
+                O'yin yaratish uchun Telegram orqali kirasiz, tanlash esa
+                public landing ichida ham ochiq
               </p>
             </div>
 
             <ul className="mt-8 grid grid-cols-3 gap-3 text-center text-xs sm:text-sm">
-              <Stat value="3–10" label="o'yinchi" />
-              <Stat value="~10 daq" label="o'rtacha" />
+              <Stat value="2+" label="o'yin" />
+              <Stat value="Telegram" label="login" />
               <Stat value="Mobile" label="first" />
             </ul>
           </div>
 
-          {/* Hero card */}
           <div className="relative">
-            <div className="rounded-3xl border border-line-subtle bg-bg-surface p-5 shadow-pop sm:p-6">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
-                  Round 3 · 6 tirik
-                </p>
-                <span className="rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-[11px] font-semibold text-warn">
-                  Pitch
-                </span>
+            <div className="overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface shadow-pop">
+              <div className="relative aspect-[16/8.5] w-full">
+                <Image
+                  src="/banner.png"
+                  alt="Jamoaviy.uz banneri"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 560px"
+                  className="object-cover"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-bg-base/80 via-bg-base/20 to-transparent" />
               </div>
-              <p className="mt-3 text-lg font-semibold leading-snug">
-                Falokat: Quyosh portlashi
-              </p>
-              <p className="mt-1 text-sm text-ink-secondary">
-                Bunkerda 4 kishilik joy bor. Atributlaringizni asosli tarzda
-                himoya qilishingiz kerak.
-              </p>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {ATTRIBUTES.slice(0, 4).map((a) => (
-                  <div
-                    key={a.label}
-                    className="rounded-xl border border-line-subtle bg-bg-base/60 p-3"
-                  >
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
-                      {a.label}
+              <div className="grid gap-3 p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <BrandMark size={52} />
+                  <div>
+                    <p className="text-sm font-semibold">Jamoaviy.uz</p>
+                    <p className="text-xs text-ink-muted">
+                      Bunker, Mafia va yana ko'proq o'yinlar uchun kirish nuqtasi
                     </p>
-                    <p className="mt-1 text-sm font-semibold">{a.hint}</p>
                   </div>
-                ))}
-              </div>
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-line-subtle bg-bg-base/60 px-3 py-2.5">
-                <p className="text-xs text-ink-secondary">Pitch qoldi</p>
-                <p className="font-mono text-sm font-semibold text-brand">
-                  01:42
-                </p>
+                </div>
+                <div className="grid gap-2 rounded-2xl border border-line-subtle bg-bg-base/60 p-4 text-sm text-ink-secondary">
+                  <p>
+                    <span className="font-semibold text-ink-primary">
+                      Bunker
+                    </span>{" "}
+                    route ichida pitch, vote va survivor flow
+                    tushuntiriladi.
+                  </p>
+                  <p>
+                    <span className="font-semibold text-ink-primary">
+                      Mafia
+                    </span>{" "}
+                    route ichida role balance, tun-kun fazalari va
+                    create tarkibi ko'rsatiladi.
+                  </p>
+                  <p>
+                    Har ikki sahifadagi{" "}
+                    <span className="font-semibold text-ink-primary">
+                      O'yin yaratish
+                    </span>{" "}
+                    tugmasi login bilan
+                    kerakli create page'ga olib boradi.
+                  </p>
+                </div>
               </div>
             </div>
             <div
@@ -205,63 +203,78 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* How it works */}
       <section className="border-b border-line-subtle">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Qanday o'ynaladi
+              O'yin routelari
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              4 qadamda do'stlar bilan jonli o'yin
+              Landing ichidan ikki yangi public kirish nuqtasi
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
-              Faqat Telegram kerak. Hech qanday qo'shimcha ilova yoki hisob
-              yaratish shart emas.
+              Har bir karta alohida game page'ga olib boradi. Ichkarida qoidalar,
+              maqsad, configlar va login redirect bilan create tugmasi bor.
             </p>
           </div>
 
-          <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {STEPS.map((s) => (
-              <li
-                key={s.n}
-                className="rounded-2xl border border-line-subtle bg-bg-surface p-5"
+          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+            {GAMES.map((game) => (
+              <Link
+                key={game.title}
+                href={game.href}
+                className="overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface transition active:scale-[0.99]"
               >
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft font-mono text-sm font-semibold text-brand">
-                  {s.n}
-                </span>
-                <p className="mt-3 text-sm font-semibold sm:text-base">
-                  {s.title}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-ink-secondary">
-                  {s.body}
-                </p>
-              </li>
+                <div className="relative aspect-[16/9] w-full">
+                  <Image
+                    src={game.image}
+                    alt={game.title}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 520px"
+                    className="object-cover"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                </div>
+                <div className="p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xl font-semibold">{game.title}</p>
+                      <p className="mt-2 text-sm leading-7 text-ink-secondary">
+                        {game.body}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-brand/25 bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
+                      Yangi o'yin
+                    </span>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between text-xs text-ink-muted sm:text-sm">
+                    <span>{game.meta}</span>
+                    <span className="font-semibold text-brand">{game.cta}</span>
+                  </div>
+                </div>
+              </Link>
             ))}
-          </ol>
+          </div>
         </div>
       </section>
 
-      {/* Features */}
       <section className="border-b border-line-subtle">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Nimasi bor
+              Platforma qadri
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              Hammasi o'yin uchun moslangan
+              Nima uchun aynan shu struktura tanlandi
             </h2>
           </div>
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
+            {BRAND_POINTS.map((f) => (
               <li
                 key={f.title}
                 className="rounded-2xl border border-line-subtle bg-bg-surface p-5"
               >
-                <span className="text-2xl" aria-hidden>
-                  {f.icon}
-                </span>
                 <p className="mt-3 text-base font-semibold">{f.title}</p>
                 <p className="mt-2 text-sm leading-6 text-ink-secondary">
                   {f.body}
@@ -272,54 +285,54 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Attributes preview */}
       <section className="border-b border-line-subtle">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Sizning kartalaringiz
+              Qanday ishlaydi
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              6 ta yashirin atribut — har biri bahsli
+              User flow 4 qadamda aniq ko'rinadi
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
-              Hammasi o'yin boshida tushadi. Qaysi birini ochish — strategiya.
+              Bu bo'lim yangi mehmon uchun saytdagi harakat yo'lini soddalashtiradi:
+              tanlash, tushunish, login qilish va room yaratish.
             </p>
           </div>
-          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {ATTRIBUTES.map((a) => (
+          <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((a) => (
               <li
-                key={a.label}
-                className="flex items-start gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4"
+                key={a.n}
+                className="rounded-2xl border border-line-subtle bg-bg-surface p-5"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-soft font-mono text-xs font-semibold text-brand">
-                  {a.label.slice(0, 2)}
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft font-mono text-sm font-semibold text-brand">
+                  {a.n}
                 </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{a.label}</p>
-                  <p className="mt-1 text-xs text-ink-secondary sm:text-sm">
-                    {a.hint}
-                  </p>
-                </div>
+                <p className="mt-3 text-sm font-semibold sm:text-base">
+                  {a.title}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-ink-secondary">
+                  {a.body}
+                </p>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       </section>
 
-      {/* Final CTA */}
       <section>
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
           <div className="rounded-3xl border border-line-subtle bg-gradient-to-br from-brand/15 via-bg-surface to-bg-surface p-6 sm:p-10 lg:p-14">
             <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
               <div>
                 <h2 className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-                  Bugun do'stlar bilan birga{" "}
-                  <span className="text-brand">o'ynashga tayyormisiz?</span>
+                  Do'stlar bilan birga{" "}
+                  <span className="text-brand">qaysi o'yindan boshlaysiz?</span>
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-                  Bir bosishda Telegramga o'tasiz, bir martalik avtorizatsiya —
-                  keyin har safar avtomatik kirib turasiz.
+                  Public landing ichidan o'yinni tanlang, route ichida
+                  configlarni ko'ring va create tugmasi orqali login qilib
+                  to'g'ridan-to'g'ri room yaratishga o'ting.
                 </p>
               </div>
               <div className="grid gap-3">
@@ -330,7 +343,7 @@ export function HomePage() {
                   size="lg"
                 />
                 <p className="text-center text-xs text-ink-muted">
-                  Hisob — Telegram orqali. Boshqa narsa kerak emas.
+                  Jamoaviy.uz ichida host yaratadi, jamoa esa havola bilan kiradi.
                 </p>
               </div>
             </div>
@@ -338,11 +351,10 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-line-subtle">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <p>© {new Date().getFullYear()} Boshpana — Bunker Online</p>
-          <p>3–10 o'yinchi · Mobile-first · Telegram orqali</p>
+          <p>© {new Date().getFullYear()} Jamoaviy.uz</p>
+          <p>Bunker · Mafia · Mobile-first · Telegram orqali</p>
         </div>
       </footer>
     </main>
