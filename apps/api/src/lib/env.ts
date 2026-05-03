@@ -28,7 +28,7 @@ export const env = {
   telegramWebAppUrl:
     process.env.TELEGRAM_WEB_APP_URL ??
     process.env.NEXT_PUBLIC_SITE_URL ??
-    "https://bunker.alijonov.tech",
+    "https://jamoaviy.uz",
   telegramAuthMaxAgeSeconds: Number(
     process.env.TELEGRAM_AUTH_MAX_AGE_SECONDS ?? 86400
   ),

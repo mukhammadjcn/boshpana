@@ -86,4 +86,4 @@ fi
 
 echo "  ✓ API healthy"
 echo "  ✓ Web responding"
-echo "✅ Deploy complete in ${DURATION}s — https://bunker.alijonov.tech"
+echo "✅ Deploy complete in ${DURATION}s — https://jamoaviy.uz"
