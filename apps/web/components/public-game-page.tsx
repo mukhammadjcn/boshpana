@@ -1,0 +1,338 @@
+import type { Route } from "next";
+import Image from "next/image";
+import Link from "next/link";
+
+import { BrandMark } from "@/components/brand-mark";
+
+type HeroStat = {
+  label: string;
+  value: string;
+};
+
+type StorySection = {
+  title: string;
+  body: string;
+};
+
+type FlowStep = {
+  title: string;
+  body: string;
+};
+
+type ConfigItem = {
+  label: string;
+  value: string;
+  reason: string;
+};
+
+type AudienceItem = {
+  title: string;
+  body: string;
+};
+
+type PublicGamePageProps = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  image: string;
+  imageAlt: string;
+  heroStats: HeroStat[];
+  story: StorySection[];
+  flow: FlowStep[];
+  configs: ConfigItem[];
+  audience: AudienceItem[];
+  createHref: string;
+};
+
+export function PublicGamePage({
+  eyebrow,
+  title,
+  description,
+  image,
+  imageAlt,
+  heroStats,
+  story,
+  flow,
+  configs,
+  audience,
+  createHref
+}: PublicGamePageProps) {
+  const loginHref = `/login?redirect=${encodeURIComponent(createHref)}` as Route;
+
+  return (
+    <main className="min-h-screen bg-bg-base text-ink-primary">
+      <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <Link href={"/" as Route} className="flex items-center gap-3">
+            <BrandMark size={40} />
+            <div className="leading-tight">
+              <p className="text-sm font-semibold sm:text-base">
+                Jamoaviy.uz
+              </p>
+              <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
+                Jamoaviy o'yinlar
+              </p>
+            </div>
+          </Link>
+          <Link
+            href={loginHref}
+            className="inline-flex h-10 items-center justify-center rounded-2xl bg-brand px-4 text-xs font-semibold text-bg-base transition active:scale-[0.98] sm:text-sm"
+          >
+            Login qilib yaratish
+          </Link>
+        </div>
+      </header>
+
+      <section className="border-b border-line-subtle">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-14 lg:px-8 lg:py-20">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand">
+              {eyebrow}
+            </p>
+            <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
+              {title}
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-ink-secondary sm:text-base sm:leading-8">
+              {description}
+            </p>
+
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={loginHref}
+                className="inline-flex h-14 items-center justify-center rounded-2xl bg-brand px-6 text-base font-semibold text-bg-base transition active:scale-[0.98]"
+              >
+                O'yin yaratish
+              </Link>
+              <Link
+                href={"/" as Route}
+                className="inline-flex h-14 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-6 text-base font-semibold text-ink-primary transition active:scale-[0.98]"
+              >
+                Landingga qaytish
+              </Link>
+            </div>
+
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {heroStats.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-2xl border border-line-subtle bg-bg-surface p-4"
+                >
+                  <p className="text-lg font-bold text-ink-primary">
+                    {item.value}
+                  </p>
+                  <p className="mt-1 text-[11px] uppercase tracking-wider text-ink-muted sm:text-xs">
+                    {item.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[2rem] border border-line-subtle bg-bg-surface shadow-pop">
+            <div className="relative aspect-[16/11] w-full">
+              <Image
+                src={image}
+                alt={imageAlt}
+                fill
+                sizes="(max-width: 1024px) 100vw, 560px"
+                className="object-cover"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-bg-base/80 via-bg-base/10 to-transparent" />
+            </div>
+            <div className="grid gap-3 p-5 sm:p-6">
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
+                Nima uchun bu sahifa bor
+              </p>
+              <p className="text-sm leading-7 text-ink-secondary">
+                Bu yerda o'yinning mantig'i, kimlar uchun mosligi va yaratish
+                paytida chiqadigan barcha asosiy configlar oldindan tushuntirib
+                beriladi. Shu sabab login qilmasdan turib ham jamoangiz uchun
+                qaysi rejim to'g'ri kelishini tanlashingiz mumkin.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-line-subtle">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          <div className="max-w-3xl">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
+              Bo'lim maqsadi
+            </p>
+            <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
+              O'yin nimaga qurilganini oldindan bilib oling
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
+              Har bir blok bir savolga javob beradi: o'yin nimaligi, qanday
+              ketishi, configlar nima uchun kerakligi va qaysi davra uchun mos
+              ekani.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 lg:grid-cols-3">
+            {story.map((item) => (
+              <article
+                key={item.title}
+                className="rounded-3xl border border-line-subtle bg-bg-surface p-5"
+              >
+                <p className="text-base font-semibold">{item.title}</p>
+                <p className="mt-3 text-sm leading-7 text-ink-secondary">
+                  {item.body}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-line-subtle">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          <div className="max-w-3xl">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
+              O'yin oqimi
+            </p>
+            <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
+              Raundlar qanday ishlashini bilish uchun
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
+              Bu bo'lim host va o'yinchilar uchun jarayonni soddalashtiradi:
+              qachon gapiriladi, qachon qaror beriladi va qayerda dramatik
+              burilishlar bo'lishini ko'rsatadi.
+            </p>
+          </div>
+
+          <ol className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {flow.map((step, index) => (
+              <li
+                key={step.title}
+                className="rounded-3xl border border-line-subtle bg-bg-surface p-5"
+              >
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-soft font-mono text-sm font-semibold text-brand">
+                  {index + 1}
+                </span>
+                <p className="mt-4 text-base font-semibold">{step.title}</p>
+                <p className="mt-2 text-sm leading-7 text-ink-secondary">
+                  {step.body}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="border-b border-line-subtle">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          <div className="max-w-3xl">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
+              Yaratish configlari
+            </p>
+            <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
+              Har bir sozlama nimani boshqaradi
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
+              Login qilgandan keyin aynan shu configlar bilan room ochiladi.
+              Pastdagi izohlar har bir parametr nima uchun borligini va qachon
+              qaysi variant foydaliroq bo'lishini ko'rsatadi.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+            {configs.map((item) => (
+              <article
+                key={item.label}
+                className="rounded-3xl border border-line-subtle bg-bg-surface p-5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.22em] text-ink-muted">
+                      Config
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold">
+                      {item.label}
+                    </h3>
+                  </div>
+                  <span className="rounded-full border border-brand/25 bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
+                    {item.value}
+                  </span>
+                </div>
+                <p className="mt-4 text-sm leading-7 text-ink-secondary">
+                  {item.reason}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-line-subtle">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+          <div className="max-w-3xl">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
+              Kimlar uchun
+            </p>
+            <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
+              To'g'ri davrani tanlash uchun qisqa yo'nalish
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
+              Bu bo'lim o'yinni qaysi jamoa bilan tezroq ishga tushirish
+              mumkinligini ko'rsatadi: kayfiyat, tajriba va davra kattaligiga
+              qarab.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 lg:grid-cols-3">
+            {audience.map((item) => (
+              <article
+                key={item.title}
+                className="rounded-3xl border border-line-subtle bg-bg-surface p-5"
+              >
+                <h3 className="text-base font-semibold">{item.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-ink-secondary">
+                  {item.body}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+          <div className="rounded-[2rem] border border-line-subtle bg-gradient-to-br from-brand/15 via-bg-surface to-bg-surface p-6 sm:p-10 lg:p-14">
+            <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
+                  Keyingi qadam
+                </p>
+                <h2 className="mt-2 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
+                  Jamoani yig'ing va room ochishni boshlang
+                </h2>
+                <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
+                  Yaratish tugmasi sizni login sahifasiga olib boradi, login
+                  tugashi bilan esa shu o'yinning create sahifasiga avtomatik
+                  o'tasiz.
+                </p>
+              </div>
+              <div className="grid gap-3">
+                <Link
+                  href={loginHref}
+                  className="inline-flex h-14 items-center justify-center rounded-2xl bg-brand px-6 text-base font-semibold text-bg-base transition active:scale-[0.98]"
+                >
+                  Login qilib yaratish
+                </Link>
+                <Link
+                  href={"/" as Route}
+                  className="inline-flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-6 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+                >
+                  Boshqa o'yinlarni ko'rish
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

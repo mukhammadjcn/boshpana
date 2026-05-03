@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { LoginPage } from "@/components/login-page";
 
 export const metadata = {
-  title: "Tizimga kirish — Boshpana"
+  title: "Tizimga kirish — Jamoaviy.uz"
 };
 
 export default function LoginRoute() {

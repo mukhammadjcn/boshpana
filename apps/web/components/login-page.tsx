@@ -1,6 +1,7 @@
 "use client";
 
 import type { Route } from "next";
+import { BrandMark } from "@/components/brand-mark";
 import { useRouter, useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
@@ -131,13 +132,13 @@ export function LoginPage() {
       <header className="border-b border-line-subtle bg-bg-base/85 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <a href="/" className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-base font-bold text-bg-base">
-              B
-            </span>
+            <BrandMark size={36} />
             <div className="leading-tight">
-              <p className="text-sm font-semibold sm:text-base">Boshpana</p>
+              <p className="text-sm font-semibold sm:text-base">
+                Jamoaviy.uz
+              </p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
-                Bunker Online
+                Jamoaviy o'yinlar
               </p>
             </div>
           </a>
@@ -145,7 +146,7 @@ export function LoginPage() {
             href="/"
             className="rounded-xl border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary"
           >
-            ← Bosh sahifa
+            ← Landing
           </a>
         </div>
       </header>

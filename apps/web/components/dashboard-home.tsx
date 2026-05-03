@@ -1,6 +1,7 @@
 "use client";
 
 import type { Route } from "next";
+import { BrandMark } from "@/components/brand-mark";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -30,7 +31,7 @@ type GameCard = {
 
 const games: GameCard[] = [
   {
-    href: "/games/bunker" as Route,
+    href: "/dashboard/create/bunker" as Route,
     title: "Bunker",
     subtitle: "Apokalipsis stol o'yini — kim omon qoladi?",
     players: "3-16 kishi · 30-60 daqiqa",
@@ -39,12 +40,12 @@ const games: GameCard[] = [
     image: "/bunkerbanner.webp",
   },
   {
-    href: "/games/mafia" as Route,
+    href: "/dashboard/create/mafia" as Route,
     title: "Mafia",
     subtitle: "Kun va tun — xiyonatkorni toping",
-    players: "8-12 kishi · 30-45 daqiqa",
+    players: "4-16 kishi · 30-45 daqiqa",
     gradient: "from-violet-800 via-slate-900 to-zinc-950",
-    available: false,
+    available: true,
     image: "/mafiabanner.webp",
   },
 ];
@@ -85,12 +86,12 @@ export function DashboardHome() {
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
         <header className="flex items-center justify-between py-3 lg:py-5">
           <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-base font-bold text-bg-base lg:h-10 lg:w-10">
-              B
-            </span>
+            <BrandMark size={40} className="lg:h-10 lg:w-10" />
             <div className="leading-tight">
-              <p className="text-base font-semibold lg:text-lg">Boshpana</p>
-              <p className="text-xs text-ink-muted">Stol o'yinlari</p>
+              <p className="text-base font-semibold lg:text-lg">
+                Jamoaviy.uz
+              </p>
+              <p className="text-xs text-ink-muted">Jamoaviy o'yinlar</p>
             </div>
           </div>
           <Link

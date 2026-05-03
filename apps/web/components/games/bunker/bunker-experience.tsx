@@ -597,7 +597,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   function handleTelegramShare() {
     if (!roomState) return;
     const linkToShare = tgStartappLink ?? inviteUrl;
-    const text = `Bunker Online — ${roomState.room.code} xonasiga qo‘shiling`;
+    const text = `Jamoaviy.uz — Bunker uchun ${roomState.room.code} xonasiga qo‘shiling`;
     const shareUrl = buildTelegramShareUrl(linkToShare, text);
     openTelegramLink(shareUrl);
   }
@@ -616,7 +616,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     }
     try {
       await navigator.share({
-        title: "Bunker Online",
+        title: "Jamoaviy.uz",
         text: `Room ${roomState.room.code} ga qo‘shiling`,
         url: inviteUrl
       });

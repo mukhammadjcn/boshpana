@@ -1,7 +1,7 @@
 {
-  "name": "Boshpana — Bunker Online",
-  "short_name": "Boshpana",
-  "description": "Telegramda do'stlar bilan o'ynaydigan real-time party o'yin.",
+  "name": "Jamoaviy.uz — Jamoaviy o'yinlar",
+  "short_name": "Jamoaviy.uz",
+  "description": "Telegramda birga o'ynaladigan Bunker, Mafia va boshqa jamoaviy o'yinlar platformasi.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0d12",
