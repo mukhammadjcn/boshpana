@@ -48,6 +48,10 @@ services:
       TELEGRAM_WEB_APP_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       TELEGRAM_AUTH_MAX_AGE_SECONDS: ${TELEGRAM_AUTH_MAX_AGE_SECONDS:-86400}
       ROOM_CREATION_LIMIT_PER_30D: ${ROOM_CREATION_LIMIT_PER_30D:-10}
+      # Local-only: enables /api/auth/dev-login (bypasses Telegram bot).
+      # The prod compose file does NOT set this, so the route stays
+      # un-mounted in production.
+      ENABLE_DEV_AUTH: ${ENABLE_DEV_AUTH:-1}
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,6 +70,10 @@ services:
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
         NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:-}
         NEXT_PUBLIC_TELEGRAM_WEB_APP_NAME: ${NEXT_PUBLIC_TELEGRAM_WEB_APP_NAME:-}
+        # Inlined into the client bundle by Next at build time. Defaults
+        # to "1" locally so the dev-login button renders; the prod
+        # compose file leaves it empty so the button compiles out.
+        NEXT_PUBLIC_ENABLE_DEV_AUTH: ${NEXT_PUBLIC_ENABLE_DEV_AUTH:-1}
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}

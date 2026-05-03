@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum GameType {
+  BUNKER
+  MAFIA
+}
+
 enum RoomStatus {
   LOBBY
   PLAYING
@@ -14,7 +19,7 @@ enum RoomStatus {
   CANCELLED
 }
 
-enum GamePhase {
+enum BunkerPhase {
   LOBBY
   DISCUSSION
   REVEAL
@@ -26,7 +31,7 @@ enum GamePhase {
   FINISHED
 }
 
-enum CardType {
+enum BunkerCardType {
   PROFESSION
   HEALTH
   CHARACTER
@@ -35,7 +40,7 @@ enum CardType {
   FACT
 }
 
-enum Difficulty {
+enum BunkerDifficulty {
   EASY
   MEDIUM
   HARD
@@ -73,14 +78,15 @@ model GameHistory {
   id              String      @id @default(cuid())
   userId          String
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameType        GameType    @default(BUNKER)
   playedAt        DateTime
   startedAt       DateTime?
   endedAt         DateTime?
   durationSeconds Int?
-  disasterName    String?
   outcome         GameOutcome @default(PLAYED)
   roomCode        String?
   playerCount     Int?
+  metadata        Json?
   createdAt       DateTime    @default(now())
 
   @@index([userId, playedAt])
@@ -93,6 +99,7 @@ model GameHistory {
 model Room {
   id            String      @id @default(cuid())
   code          String      @unique
+  gameType      GameType    @default(BUNKER)
   hostSessionId String
   hostUserId    String?
   hostUser      User?       @relation("HostUser", fields: [hostUserId], references: [id], onDelete: SetNull)
@@ -104,8 +111,9 @@ model Room {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   players       Player[]
-  game          Game?
-  votes         Vote[]
+  bunkerGame    BunkerGame?
+  bunkerVotes   BunkerVote[]
+  mafiaGame     MafiaGame?
 
   @@index([hostUserId, createdAt])
   // The cleanup sweeper scans for stale LOBBY/PLAYING rooms by status +
@@ -127,68 +135,73 @@ model Player {
   seatOrder     Int
   joinedAt      DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
-  attributes    PlayerAttribute?
-  votesCast     Vote[]          @relation("VotesCast")
-  votesReceived Vote[]          @relation("VotesReceived")
+  bunkerAttributes BunkerPlayerAttribute?
+  bunkerVotesCast     BunkerVote[]      @relation("BunkerVotesCast")
+  bunkerVotesReceived BunkerVote[]      @relation("BunkerVotesReceived")
+  mafiaRole              MafiaPlayerRole?
+  mafiaNightActions      MafiaNightSubmission[] @relation("MafiaNightActor")
+  mafiaNightTargets      MafiaNightSubmission[] @relation("MafiaNightTarget")
+  mafiaDayVotesCast      MafiaDayVote[]         @relation("MafiaVotesCast")
+  mafiaDayVotesReceived  MafiaDayVote[]         @relation("MafiaVotesReceived")
 
   @@unique([roomId, sessionId])
   @@index([userId])
 }
 
-model Game {
+model BunkerGame {
   id                 String           @id @default(cuid())
   roomId             String           @unique
   room               Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
   disasterId         String?
-  disaster           Disaster?        @relation(fields: [disasterId], references: [id], onDelete: SetNull)
+  disaster           BunkerDisaster?  @relation(fields: [disasterId], references: [id], onDelete: SetNull)
   currentSituationId String?
-  currentSituation   Situation?       @relation(fields: [currentSituationId], references: [id], onDelete: SetNull)
-  phase              GamePhase        @default(LOBBY)
+  currentSituation   BunkerSituation? @relation(fields: [currentSituationId], references: [id], onDelete: SetNull)
+  phase              BunkerPhase      @default(LOBBY)
   timerEndsAt        DateTime?
   startedAt          DateTime?
   roundNumber        Int              @default(0)
   currentTurnPlayerId String?
   lastRevealedPlayerId String?
-  lastRevealedCardType CardType?
+  lastRevealedCardType BunkerCardType?
   lastEliminatedPlayerId String?
   tiebreakCandidateIds String[]       @default([])
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
-  playerAttributes   PlayerAttribute[]
+  playerAttributes   BunkerPlayerAttribute[]
 }
 
-model PlayerAttribute {
+model BunkerPlayerAttribute {
   id         String   @id @default(cuid())
-  playerId    String   @unique
-  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  gameId      String
-  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  playerId   String   @unique
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameId     String
+  game       BunkerGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
   profession String
   health     String
   character  String
   skill      String
   baggage    String
   fact       String
-  revealed   CardType[] @default([])
+  revealed   BunkerCardType[] @default([])
 }
 
-model Vote {
-  id            String   @id @default(cuid())
+model BunkerVote {
+  id             String   @id @default(cuid())
   roomId         String
   room           Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   roundNumber    Int
   voterPlayerId  String
-  voterPlayer    Player   @relation("VotesCast", fields: [voterPlayerId], references: [id], onDelete: Cascade)
+  voterPlayer    Player   @relation("BunkerVotesCast", fields: [voterPlayerId], references: [id], onDelete: Cascade)
   targetPlayerId String
-  targetPlayer   Player   @relation("VotesReceived", fields: [targetPlayerId], references: [id], onDelete: Cascade)
+  targetPlayer   Player   @relation("BunkerVotesReceived", fields: [targetPlayerId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
 
   @@unique([roomId, roundNumber, voterPlayerId])
 }
 
-model Card {
+model BunkerCard {
   id        String   @id @default(cuid())
-  type      CardType
+  type      BunkerCardType
   text      String
   isAdult   Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -198,22 +211,177 @@ model Card {
   @@index([type, isAdult])
 }
 
-model Disaster {
+model BunkerDisaster {
   id          String   @id @default(cuid())
   name        String   @unique
   description String
   isAdult     Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  games       Game[]
+  games       BunkerGame[]
 }
 
-model Situation {
+model BunkerSituation {
   id         String     @id @default(cuid())
   text       String     @unique
-  difficulty Difficulty @default(MEDIUM)
+  difficulty BunkerDifficulty @default(MEDIUM)
   isAdult    Boolean    @default(false)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
-  games      Game[]
+  games      BunkerGame[]
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Mafia game module
+// ─────────────────────────────────────────────────────────────────────
+
+enum MafiaTeam {
+  CITY
+  MAFIA
+}
+
+enum MafiaRole {
+  CITIZEN
+  MAFIA
+  SHERIFF
+  DOCTOR
+}
+
+enum MafiaPhase {
+  ASSIGN_ROLES
+  NIGHT
+  NIGHT_RESULT
+  DAY_DISCUSSION
+  DAY_VOTE
+  DAY_TIEBREAK
+  DAY_RESULT
+  FINISHED
+}
+
+enum MafiaNightActionType {
+  MAFIA_KILL
+  SHERIFF_CHECK
+  SHERIFF_SHOOT
+  DOCTOR_HEAL
+  CITIZEN_GUESS_KILL
+  CITIZEN_GUESS_HEAL
+}
+
+// Random prompt shown to citizens at night so the table can't tell who
+// is mafia from the timing/duration of taps. Each citizen draws one of
+// these per round.
+enum MafiaCitizenQuestion {
+  GUESS_MAFIA_KILL
+  GUESS_DOCTOR_HEAL
+}
+
+enum MafiaEliminationCause {
+  MAFIA_KILL
+  SHERIFF_SHOOT
+  DAY_VOTE
+}
+
+model MafiaGame {
+  id                  String     @id @default(cuid())
+  roomId              String     @unique
+  room                Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  phase               MafiaPhase @default(ASSIGN_ROLES)
+
+  // Host-chosen composition. Citizens fill the remainder of the seats.
+  mafiaCount          Int        @default(2)
+  hasSheriff          Boolean    @default(true)
+  hasDoctor           Boolean    @default(true)
+
+  // Round counters — incremented as we cycle through phases.
+  nightNumber         Int        @default(0)
+  dayNumber           Int        @default(0)
+
+  // Phase deadline. Night is a fixed 20s window; day discussion is 3min;
+  // day vote inherits Bunker's pattern. The runtime resolves the phase
+  // when the deadline elapses.
+  timerEndsAt         DateTime?
+  startedAt           DateTime?
+
+  // Per-game caps that bleed across rounds (sheriff has 2 shots total,
+  // doctor can self-heal at most once per game).
+  sheriffShotsUsed    Int        @default(0)
+  doctorSelfHealsUsed Int        @default(0)
+
+  // True when the previous night's resolution prevented at least one
+  // death because the doctor's heal target matched an attack target.
+  // Frontend uses this to render "Doktor 1 fuqaroni saqlab qoldi" on
+  // the NIGHT_RESULT screen. Reset to false at the start of each night.
+  lastNightDoctorSaved Boolean   @default(false)
+
+  // Set when DAY_VOTE produces a tie — the IDs of the candidates that
+  // advance to DAY_TIEBREAK. Cleared as we leave the tiebreak. Read by
+  // the vote-submit path to constrain valid targets in the second pass.
+  tiebreakCandidateIds String[]   @default([])
+
+  winner              MafiaTeam?
+
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  playerRoles         MafiaPlayerRole[]
+  nightSubmissions    MafiaNightSubmission[]
+  dayVotes            MafiaDayVote[]
+}
+
+model MafiaPlayerRole {
+  id              String                 @id @default(cuid())
+  playerId        String                 @unique
+  player          Player                 @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameId          String
+  game            MafiaGame              @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  role            MafiaRole
+  isAlive         Boolean                @default(true)
+  // Set when the player is eliminated. `eliminatedRound` reuses
+  // dayNumber for vote-outs and nightNumber for night-outs (cause
+  // disambiguates which counter to read against).
+  eliminatedRound Int?
+  eliminatedCause MafiaEliminationCause?
+  // Flips true once the role is publicly revealed (death announcement
+  // or day-vote reveal). Mafia teammates always see each other regardless.
+  roleRevealed    Boolean                @default(false)
+  // True once the player has acknowledged seeing their role on the
+  // ASSIGN_ROLES screen. The phase advances to NIGHT when every alive
+  // player has confirmed (or the host force-advances).
+  roleConfirmed   Boolean                @default(false)
+}
+
+model MafiaNightSubmission {
+  id              String                 @id @default(cuid())
+  gameId          String
+  game            MafiaGame              @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  nightNumber     Int
+  actorPlayerId   String
+  actor           Player                 @relation("MafiaNightActor", fields: [actorPlayerId], references: [id], onDelete: Cascade)
+  action          MafiaNightActionType
+  targetPlayerId  String?
+  target          Player?                @relation("MafiaNightTarget", fields: [targetPlayerId], references: [id], onDelete: SetNull)
+  // Citizen submissions only — which decoy prompt was assigned.
+  citizenQuestion MafiaCitizenQuestion?
+  submittedAt     DateTime               @default(now())
+
+  // One row per actor per night. Re-submissions overwrite via upsert so
+  // mafia members can change their mind during the 20s window.
+  @@unique([gameId, nightNumber, actorPlayerId])
+}
+
+model MafiaDayVote {
+  id             String   @id @default(cuid())
+  gameId         String
+  game           MafiaGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  dayNumber      Int
+  voterPlayerId  String
+  voter          Player   @relation("MafiaVotesCast", fields: [voterPlayerId], references: [id], onDelete: Cascade)
+  targetPlayerId String
+  target         Player   @relation("MafiaVotesReceived", fields: [targetPlayerId], references: [id], onDelete: Cascade)
+  // Tiebreak votes are tracked separately so the resolver can score
+  // them in isolation without merging with the first-pass tally.
+  isTiebreak     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@unique([gameId, dayNumber, voterPlayerId, isTiebreak])
 }

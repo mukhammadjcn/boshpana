@@ -194,8 +194,84 @@ export function LoginPage() {
           <Step n={2}>Bot ko'rsatmalariga rioya qiling — kerak bo'lsa telefon raqamni ulashing.</Step>
           <Step n={3}>Avtomatik kirib turasiz — qaytib bu sahifaga kelishingiz shart emas.</Step>
         </ol>
+
+        <DevLoginCard
+          onSuccess={(payload) => {
+            setAuthToken(payload.token);
+            setAuthUser(payload.user);
+            router.replace(redirectTo as Route);
+          }}
+        />
       </section>
     </main>
+  );
+}
+
+// DEV-ONLY: shortcut sign-in that hits the gated /api/auth/dev-login
+// endpoint. NEXT_PUBLIC_ENABLE_DEV_AUTH is inlined at build time, so when
+// the prod build runs without that flag set, the early-return becomes a
+// constant `null` and the impl below is dead-code-eliminated.
+function DevLoginCard({
+  onSuccess
+}: {
+  onSuccess: (payload: { token: string; user: AuthUser }) => void;
+}) {
+  if (process.env.NEXT_PUBLIC_ENABLE_DEV_AUTH !== "1") return null;
+
+  return <DevLoginCardImpl onSuccess={onSuccess} />;
+}
+
+function DevLoginCardImpl({
+  onSuccess
+}: {
+  onSuccess: (payload: { token: string; user: AuthUser }) => void;
+}) {
+  const [nickname, setNickname] = useState("Dev");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleClick() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const payload = await apiRequest<{ token: string; user: AuthUser }>(
+        "/api/auth/dev-login",
+        {
+          method: "POST",
+          body: JSON.stringify({ nickname: nickname.trim() || "Dev" })
+        }
+      );
+      onSuccess(payload);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 grid gap-3 rounded-2xl border border-dashed border-warn/40 bg-warn/5 p-4 text-sm">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-warn">
+        <span className="rounded-full bg-warn/20 px-2 py-0.5">DEV</span>
+        <span>Faqat ishlab chiqish muhitida</span>
+      </div>
+      <input
+        value={nickname}
+        onChange={(e) => setNickname(e.target.value)}
+        maxLength={20}
+        placeholder="Test nickname"
+        className="h-10 rounded-xl border border-line-strong bg-bg-base px-3 text-sm outline-none focus:border-warn"
+      />
+      {err ? <p className="text-xs text-bad">{err}</p> : null}
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={busy}
+        className="flex h-11 items-center justify-center rounded-xl bg-warn/80 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+      >
+        {busy ? "Kirilmoqda…" : "Dev login (Telegramsiz)"}
+      </button>
+    </div>
   );
 }
 

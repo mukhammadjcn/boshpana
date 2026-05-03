@@ -1,4 +1,4 @@
-import { RoomExperience } from "@/components/room-experience";
+import { GameRouter } from "@/components/games/game-router";
 
 export default async function RoomPage({
   params
@@ -7,5 +7,5 @@ export default async function RoomPage({
 }) {
   const { code } = await params;
 
-  return <RoomExperience roomCode={code.toUpperCase()} view="room" />;
+  return <GameRouter roomCode={code.toUpperCase()} view="room" />;
 }

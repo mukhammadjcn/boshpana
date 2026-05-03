@@ -94,6 +94,32 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }
   );
 
+  // DEVELOPMENT ONLY. Mounts only when `env.enableDevAuth` is true (off in
+  // production). Creates or fetches a fixed local-test user and returns a
+  // signed JWT, bypassing the Telegram bot round-trip so devs can log in
+  // with one click while iterating on the UI.
+  if (env.enableDevAuth) {
+    app.post<{ Body: { nickname?: string } }>(
+      "/api/auth/dev-login",
+      async (request, reply) => {
+        const nickname = (request.body?.nickname ?? "").trim() || "Dev";
+        const telegramId = `dev-${nickname.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+        const user = await prisma.user.upsert({
+          where: { telegramId },
+          update: { nickname, firstName: nickname },
+          create: {
+            telegramId,
+            firstName: nickname,
+            nickname,
+            phone: "+0000000000"
+          }
+        });
+        const token = signAccessToken(user.id);
+        return reply.send({ token, user: publicUser(user) });
+      }
+    );
+  }
+
   app.post<{ Body: { initData?: string } }>(
     "/api/auth/telegram-webapp",
     async (request, reply) => {
@@ -212,7 +238,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: {
           room: {
             include: {
-              game: { include: { disaster: true } }
+              bunkerGame: { include: { disaster: true } }
             }
           }
         },
@@ -228,8 +254,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             code: p.room.code,
             status: p.room.status,
             createdAt: p.room.createdAt.toISOString(),
-            phase: p.room.game?.phase ?? "LOBBY",
-            disasterName: p.room.game?.disaster?.name ?? null
+            phase: p.room.bunkerGame?.phase ?? "LOBBY",
+            disasterName: p.room.bunkerGame?.disaster?.name ?? null
           }
         }))
       });
@@ -309,14 +335,21 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         })
       ]);
       return reply.send({
-        items: items.map((row) => ({
-          id: row.id,
-          playedAt: row.playedAt.toISOString(),
-          disasterName: row.disasterName,
-          outcome: row.outcome,
-          roomCode: row.roomCode,
-          playerCount: row.playerCount
-        })),
+        items: items.map((row) => {
+          const meta = (row.metadata ?? null) as Record<string, unknown> | null;
+          return {
+            id: row.id,
+            gameType: row.gameType,
+            playedAt: row.playedAt.toISOString(),
+            disasterName:
+              meta && typeof meta.disasterName === "string"
+                ? (meta.disasterName as string)
+                : null,
+            outcome: row.outcome,
+            roomCode: row.roomCode,
+            playerCount: row.playerCount
+          };
+        }),
         total,
         page,
         pageSize,

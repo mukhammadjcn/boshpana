@@ -1,14 +1,13 @@
 "use client";
 
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { JoinRoomModal } from "@/components/join-room-modal";
 import { apiRequest } from "@/lib/api";
 import { type AuthUser, getAuthUser, setAuthUser } from "@/lib/auth";
-import { getOrCreateSessionId } from "@/lib/storage";
 import { ActiveGames } from "./active-games";
 
 type UsageResponse = {
@@ -17,29 +16,47 @@ type UsageResponse = {
   remaining: number;
 };
 
-const winnerOptions = [
-  { value: 1, label: "1 kishi", hint: "Klassik" },
-  { value: 2, label: "2 kishi", hint: "Tezroq" },
-  { value: 3, label: "3 kishi", hint: "Yumshoq" },
+type GameCard = {
+  href: Route;
+  title: string;
+  subtitle: string;
+  players: string;
+  // Tailwind gradient classes used as a placeholder backdrop until the
+  // real landscape art is wired up (replace with <Image> later).
+  gradient: string;
+  available: boolean;
+  image: string;
+};
+
+const games: GameCard[] = [
+  {
+    href: "/games/bunker" as Route,
+    title: "Bunker",
+    subtitle: "Apokalipsis stol o'yini — kim omon qoladi?",
+    players: "3-16 kishi · 30-60 daqiqa",
+    gradient: "from-amber-700 via-orange-900 to-stone-950",
+    available: true,
+    image: "/bunkerbanner.webp",
+  },
+  {
+    href: "/games/mafia" as Route,
+    title: "Mafia",
+    subtitle: "Kun va tun — xiyonatkorni toping",
+    players: "8-12 kishi · 30-45 daqiqa",
+    gradient: "from-violet-800 via-slate-900 to-zinc-950",
+    available: false,
+    image: "/mafiabanner.webp",
+  },
 ];
 
 export function DashboardHome() {
-  const router = useRouter();
   const [joinOpen, setJoinOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [usage, setUsage] = useState<UsageResponse | null>(null);
-  const [hostName, setHostName] = useState("");
-  const [winnerTarget, setWinnerTarget] = useState(2);
-  const [isAdult, setIsAdult] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const cached = getAuthUser();
     setUser(cached);
-    const fallback =
-      cached?.nickname ?? cached?.firstName ?? cached?.telegramUsername ?? "";
-    if (fallback) setHostName((current) => current || fallback);
     let active = true;
     void (async () => {
       try {
@@ -51,12 +68,6 @@ export function DashboardHome() {
         setUser(meRes.user);
         setAuthUser(meRes.user);
         setUsage(usageRes);
-        const next =
-          meRes.user.nickname ??
-          meRes.user.firstName ??
-          meRes.user.telegramUsername ??
-          "";
-        if (next) setHostName((current) => current || next);
       } catch {
         // keep cached values
       }
@@ -69,36 +80,6 @@ export function DashboardHome() {
   const greeting = user?.nickname ?? user?.firstName ?? "do'stim";
   const limitReached = !!usage && usage.remaining <= 0;
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (limitReached) return;
-    if (typeof document !== "undefined") {
-      (document.activeElement as HTMLElement | null)?.blur?.();
-    }
-    setCreating(true);
-    setCreateError(null);
-    try {
-      const sessionId = getOrCreateSessionId();
-      const response = await apiRequest<{ roomCode: string }>(
-        "/api/rooms/create",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            hostName: hostName.trim(),
-            sessionId,
-            winnerTarget,
-            isAdult,
-          }),
-        },
-      );
-      router.push(`/room/${response.roomCode}` as Route);
-    } catch (error) {
-      setCreateError((error as Error).message);
-    } finally {
-      setCreating(false);
-    }
-  }
-
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
@@ -109,7 +90,7 @@ export function DashboardHome() {
             </span>
             <div className="leading-tight">
               <p className="text-base font-semibold lg:text-lg">Boshpana</p>
-              <p className="text-xs text-ink-muted">Bunker Online</p>
+              <p className="text-xs text-ink-muted">Stol o'yinlari</p>
             </div>
           </div>
           <Link
@@ -128,181 +109,136 @@ export function DashboardHome() {
             Salom, {greeting}
           </p>
           <h1 className="mt-1 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-            Bugun bunkerga kim tushadi?
+            Bugun qaysi o'yinni o'ynaymiz?
           </h1>
 
           <div className="mt-5 grid gap-5 lg:mt-8">
-            <div className="grid gap-5">
-              {!usage ? (
-                <div className="animate-pulse rounded-2xl border border-line-subtle bg-bg-surface p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="h-4 w-24 rounded bg-bg-elevated" />
-                    <div className="h-4 w-12 rounded bg-bg-elevated" />
-                  </div>
-                  <div className="mt-2 h-2 w-full rounded-full bg-bg-elevated" />
-                  <div className="mt-2 h-3 w-3/5 rounded bg-bg-elevated" />
+            {!usage ? (
+              <div className="animate-pulse rounded-2xl border border-line-subtle bg-bg-surface p-4">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 w-24 rounded bg-bg-elevated" />
+                  <div className="h-4 w-12 rounded bg-bg-elevated" />
                 </div>
-              ) : (
-                <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <p className="font-semibold text-ink-primary">
-                      Oylik limit
-                    </p>
-                    <p
-                      className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
-                    >
-                      {usage.remaining}/{usage.roomCreationLimit}
-                    </p>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-bg-elevated">
-                    <div
-                      className={`h-full ${limitReached ? "bg-bad" : "bg-brand"}`}
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.round(
-                            ((usage.roomCreationLimit - usage.remaining) /
-                              usage.roomCreationLimit) *
-                              100,
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-ink-muted">
-                    30 kunda {usage.roomCreationLimit} ta o'yin yarata olasiz.{" "}
-                    {limitReached
-                      ? "Limit tugagan — keyingi davrigacha kuting."
-                      : `Hozir ${usage.remaining} ta qoldi.`}
+                <div className="mt-2 h-2 w-full rounded-full bg-bg-elevated" />
+                <div className="mt-2 h-3 w-3/5 rounded bg-bg-elevated" />
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <p className="font-semibold text-ink-primary">Oylik limit</p>
+                  <p
+                    className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
+                  >
+                    {usage.remaining}/{usage.roomCreationLimit}
                   </p>
                 </div>
-              )}
-
-              <ActiveGames />
-
-              <form
-                onSubmit={handleCreate}
-                className="grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
-              >
-                <label className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                    Nickname
-                  </span>
-                  <input
-                    value={hostName}
-                    onChange={(e) => setHostName(e.target.value)}
-                    required
-                    maxLength={20}
-                    className="h-12 w-full rounded-xl border border-line-strong bg-bg-base px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-                    placeholder="Masalan, Alisher"
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-bg-elevated">
+                  <div
+                    className={`h-full ${limitReached ? "bg-bad" : "bg-brand"}`}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          ((usage.roomCreationLimit - usage.remaining) /
+                            usage.roomCreationLimit) *
+                            100,
+                        ),
+                      )}%`,
+                    }}
                   />
-                </label>
-
-                <div className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                    O'yin nechta odam qolganda tugaydi?
-                  </span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {winnerOptions.map((option) => {
-                      const active = winnerTarget === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setWinnerTarget(option.value)}
-                          aria-pressed={active}
-                          className={`flex h-14 flex-col items-center justify-center rounded-xl border text-center transition active:scale-[0.98] ${
-                            active
-                              ? "border-brand bg-brand-soft text-brand"
-                              : "border-line-strong bg-bg-base text-ink-secondary"
-                          }`}
-                        >
-                          <span className="text-sm font-semibold">
-                            {option.label}
-                          </span>
-                          <span className="text-[11px] text-ink-muted">
-                            {option.hint}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
                 </div>
+                <p className="mt-2 text-xs text-ink-muted">
+                  30 kunda {usage.roomCreationLimit} ta o'yin yarata olasiz.{" "}
+                  {limitReached
+                    ? "Limit tugagan — keyingi davrigacha kuting."
+                    : `Hozir ${usage.remaining} ta qoldi.`}
+                </p>
+              </div>
+            )}
 
-                <div className="grid gap-2">
-                  <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                    Mavzu
-                  </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsAdult(false)}
-                      aria-pressed={!isAdult}
-                      className={`flex h-14 flex-col items-center justify-center rounded-xl border text-center transition active:scale-[0.98] ${
-                        !isAdult
-                          ? "border-brand bg-brand-soft text-brand"
-                          : "border-line-strong bg-bg-base text-ink-secondary"
-                      }`}
-                    >
-                      <span className="text-sm font-semibold">Normal</span>
-                      <span className="text-[11px] text-ink-muted">
-                        Hamma uchun
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsAdult(true)}
-                      aria-pressed={isAdult}
-                      className={`flex h-14 flex-col items-center justify-center rounded-xl border text-center transition active:scale-[0.98] ${
-                        isAdult
-                          ? "border-brand bg-brand-soft text-brand"
-                          : "border-line-strong bg-bg-base text-ink-secondary"
-                      }`}
-                    >
-                      <span className="text-sm font-semibold">18+</span>
-                      <span className="text-[11px] text-ink-muted">
-                        Aralash kartalar
-                      </span>
-                    </button>
-                  </div>
-                </div>
+            <ActiveGames />
 
-                {createError ? (
-                  <p className="rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
-                    {createError}
-                  </p>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={creating || limitReached || !hostName.trim()}
-                  className={`flex h-14 items-center justify-center rounded-xl text-base font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
-                    limitReached
-                      ? "bg-bg-elevated text-ink-muted"
-                      : "bg-brand text-bg-base"
-                  }`}
-                >
-                  {creating
-                    ? "Yaratilmoqda..."
-                    : limitReached
-                      ? "Limit tugagan"
-                      : "O'yin yaratish"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setJoinOpen(true)}
-                  className="flex h-12 items-center justify-center rounded-xl border border-line-strong bg-bg-base text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
-                >
-                  Roomga qo'shilish
-                </button>
-              </form>
+            <div className="grid gap-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+                O'yinlar
+              </p>
+              <div className="grid gap-4">
+                {games.map((game) => (
+                  <GameCardItem key={game.title} game={game} />
+                ))}
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setJoinOpen(true)}
+              className="flex h-12 items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+            >
+              Kod orqali qo'shilish
+            </button>
           </div>
         </section>
       </div>
 
       <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />
     </main>
+  );
+}
+
+function GameCardItem({ game }: { game: GameCard }) {
+  return (
+    <Link
+      href={game.href}
+      className="group block overflow-hidden rounded-2xl border border-line-subtle bg-bg-surface transition active:scale-[0.99]"
+    >
+      {/* Landscape banner. The gradient sits underneath as a fallback
+          while the image hydrates and as a backdrop if the file is
+          ever missing. */}
+      <div className="relative aspect-[16/9] w-full overflow-hidden">
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${game.gradient}`}
+        />
+        <Image
+          src={game.image}
+          alt={game.title}
+          fill
+          sizes="(max-width: 768px) 100vw, 600px"
+          className="object-cover"
+          priority={game.available}
+        />
+        {/* Slight dark scrim along the bottom so the rounded corner of
+            the card meets the title block cleanly. */}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent" />
+        {!game.available && (
+          <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur">
+            Tez orada
+          </span>
+        )}
+      </div>
+
+      <div className="p-4">
+        <p className="text-lg font-semibold text-ink-primary">{game.title}</p>
+        <p className="mt-1 text-sm text-ink-secondary">{game.subtitle}</p>
+        <div className="mt-3 flex items-center justify-between text-xs text-ink-muted">
+          <span>{game.players}</span>
+          <span className="flex items-center gap-1 text-brand">
+            Kirish
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }
 

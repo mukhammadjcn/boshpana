@@ -1,13 +1,14 @@
-import { CardType } from "@prisma/client";
+import { BunkerCardType, GameType } from "@prisma/client";
 import { FastifyInstance } from "fastify";
 
 import { requireAuth } from "../lib/auth-decorator";
 import { env } from "../lib/env";
+import { prisma } from "../lib/prisma";
 import { countHostedRoomsLast30d } from "../services/auth-service";
-import { GameService } from "../services/game-service";
+import { GameRegistry } from "../games/registry";
 
 type RouteDeps = {
-  gameService: GameService;
+  games: GameRegistry;
 };
 
 export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps) {
@@ -15,11 +16,18 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
 
   app.post<{
     Body: {
+      gameType?: GameType;
       hostName: string;
       sessionId: string;
-      winnerTarget: number;
-      maxPlayers?: number;
+      // Bunker-only fields (ignored for Mafia)
+      winnerTarget?: number;
       isAdult?: boolean;
+      // Mafia-only fields (ignored for Bunker)
+      mafiaCount?: number;
+      hasSheriff?: boolean;
+      hasDoctor?: boolean;
+      // Shared
+      maxPlayers?: number;
     };
   }>(
     "/api/rooms/create",
@@ -34,9 +42,29 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
           });
         }
 
-        const result = await deps.gameService.createRoom({
-          ...request.body,
-          hostUserId: user.id
+        const body = request.body;
+        const gameType = body.gameType ?? GameType.BUNKER;
+
+        if (gameType === GameType.MAFIA) {
+          const result = await deps.games.mafia.createRoom({
+            hostName: body.hostName,
+            sessionId: body.sessionId,
+            hostUserId: user.id,
+            maxPlayers: body.maxPlayers,
+            mafiaCount: body.mafiaCount ?? 2,
+            hasSheriff: body.hasSheriff ?? true,
+            hasDoctor: body.hasDoctor ?? true
+          });
+          return reply.send(result);
+        }
+
+        const result = await deps.games.bunker.createRoom({
+          hostName: body.hostName,
+          sessionId: body.sessionId,
+          hostUserId: user.id,
+          maxPlayers: body.maxPlayers,
+          winnerTarget: body.winnerTarget ?? 1,
+          isAdult: body.isAdult
         });
         return reply.send(result);
       } catch (error) {
@@ -56,8 +84,17 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
     { preHandler: requireAuth },
     async (request, reply) => {
       try {
-        const result = await deps.gameService.joinRoom({
-          code: request.params.code,
+        const code = request.params.code.toUpperCase();
+        const room = await prisma.room.findUnique({
+          where: { code },
+          select: { gameType: true }
+        });
+        if (!room) {
+          return reply.status(404).send({ message: "Xona topilmadi." });
+        }
+        const service = deps.games.for(room.gameType);
+        const result = await service.joinRoom({
+          code,
           ...request.body,
           userId: request.authUserId
         });
@@ -68,15 +105,38 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
     }
   );
 
+  // Lightweight, game-agnostic room metadata. The frontend room/game pages
+  // call this first so they can route to the correct per-game experience
+  // (Bunker / Mafia / ...) before fetching the full game state.
+  app.get<{ Params: { code: string } }>(
+    "/api/rooms/:code/info",
+    async (request, reply) => {
+      const room = await prisma.room.findUnique({
+        where: { code: request.params.code.toUpperCase() },
+        select: { code: true, gameType: true, status: true }
+      });
+      if (!room) {
+        return reply.status(404).send({ message: "Xona topilmadi." });
+      }
+      return reply.send(room);
+    }
+  );
+
   app.get<{
     Params: { code: string };
     Querystring: { sessionId: string };
   }>("/api/rooms/:code/state", async (request, reply) => {
     try {
-      const result = await deps.gameService.getRoomState(
-        request.params.code,
-        request.query.sessionId
-      );
+      const code = request.params.code.toUpperCase();
+      const room = await prisma.room.findUnique({
+        where: { code },
+        select: { gameType: true }
+      });
+      if (!room) {
+        return reply.status(404).send({ message: "Xona topilmadi." });
+      }
+      const service = deps.games.for(room.gameType);
+      const result = await service.getRoomState(code, request.query.sessionId);
       return reply.send(result);
     } catch (error) {
       return reply.status(404).send({ message: (error as Error).message });
@@ -84,6 +144,6 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
   });
 
   app.get("/api/meta/card-types", async () => ({
-    items: CardType
+    items: BunkerCardType
   }));
 }

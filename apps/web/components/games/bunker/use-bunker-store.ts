@@ -2,12 +2,12 @@
 
 import { create } from "zustand";
 
-import type { RoomState } from "@/lib/types";
+import type { BunkerRoomState } from "./bunker-types";
 
 type GameStore = {
-  roomState: RoomState | null;
+  roomState: BunkerRoomState | null;
   error: string | null;
-  setRoomState: (roomState: RoomState | null) => void;
+  setRoomState: (roomState: BunkerRoomState | null) => void;
   patchTimer: (remainingSeconds: number) => void;
   setError: (error: string | null) => void;
 };

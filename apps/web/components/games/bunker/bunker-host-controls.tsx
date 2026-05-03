@@ -100,6 +100,23 @@ export function HostControls({
 
   const buttonsDisabled = pending !== null;
 
+  // No actions available outside of lobby — collapse the panel into a
+  // single full-width "End game" button so the host always has a useful
+  // affordance instead of empty-state filler text.
+  const noActionsMidGame = !primary && !secondary && !isLobby;
+
+  if (noActionsMidGame) {
+    return (
+      <button
+        type="button"
+        onClick={onEndGame}
+        className="flex h-12 w-full items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
+      >
+        {endLabel}
+      </button>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3">
       <div className="mb-2 flex items-center justify-between">
@@ -115,55 +132,49 @@ export function HostControls({
         ) : null}
       </div>
 
-      {primary || secondary || isLobby ? (
-        <div className="flex flex-wrap gap-2">
-          {primary ? (
-            <button
-              onClick={fireOptimistic("primary", primary.onClick)}
-              disabled={buttonsDisabled}
-              className="flex h-12 flex-1 min-w-[140px] items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-60"
-            >
-              {pending === "primary" ? (
-                <>
-                  <Spinner />
-                  Yuborilmoqda…
-                </>
-              ) : (
-                primary.label
-              )}
-            </button>
-          ) : null}
-          {secondary ? (
-            <button
-              onClick={fireOptimistic("secondary", secondary.onClick)}
-              disabled={buttonsDisabled}
-              className="flex h-12 items-center justify-center gap-2 rounded-xl border border-line-strong bg-bg-elevated px-4 text-sm font-semibold text-ink-primary transition disabled:opacity-60"
-            >
-              {pending === "secondary" ? (
-                <>
-                  <Spinner />
-                  Yuborilmoqda…
-                </>
-              ) : (
-                secondary.label
-              )}
-            </button>
-          ) : null}
-          {isLobby ? (
-            <button
-              type="button"
-              onClick={onEndGame}
-              className="flex h-12 flex-1 min-w-[140px] items-center justify-center rounded-xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
-            >
-              {endLabel}
-            </button>
-          ) : null}
-        </div>
-      ) : (
-        <p className="text-sm text-ink-muted">
-          Hozir host uchun action yo‘q. Keyingi fazani kuting.
-        </p>
-      )}
+      <div className="flex flex-wrap gap-2">
+        {primary ? (
+          <button
+            onClick={fireOptimistic("primary", primary.onClick)}
+            disabled={buttonsDisabled}
+            className="flex h-12 flex-1 min-w-[140px] items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-60"
+          >
+            {pending === "primary" ? (
+              <>
+                <Spinner />
+                Yuborilmoqda…
+              </>
+            ) : (
+              primary.label
+            )}
+          </button>
+        ) : null}
+        {secondary ? (
+          <button
+            onClick={fireOptimistic("secondary", secondary.onClick)}
+            disabled={buttonsDisabled}
+            className="flex h-12 items-center justify-center gap-2 rounded-xl border border-line-strong bg-bg-elevated px-4 text-sm font-semibold text-ink-primary transition disabled:opacity-60"
+          >
+            {pending === "secondary" ? (
+              <>
+                <Spinner />
+                Yuborilmoqda…
+              </>
+            ) : (
+              secondary.label
+            )}
+          </button>
+        ) : null}
+        {isLobby ? (
+          <button
+            type="button"
+            onClick={onEndGame}
+            className="flex h-12 flex-1 min-w-[140px] items-center justify-center rounded-xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
+          >
+            {endLabel}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

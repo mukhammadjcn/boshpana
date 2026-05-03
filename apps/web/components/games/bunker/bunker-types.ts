@@ -1,15 +1,23 @@
-import { CardType, Difficulty, GamePhase, RoomStatus } from "@prisma/client";
+import type { RoomStatus } from "@/lib/types";
 
-export const CARD_TYPES = [
-  CardType.PROFESSION,
-  CardType.HEALTH,
-  CardType.CHARACTER,
-  CardType.SKILL,
-  CardType.BAGGAGE,
-  CardType.FACT
-] as const;
+export type BunkerPhase =
+  | "LOBBY"
+  | "INTRO"
+  | "ROUND_REVEAL"
+  | "ROUND_PITCH"
+  | "ROUND_COMPLETE"
+  | "VOTING"
+  | "FINISHED";
 
-export type PublicRoomState = {
+export type BunkerCardType =
+  | "PROFESSION"
+  | "HEALTH"
+  | "CHARACTER"
+  | "SKILL"
+  | "BAGGAGE"
+  | "FACT";
+
+export type BunkerRoomState = {
   room: {
     id: string;
     code: string;
@@ -19,13 +27,13 @@ export type PublicRoomState = {
     maxPlayers: number;
   };
   game: {
-    phase: GamePhase;
+    phase: BunkerPhase;
     roundNumber: number;
     timerEndsAt: string | null;
     remainingSeconds: number;
     currentTurnPlayerId: string | null;
     lastRevealedPlayerId: string | null;
-    lastRevealedCardType: CardType | null;
+    lastRevealedCardType: BunkerCardType | null;
     lastEliminatedPlayerId: string | null;
     tiebreakCandidateIds: string[];
     disaster: {
@@ -34,7 +42,7 @@ export type PublicRoomState = {
     } | null;
     situation: {
       text: string;
-      difficulty: Difficulty;
+      difficulty: string;
     } | null;
   };
   me: {
@@ -44,7 +52,7 @@ export type PublicRoomState = {
     isAlive: boolean;
     sessionId: string;
     cards: Record<string, string>;
-    revealed: CardType[];
+    revealed: BunkerCardType[];
   } | null;
   players: Array<{
     id: string;

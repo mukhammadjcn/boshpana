@@ -19,10 +19,10 @@ export function ToastViewport() {
     <div
       role="status"
       aria-live="polite"
-      // Bottom-centered stack, sits above bottom nav / sticky bars. Clicks
-      // pass through the wrapper so we don't block the UI behind us; only
-      // the toast pills themselves are interactive.
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 px-4 pb-safe"
+      // Top-centered stack, sits below the safe-area inset. Clicks pass
+      // through the wrapper so we don't block the UI behind us; only the
+      // toast pills themselves are interactive.
+      className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex flex-col items-center gap-2 px-4 pt-safe"
     >
       {toasts.map((toast) => (
         <button

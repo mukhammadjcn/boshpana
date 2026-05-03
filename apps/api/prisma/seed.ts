@@ -1,22 +1,22 @@
-import { CardType, Difficulty, PrismaClient } from "@prisma/client";
+import { BunkerCardType, BunkerDifficulty, PrismaClient } from "@prisma/client";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const prisma = new PrismaClient();
 
-const cardTypeMap: Record<string, CardType> = {
-  kasb: CardType.PROFESSION,
-  soglik: CardType.HEALTH,
-  xarakter: CardType.CHARACTER,
-  skill: CardType.SKILL,
-  bagaj: CardType.BAGGAGE,
-  fakt: CardType.FACT
+const cardTypeMap: Record<string, BunkerCardType> = {
+  kasb: BunkerCardType.PROFESSION,
+  soglik: BunkerCardType.HEALTH,
+  xarakter: BunkerCardType.CHARACTER,
+  skill: BunkerCardType.SKILL,
+  bagaj: BunkerCardType.BAGGAGE,
+  fakt: BunkerCardType.FACT
 };
 
 type SeedContent = {
   cards: Record<string, string[]>;
   disasters: Array<{ name: string; description: string }>;
-  situations: Array<{ text: string; difficulty?: Difficulty }>;
+  situations: Array<{ text: string; difficulty?: BunkerDifficulty }>;
 };
 
 function loadSeedContent(): SeedContent {
@@ -45,7 +45,7 @@ function loadSeedContent(): SeedContent {
     | { disasters: Array<{ name: string; description: string }> }
     | undefined;
   const situationBlock = blocks.find((block) => "situations" in block) as
-    | { situations: Array<{ text: string; difficulty?: Difficulty }> }
+    | { situations: Array<{ text: string; difficulty?: BunkerDifficulty }> }
     | undefined;
 
   if (!cardBlock || !disasterBlock || !situationBlock) {
@@ -80,30 +80,30 @@ async function main() {
   const force = process.env.SEED_RESET === "1";
 
   const [cardCount, disasterCount, situationCount] = await Promise.all([
-    prisma.card.count(),
-    prisma.disaster.count(),
-    prisma.situation.count()
+    prisma.bunkerCard.count(),
+    prisma.bunkerDisaster.count(),
+    prisma.bunkerSituation.count()
   ]);
 
   if (force || cardCount === 0) {
-    if (force) await prisma.card.deleteMany();
-    await prisma.card.createMany({ data: cards, skipDuplicates: true });
+    if (force) await prisma.bunkerCard.deleteMany();
+    await prisma.bunkerCard.createMany({ data: cards, skipDuplicates: true });
   }
 
   if (force || disasterCount === 0) {
-    if (force) await prisma.disaster.deleteMany();
-    await prisma.disaster.createMany({
+    if (force) await prisma.bunkerDisaster.deleteMany();
+    await prisma.bunkerDisaster.createMany({
       data: content.disasters,
       skipDuplicates: true
     });
   }
 
   if (force || situationCount === 0) {
-    if (force) await prisma.situation.deleteMany();
-    await prisma.situation.createMany({
+    if (force) await prisma.bunkerSituation.deleteMany();
+    await prisma.bunkerSituation.createMany({
       data: content.situations.map((situation) => ({
         text: situation.text,
-        difficulty: situation.difficulty ?? Difficulty.MEDIUM
+        difficulty: situation.difficulty ?? BunkerDifficulty.MEDIUM
       })),
       skipDuplicates: true
     });

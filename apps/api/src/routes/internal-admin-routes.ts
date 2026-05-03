@@ -36,7 +36,7 @@ const adminModelConfig: Record<
   },
   rooms: {
     delegate: prisma.room as AdminDelegate,
-    include: { players: true, game: true, votes: true },
+    include: { players: true, bunkerGame: true, bunkerVotes: true },
     orderBy: { createdAt: "desc" as const }
   },
   users: {
@@ -45,19 +45,19 @@ const adminModelConfig: Record<
     orderBy: { createdAt: "desc" as const }
   },
   cards: {
-    delegate: prisma.card as AdminDelegate,
+    delegate: prisma.bunkerCard as AdminDelegate,
     include: undefined,
     // Stable order: edits mustn't shuffle a row to the top. Seed inserts
     // share a `createdAt`, so we tie-break by `id` for full determinism.
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   },
   disasters: {
-    delegate: prisma.disaster as AdminDelegate,
+    delegate: prisma.bunkerDisaster as AdminDelegate,
     include: undefined,
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   },
   situations: {
-    delegate: prisma.situation as AdminDelegate,
+    delegate: prisma.bunkerSituation as AdminDelegate,
     include: undefined,
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   }
