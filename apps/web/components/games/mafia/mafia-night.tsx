@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { MafiaSituationArt } from "./mafia-situation-art";
 import type {
   MafiaNightActionType,
   MafiaPublicState,
@@ -71,7 +72,7 @@ export function MafiaNight({ state, onSubmit }: Props) {
     return (
       <NightShell remaining={game.remainingSeconds} night={game.nightNumber}>
         <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-          <p className="text-2xl">👻</p>
+          <MafiaSituationArt src="/ghostimg.webp" alt="O'lgan o'yinchi" />
           <p className="text-base font-semibold">Siz o'lgansiz</p>
           <p className="text-sm text-ink-muted">
             Tomoshabin sifatida tunni kutib turing.
@@ -466,3 +467,4 @@ function ModeButton({
     </button>
   );
 }
+

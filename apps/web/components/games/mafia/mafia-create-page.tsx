@@ -1,6 +1,7 @@
 "use client";
 
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
@@ -135,15 +136,29 @@ export function MafiaCreatePage() {
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </Link>
-          <p className="text-sm font-semibold">Mafia</p>
+          <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
+            Kun va tun mafiya
+          </p>
           <span className="h-9 w-9" />
         </header>
 
         <section className="mt-2 flex-1 pb-10 lg:mt-6">
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            Kun va tun mafiya
-          </p>
-          <h1 className="mt-1 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
+          {/* Game banner — shares artwork with the dashboard card so
+              the detail page reads as a continuation of the same
+              entry. Landscape ratio gives desktop visual weight. */}
+          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface">
+            <Image
+              src="/mafiabanner.webp"
+              alt="Mafia banner"
+              fill
+              sizes="(max-width: 768px) 100vw, 672px"
+              className="object-cover"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-bg-base/80 via-bg-base/10 to-transparent" />
+          </div>
+
+          <h1 className="mt-5 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
             Mafia — kim xiyonatkor?
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">

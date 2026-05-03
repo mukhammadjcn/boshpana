@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
+import { MafiaSituationArt } from "./mafia-situation-art";
 import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 
 type Props = {
@@ -48,7 +49,13 @@ export function MafiaFinished({ state }: Props) {
               : "border-ok/40 bg-ok/15"
           }`}
         >
-          <p className="text-3xl">{winner === "MAFIA" ? "🕴️" : "🏛️"}</p>
+          {winner ? (
+            <MafiaSituationArt
+              src={winner === "MAFIA" ? "/mafiaimg.webp" : "/cityimg.webp"}
+              alt={winner === "MAFIA" ? "Mafia g'olib" : "Shahar g'olib"}
+              size="lg"
+            />
+          ) : null}
           <p
             className={`text-base font-semibold ${
               winner === "MAFIA" ? "text-bad" : "text-ok"

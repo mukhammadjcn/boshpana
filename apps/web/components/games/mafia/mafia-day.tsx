@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { MafiaSituationArt } from "./mafia-situation-art";
 import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 
 type Props = {
@@ -130,11 +131,13 @@ function Discussion({
       totalSeconds={180}
       badge={state.room.code}
     >
-      <section className="grid gap-3 rounded-3xl border border-line-subtle bg-bg-surface p-5">
-        <p className="text-2xl">💬</p>
-        <p className="text-base font-semibold">Hayotda qolganlar: {aliveCount}</p>
+      <section className="grid gap-3 rounded-3xl border border-line-subtle bg-bg-surface p-5 text-center">
+        <MafiaSituationArt src="/talkimg.webp" alt="Muhokama" />
+        <p className="text-base font-semibold">
+          Hozircha tirik qolganlar: {aliveCount}
+        </p>
         <p className="text-sm text-ink-muted">
-          O'z ovozli aloqangizda bahs yuriting. Mafia kim ekan?
+          Bahslashing. Mafia kim ekan?
         </p>
       </section>
 
@@ -208,7 +211,7 @@ function VoteView({
 
   return (
     <DayShell
-      title={isTiebreak ? "Qayta ovoz · tiebreak" : `Ovoz · Kun #${game.dayNumber}`}
+      title={isTiebreak ? "Qayta ovoz · teng ovoz" : `Ovoz · Kun #${game.dayNumber}`}
       subtitle={
         isTiebreak
           ? "Tenglashgan nomzodlardan birini tanlang"
@@ -219,8 +222,8 @@ function VoteView({
       badge={`${votes.total} / ${aliveCount}`}
     >
       {!me?.isAlive ? (
-        <div className="grid gap-2 rounded-3xl border border-line-strong bg-bg-surface p-5 text-center">
-          <p className="text-2xl">👻</p>
+        <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-5 text-center">
+          <MafiaSituationArt src="/ghostimg.webp" alt="O'lgan o'yinchi" />
           <p className="text-base font-semibold">Siz o'lgansiz</p>
           <p className="text-sm text-ink-muted">
             Tomoshabin sifatida natijani kuting.
@@ -292,7 +295,7 @@ function ResultView({ state }: { state: MafiaPublicState }) {
     >
       {eliminated && role ? (
         <div className="grid gap-3 rounded-3xl border border-bad/30 bg-bad/10 p-6 text-center animate-fade-in">
-          <p className="text-3xl">⚖️</p>
+          <MafiaSituationArt src="/diedimg.webp" alt="Chetlatilgan o'yinchi" />
           <p className="text-base font-semibold text-bad">
             {eliminated.name} chetlatildi
           </p>
@@ -300,10 +303,10 @@ function ResultView({ state }: { state: MafiaPublicState }) {
         </div>
       ) : (
         <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-          <p className="text-3xl">🤐</p>
+          <MafiaSituationArt src="/novoiceimg.webp" alt="Hech kim chetlatilmadi" />
           <p className="text-base font-semibold">Hech kim chetlatilmadi</p>
           <p className="text-xs text-ink-muted">
-            Ovozlar bo'linib ketdi yoki tiebreak ham tenglashdi.
+            Ovozlar bo'linib ketdi yoki qayta ovoz ham tenglashdi.
           </p>
         </div>
       )}

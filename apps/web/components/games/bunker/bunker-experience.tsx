@@ -11,6 +11,7 @@ import {
   useState
 } from "react";
 
+import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { HostControls } from "./bunker-host-controls";
 import { PlayerCard } from "./bunker-player-card";
@@ -1620,37 +1621,15 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         onClose={() => setLeaveConfirmOpen(false)}
       />
 
-      {/* Lobby cancellation modal — host tugatdi, o'yin umuman bo'lmadi. */}
-      {cancelledModalOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-md rounded-3xl border border-line-strong bg-bg-surface p-6 text-center shadow-pop">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-warn/40 bg-warn/10 text-2xl">
-              🚫
-            </div>
-            <h3 className="mt-4 text-xl font-bold text-ink-primary">
-              O'yin yaratilmadi
-            </h3>
-            <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              Host xonani o'yin boshlanmasdan turib tugatdi. Yangi o'yinda
-              ishtirok etish uchun bosh sahifaga qayting.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setCancelledModalOpen(false);
-                router.push("/");
-              }}
-              className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              Bosh sahifa
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {/* Lobby cancellation modal — host tugatdi, o'yin umuman bo'lmadi.
+          Shared with Mafia via the CancelledRoomModal component. */}
+      <CancelledRoomModal
+        open={cancelledModalOpen}
+        onDismiss={() => {
+          setCancelledModalOpen(false);
+          router.push("/");
+        }}
+      />
 
       {/* Floating announcement */}
       {announcement ? (

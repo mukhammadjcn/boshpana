@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
@@ -41,10 +42,54 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     name: string;
   } | null>(null);
   const [joinName, setJoinName] = useState("");
+  const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
   const connectedRef = useRef(false);
+  // Tracks which (roomCode, playerId) pairs already saw the cancelled
+  // modal so reconnects / state refetches don't keep popping it back.
+  const seenCancelledModalRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
+  }, []);
+
+  // Lobby vaqtida host xonani tugatib yuborsa room CANCELLED bo'ladi
+  // va o'yin umuman boshlanmaydi. Har bir ishtirokchiga "o'yin
+  // yaratilmadi" modal bir marta chiqsin va bosh sahifaga
+  // yo'naltirsin. Bunker bilan bir xil pattern.
+  useEffect(() => {
+    if (roomState?.room.status !== "CANCELLED") return;
+    if (!roomState.me) return;
+    const code = roomState.room.code;
+    const meId = roomState.me.id;
+    const key = `cancelled-${code}-${meId}`;
+    if (seenCancelledModalRef.current.has(key)) return;
+    seenCancelledModalRef.current.add(key);
+    setCancelledModalOpen(true);
+  }, [
+    roomState?.room.status,
+    roomState?.room.code,
+    roomState?.me?.id
+  ]);
+
+  // Warm the browser cache for every situation banner used during a
+  // Mafia round (ghost / victim / doctor save / peaceful night / talk
+  // / no-vote / winner banners). By the time the night/day cards
+  // animate in, their artwork is already cached locally.
+  useEffect(() => {
+    const sources = [
+      "/ghostimg.webp",
+      "/diedimg.webp",
+      "/doctorimg.webp",
+      "/dayimg.webp",
+      "/talkimg.webp",
+      "/novoiceimg.webp",
+      "/mafiaimg.webp",
+      "/cityimg.webp"
+    ];
+    for (const src of sources) {
+      const img = new window.Image();
+      img.src = src;
+    }
   }, []);
 
   // Prefill the join nickname from the cached auth profile so the
@@ -435,11 +480,24 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     );
   }
 
-  // Game over — winner banner + role reveal grid.
-  if (game.phase === "FINISHED" || room.status === "FINISHED") {
+  // Game over — winner banner + role reveal grid. CANCELLED rooms
+  // (host nuked the lobby before start) also land here because the
+  // service flips game.phase to FINISHED in both endGame branches.
+  if (
+    game.phase === "FINISHED" ||
+    room.status === "FINISHED" ||
+    room.status === "CANCELLED"
+  ) {
     return (
       <>
         <MafiaFinished state={roomState} />
+        <CancelledRoomModal
+          open={cancelledModalOpen}
+          onDismiss={() => {
+            setCancelledModalOpen(false);
+            router.push("/dashboard" as Route);
+          }}
+        />
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );

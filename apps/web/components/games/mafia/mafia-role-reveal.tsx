@@ -116,7 +116,7 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
             type="button"
             onClick={handleReveal}
             disabled={!role}
-            className="relative mx-auto mt-6 flex aspect-[3/4] w-full max-w-sm overflow-hidden rounded-3xl border border-line-strong bg-bg-surface shadow-pop disabled:opacity-60"
+            className="relative mx-auto mt-6 flex aspect-[15/14] w-full max-w-sm overflow-hidden rounded-3xl border border-line-strong bg-bg-surface shadow-pop disabled:opacity-60"
             aria-pressed={revealed}
             style={
               revealed && meta

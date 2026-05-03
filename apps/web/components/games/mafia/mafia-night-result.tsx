@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { MafiaSituationArt } from "./mafia-situation-art";
 import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 
 type Props = {
@@ -57,21 +58,22 @@ export function MafiaNightResult({ state }: Props) {
           <h1 className="text-2xl font-bold sm:text-3xl">Tunda nima bo'ldi?</h1>
 
           {peaceful ? (
-            <div className="grid gap-2 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-              <p className="text-3xl">🌅</p>
-              <p className="text-base font-semibold">Tinch tun</p>
+            <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
+              <MafiaSituationArt src="/dayimg.webp" alt="Tun tinch o'tdi" />
+              <p className="text-base font-semibold">Tun tinch o'tdi</p>
               <p className="text-sm text-ink-muted">Hech kim shikastlanmadi.</p>
             </div>
           ) : null}
 
           {game.lastNightDoctorSaved ? (
-            <div className="grid gap-2 rounded-3xl border border-ok/30 bg-ok/10 p-5 text-center animate-fade-in">
-              <p className="text-2xl">🩺</p>
+            <div className="grid gap-3 rounded-3xl border border-ok/30 bg-ok/10 p-5 text-center animate-fade-in">
+              <MafiaSituationArt src="/doctorimg.webp" alt="Doktor saqlab qoldi" />
               <p className="text-base font-semibold text-ok">
                 Doktor 1 fuqaroni saqlab qoldi
               </p>
               <p className="text-xs text-ink-muted">
-                Hujum sodir bo'ldi, lekin doktor o'sha kishini davolagan ekan.
+                Hujum sodir bo'ldi, lekin o'qimishli doktor o'sha kishini
+                davolagan ekan.
               </p>
             </div>
           ) : null}
@@ -81,9 +83,9 @@ export function MafiaNightResult({ state }: Props) {
             return (
               <div
                 key={v.playerId}
-                className="grid gap-2 rounded-3xl border border-bad/30 bg-bad/10 p-5 text-center animate-fade-in"
+                className="grid gap-3 rounded-3xl border border-bad/30 bg-bad/10 p-5 text-center animate-fade-in"
               >
-                <p className="text-2xl">⚰️</p>
+                <MafiaSituationArt src="/diedimg.webp" alt="Qurbon" />
                 <p className="text-base font-semibold text-bad">
                   {player?.name ?? "?"} halok bo'ldi
                 </p>
