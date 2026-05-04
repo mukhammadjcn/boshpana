@@ -15,18 +15,31 @@ import {
 let botInstance: Bot | null = null;
 
 const TELEGRAM_GROUP_URL = "https://t.me/jamoaviy_group";
+const PLAYLOAD_STARTGROUP = "play";
+const GROUP_ADMIN_ONLY_TEXT =
+  "⛔️ O'yinlarni faqat guruh adminlari boshlashi mumkin.";
 
-const WELCOME_TEXT = `👋 *Jamoaviy.uz*
+const WELCOME_TEXT = `🎮 *Jamoaviy.uz* ga xush kelibsiz!
 
-Telegram ichida do'stlaringiz bilan tezda room ochib, birga o'ynaydigan jamoaviy mini app.
+Bu yerda do'stlaringiz bilan *Mafia* va *Bunker* o'yinlari uchun room ochishingiz, tayyor xonaga kod bilan qo'shilishingiz va o'yin sahifalarini tez ochishingiz mumkin.
 
-🎮 Hozircha ikki o'yin bor: *Mafia* va *Bunker*
-🚪 Room oching yoki kod orqali tayyor xonaga qo'shiling
-👥 Yangilik va chat uchun Telegram guruhimizga ham kirishingiz mumkin
+👇 Tugmalardan birini tanlang:
+• *O'yin yaratish* — Mini App ichida room ochish
+• *Mafia o'yini* — Mafia sahifasi va qoidalari
+• *Bunker o'yini* — Bunker sahifasi va qoidalari
+• *Telegram guruhi* — chat va yangiliklar
 
 ⏱ Bir o'yin: 10–60 daqiqa
 👥 3–16 o'yinchi
 📱 To'liq mobile-friendly`;
+
+const GROUP_WELCOME_TEXT = `👋 *Rahmat, meni guruhga qo'shdingiz!*
+
+Bugun nima o'ynaymiz? Men *Jamoaviy.uz* botiman — shu guruhdagilar uchun *Mafia* va *Bunker* o'yinlarini tez boshlashga yordam beraman.
+
+👇 Adminlar */games* yoki */play* deb yozib, o'yin tugmalarini ochishi mumkin.
+
+Pastdagi tugmalar orqali o'yin sahifalarini oching, room yarating yoki community guruhimizga o'ting.`;
 
 function buildWebAppUrl(): string {
   // Telegram opens this URL inside the in-app browser. We always direct
@@ -40,15 +53,67 @@ function buildSiteUrl(path: string): string {
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function buildKeyboard(): InlineKeyboard {
-  return new InlineKeyboard()
+function buildAddToGroupUrl(): string | null {
+  const username = env.telegramBotUsername.trim().replace(/^@/, "");
+  if (!username) return null;
+  return `https://t.me/${username}?startgroup=${PLAYLOAD_STARTGROUP}`;
+}
+
+function buildStartKeyboard(): InlineKeyboard {
+  const keyboard = new InlineKeyboard()
     .webApp("🎮 O'yin yaratish", buildWebAppUrl())
     .row()
     .url("🕵️ Mafia o'yini", buildSiteUrl("/games/mafia"))
     .row()
     .url("☢️ Bunker o'yini", buildSiteUrl("/games/bunker"))
+    .row();
+
+  const addToGroupUrl = buildAddToGroupUrl();
+  if (addToGroupUrl) {
+    keyboard.url("➕ Botni guruhga qo'shish", addToGroupUrl).row();
+  }
+
+  return keyboard.url("👥 Telegram guruhi", TELEGRAM_GROUP_URL);
+}
+
+function buildGroupKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .url("🎮 O'yin yaratish", buildSiteUrl("/"))
+    .row()
+    .url("🕵️ Mafia o'yini", buildSiteUrl("/games/mafia"))
+    .url("☢️ Bunker o'yini", buildSiteUrl("/games/bunker"))
     .row()
     .url("👥 Telegram guruhi", TELEGRAM_GROUP_URL);
+}
+
+function isGroupChat(type: string) {
+  return type === "group" || type === "supergroup";
+}
+
+function isActiveStatus(status: string) {
+  return status === "member" || status === "administrator";
+}
+
+function isAdminStatus(status: string) {
+  return status === "administrator" || status === "creator";
+}
+
+async function ensureGroupAdmin(ctx: Context): Promise<boolean> {
+  if (!ctx.chat || !isGroupChat(ctx.chat.type) || !ctx.from) return true;
+
+  try {
+    const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
+    if (isAdminStatus(member.status)) {
+      return true;
+    }
+  } catch (error) {
+    console.error("[bot] getChatMember failed", error);
+    await ctx.reply("Admin huquqini tekshirib bo'lmadi. Qaytadan urinib ko'ring.");
+    return false;
+  }
+
+  await ctx.reply(GROUP_ADMIN_ONLY_TEXT);
+  return false;
 }
 
 function normalizePhone(raw: string): string | null {
@@ -76,7 +141,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
     try {
       await ctx.reply(WELCOME_TEXT, {
         parse_mode: "Markdown",
-        reply_markup: buildKeyboard()
+        reply_markup: buildStartKeyboard()
       });
     } catch (error) {
       console.error("[bot] /start handler failed", error);
@@ -86,11 +151,42 @@ export async function startTelegramBot(): Promise<Bot | null> {
   bot.command("help", async (ctx) => {
     try {
       await ctx.reply(
-        "Quyidagi tugmalardan birini tanlang: o'yin yarating, Mafia/Bunker sahifasini oching yoki Telegram guruhga o'ting.",
-        { reply_markup: buildKeyboard() }
+        "Quyidagi tugmalardan birini tanlang: o'yin yarating, Mafia/Bunker sahifasini oching, botni guruhga qo'shing yoki Telegram guruhga o'ting.",
+        { reply_markup: buildStartKeyboard() }
       );
     } catch (error) {
       console.error("[bot] /help handler failed", error);
+    }
+  });
+
+  bot.command(["games", "play"], async (ctx) => {
+    if (!(await ensureGroupAdmin(ctx))) return;
+
+    try {
+      await ctx.reply("Bugun nima o'ynaymiz? Pastdagi tugmalardan birini tanlang.", {
+        parse_mode: "Markdown",
+        reply_markup: buildGroupKeyboard()
+      });
+    } catch (error) {
+      console.error("[bot] /games handler failed", error);
+    }
+  });
+
+  bot.on("my_chat_member", async (ctx) => {
+    const chat = ctx.chat;
+    if (!isGroupChat(chat.type)) return;
+
+    const oldStatus = ctx.myChatMember.old_chat_member.status;
+    const newStatus = ctx.myChatMember.new_chat_member.status;
+    if (isActiveStatus(oldStatus) || !isActiveStatus(newStatus)) return;
+
+    try {
+      await ctx.reply(GROUP_WELCOME_TEXT, {
+        parse_mode: "Markdown",
+        reply_markup: buildGroupKeyboard()
+      });
+    } catch (error) {
+      console.error("[bot] group welcome failed", error);
     }
   });
 
