@@ -162,12 +162,16 @@ export async function startTelegramBot(): Promise<Bot | null> {
       return;
     }
     try {
+      const inGroup = isGroupChat(ctx.chat.type);
       await ctx.reply(WELCOME_TEXT, {
         parse_mode: "Markdown",
-        reply_markup: isGroupChat(ctx.chat.type)
-          ? buildUniversalKeyboard()
-          : buildPersistentPrivateKeyboard()
+        reply_markup: buildUniversalKeyboard()
       });
+      if (!inGroup) {
+        await ctx.reply("⬇️ Doimiy o'yin tugmalari pastda tayyor.", {
+          reply_markup: buildPersistentPrivateKeyboard()
+        });
+      }
     } catch (error) {
       console.error("[bot] /start handler failed", error);
     }
@@ -175,14 +179,18 @@ export async function startTelegramBot(): Promise<Bot | null> {
 
   bot.command("help", async (ctx) => {
     try {
+      const inGroup = isGroupChat(ctx.chat.type);
       await ctx.reply(
         "Quyidagi tugmalardan birini tanlang: botni guruhga qo'shing, Mafia/Bunker create sahifasini oching yoki hamjamiyat guruhiga o'ting.",
         {
-          reply_markup: isGroupChat(ctx.chat.type)
-            ? buildUniversalKeyboard()
-            : buildPersistentPrivateKeyboard()
+          reply_markup: buildUniversalKeyboard()
         }
       );
+      if (!inGroup) {
+        await ctx.reply("⬇️ Doimiy o'yin tugmalari pastda tayyor.", {
+          reply_markup: buildPersistentPrivateKeyboard()
+        });
+      }
     } catch (error) {
       console.error("[bot] /help handler failed", error);
     }

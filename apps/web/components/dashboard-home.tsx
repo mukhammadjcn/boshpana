@@ -152,11 +152,19 @@ export function DashboardHome() {
               <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
                 O'yinlar
               </p>
-              <div className="grid gap-4">
-                {games.map((game) => (
-                  <GameCardItem key={game.title} game={game} />
-                ))}
-              </div>
+              {!usage ? (
+                <div className="grid gap-4">
+                  {games.map((game) => (
+                    <GameCardSkeleton key={game.title} />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {games.map((game) => (
+                    <GameCardItem key={game.title} game={game} />
+                  ))}
+                </div>
+              )}
             </div>
 
             <button
@@ -229,6 +237,23 @@ function GameCardItem({ game }: { game: GameCard }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+function GameCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-line-subtle bg-bg-surface">
+      <div className="aspect-[16/9] w-full animate-pulse bg-bg-elevated" />
+      <div className="p-4">
+        <div className="h-6 w-28 animate-pulse rounded bg-bg-elevated" />
+        <div className="mt-2 h-4 w-3/4 animate-pulse rounded bg-bg-elevated" />
+        <div className="mt-1 h-4 w-2/3 animate-pulse rounded bg-bg-elevated" />
+        <div className="mt-4 flex items-center justify-between">
+          <div className="h-4 w-32 animate-pulse rounded bg-bg-elevated" />
+          <div className="h-4 w-12 animate-pulse rounded bg-bg-elevated" />
+        </div>
+      </div>
+    </div>
   );
 }
 
