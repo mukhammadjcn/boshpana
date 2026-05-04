@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 import {
-  applyTelegramSafeAreas,
-  readyExpand,
+  bootstrapTelegramWebApp,
   waitForTelegramWebApp
 } from "@/lib/telegram";
 
@@ -13,12 +12,13 @@ import {
 // — NOT auth. Auth flow lives on the dedicated /telegram entry page so
 // we don't bother browser visitors with a Telegram check.
 export function TelegramBootstrap() {
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (bootstrapTelegramWebApp()) return;
+
     void (async () => {
       const wa = await waitForTelegramWebApp(2000);
       if (!wa) return;
-      readyExpand();
-      applyTelegramSafeAreas();
+      bootstrapTelegramWebApp();
     })();
   }, []);
 

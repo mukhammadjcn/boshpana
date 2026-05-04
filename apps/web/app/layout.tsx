@@ -93,6 +93,42 @@ export default function RootLayout({
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
+        <Script id="telegram-safearea-bootstrap" strategy="beforeInteractive">
+          {`(function () {
+            var apply = function () {
+              var wa = window.Telegram && window.Telegram.WebApp;
+              if (!wa) return false;
+              try {
+                wa.ready && wa.ready();
+                wa.expand && wa.expand();
+                wa.requestFullscreen && wa.requestFullscreen();
+                wa.disableVerticalSwipes && wa.disableVerticalSwipes();
+                wa.setHeaderColor && wa.setHeaderColor("#0b0d12");
+                wa.setBackgroundColor && wa.setBackgroundColor("#0b0d12");
+                wa.setBottomBarColor && wa.setBottomBarColor("#0b0d12");
+              } catch (e) {}
+
+              var sa = wa.safeAreaInset || {};
+              var csa = wa.contentSafeAreaInset || {};
+              var root = document.documentElement;
+              root.style.setProperty("--tg-safe-top", ((sa.top || 0) + (csa.top || 0)) + "px");
+              root.style.setProperty("--tg-safe-bottom", ((sa.bottom || 0) + (csa.bottom || 0)) + "px");
+              root.style.setProperty("--tg-safe-left", ((sa.left || 0) + (csa.left || 0)) + "px");
+              root.style.setProperty("--tg-safe-right", ((sa.right || 0) + (csa.right || 0)) + "px");
+              if (typeof wa.viewportStableHeight === "number") {
+                root.style.setProperty("--tg-viewport-height", wa.viewportStableHeight + "px");
+              }
+              return true;
+            };
+
+            if (apply()) return;
+            var tries = 0;
+            var timer = setInterval(function () {
+              tries += 1;
+              if (apply() || tries > 80) clearInterval(timer);
+            }, 25);
+          })();`}
+        </Script>
         <TelegramBootstrap />
         {children}
         <SafeAreaBlur />

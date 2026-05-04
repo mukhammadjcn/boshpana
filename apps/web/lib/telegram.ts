@@ -86,13 +86,34 @@ export async function waitForTelegramWebApp(
   timeoutMs = 5000
 ): Promise<TgWebApp | null> {
   if (typeof window === "undefined") return null;
+  const immediate = getTelegramWebApp();
+  if (immediate?.initData) return immediate;
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const wa = getTelegramWebApp();
     if (wa && wa.initData) return wa;
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 25));
   }
   return getTelegramWebApp();
+}
+
+let telegramBootstrapped = false;
+
+export function bootstrapTelegramWebApp() {
+  const wa = getTelegramWebApp();
+  if (!wa) return null;
+
+  if (!telegramBootstrapped) {
+    readyExpand();
+    applyTelegramSafeAreas();
+    telegramBootstrapped = true;
+  } else {
+    // Safe areas can still change between openings, so keep one eager
+    // refresh even after the one-time bootstrap completed.
+    applyTelegramSafeAreas();
+  }
+
+  return wa;
 }
 
 export function readyExpand() {

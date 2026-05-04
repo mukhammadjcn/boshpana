@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { BrandMark } from "@/components/brand-mark";
 import { apiRequest } from "@/lib/api";
@@ -11,9 +11,8 @@ import {
   setAuthUser
 } from "@/lib/auth";
 import {
-  applyTelegramSafeAreas,
+  bootstrapTelegramWebApp,
   getTelegramStartParam,
-  readyExpand,
   requestContactPhone,
   waitForTelegramWebApp
 } from "@/lib/telegram";
@@ -82,16 +81,13 @@ export function TelegramAuthGate() {
   const initDataRef = useRef<string>("");
   const ranRef = useRef(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (ranRef.current) return;
     ranRef.current = true;
 
     void (async () => {
-      const wa = await waitForTelegramWebApp();
-      if (wa) {
-        readyExpand();
-        applyTelegramSafeAreas();
-      }
+      const wa = bootstrapTelegramWebApp() ?? (await waitForTelegramWebApp());
+      if (wa) bootstrapTelegramWebApp();
 
       // Already authenticated — straight to destination.
       if (getAuthToken()) {
