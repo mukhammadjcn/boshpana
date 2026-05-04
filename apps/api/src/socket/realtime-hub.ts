@@ -294,6 +294,20 @@ export class RealtimeHub {
         }
       );
 
+      socket.on("mafia:confirm_day_vote", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service || !("confirmDayVote" in service)) {
+            throw new Error("Bu xona Mafia o'yini emas.");
+          }
+          await service.confirmDayVote({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
       // Host short-circuit: skip discussion to vote, or force-resolve
       // a vote round before the timer expires.
       socket.on("mafia:advance_phase", async (payload: SocketActionPayload) => {

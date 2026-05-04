@@ -13,6 +13,7 @@ import {
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
+import { LobbyShareActions } from "@/components/lobby-share-actions";
 import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { HostControls } from "./bunker-host-controls";
@@ -20,10 +21,6 @@ import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
 import {
-  buildTelegramShareUrl,
-  buildTelegramStartappLink,
-  isInsideTelegram,
-  openTelegramLink,
   tgHaptic,
   tgHapticNotify
 } from "@/lib/telegram";
@@ -101,7 +98,6 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     return !cached || cached.room.code !== roomCode.toUpperCase();
   });
   const [origin, setOrigin] = useState("");
-  const [linkCopied, setLinkCopied] = useState(false);
   const [socketConnected, setSocketConnected] = useState(true);
   const [introOpen, setIntroOpen] = useState(false);
   const [situationOpen, setSituationOpen] = useState(false);
@@ -578,54 +574,6 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   }
 
   const inviteUrl = roomState ? `${origin || ""}/room/${roomState.room.code}` : "";
-  const tgStartappLink = roomState
-    ? buildTelegramStartappLink(roomState.room.code)
-    : null;
-  const insideTelegram = isInsideTelegram();
-
-  async function handleCopyInviteLink() {
-    if (!roomState) return;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setLinkCopied(true);
-      window.setTimeout(() => setLinkCopied(false), 1800);
-      pushToast({ kind: "success", text: "Link nusxalandi" });
-      tgHaptic("light");
-    } catch {
-      pushToast({ kind: "error", text: "Nusxalab bo‘lmadi" });
-    }
-  }
-
-  function handleTelegramShare() {
-    if (!roomState) return;
-    const linkToShare = tgStartappLink ?? inviteUrl;
-    const text = `Jamoaviy.uz — Bunker uchun ${roomState.room.code} xonasiga qo‘shiling`;
-    const shareUrl = buildTelegramShareUrl(linkToShare, text);
-    openTelegramLink(shareUrl);
-  }
-
-  async function handleShareInviteLink() {
-    if (!roomState) return;
-    // Inside Telegram: always open the native share sheet on the startapp
-    // link so recipients land in the Mini App, not the public web URL.
-    if (insideTelegram) {
-      handleTelegramShare();
-      return;
-    }
-    if (!navigator.share) {
-      await handleCopyInviteLink();
-      return;
-    }
-    try {
-      await navigator.share({
-        title: "Jamoaviy.uz",
-        text: `Room ${roomState.room.code} ga qo‘shiling`,
-        url: inviteUrl
-      });
-    } catch {
-      // user cancelled, ignore
-    }
-  }
 
   // Derived
   const room = roomState?.room;
@@ -787,7 +735,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             </div>
 
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/dashboard")}
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
               Bosh sahifa
@@ -880,7 +828,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <div className="mx-auto max-w-xl px-5 pt-safe pb-32">
           <header className="flex items-center justify-between py-3">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/dashboard")}
               className="-ml-2 flex h-10 items-center gap-1.5 rounded-xl px-2 text-sm text-ink-secondary"
             >
               <span aria-hidden>←</span> Bosh sahifa
@@ -904,62 +852,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
 
             {me.isHost ? (
               <div className="mt-4 grid gap-2">
-                {insideTelegram ? (
-                  <button
-                    onClick={handleTelegramShare}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-                  >
-                    Telegram orqali ulashish
-                  </button>
-                ) : (
-                  <>
-                    {tgStartappLink ? (
-                      <button
-                        onClick={handleTelegramShare}
-                        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#229ED9] text-sm font-semibold text-white transition active:scale-[0.98]"
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          aria-hidden
-                        >
-                          <path d="M21.9 4.5L18.7 19.8c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.1 13.1l-4.9-1.5C.1 11.3.1 10.6 1.4 10.1L20.4 2.8c1-.4 1.8.2 1.5 1.7z" />
-                        </svg>
-                        Telegram orqali ulashish
-                      </button>
-                    ) : null}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => void handleCopyInviteLink()}
-                        className={`flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition active:scale-[0.98] ${
-                          linkCopied
-                            ? "bg-ok text-bg-base"
-                            : "bg-brand text-bg-base"
-                        }`}
-                      >
-                        {linkCopied ? (
-                          <>
-                            <span aria-hidden>✓</span>
-                            Nusxalandi
-                          </>
-                        ) : (
-                          "Linkni nusxalash"
-                        )}
-                      </button>
-                      <button
-                        onClick={() => void handleShareInviteLink()}
-                        className="flex h-12 flex-1 items-center justify-center rounded-xl border border-line-strong bg-bg-elevated text-sm font-semibold"
-                      >
-                        Ulashish
-                      </button>
-                    </div>
-                  </>
-                )}
-                <p className="break-all rounded-xl bg-bg-base/60 px-3 py-2 text-xs text-ink-muted">
-                  {inviteUrl}
-                </p>
+                <LobbyShareActions
+                  roomCode={room.code}
+                  inviteUrl={inviteUrl}
+                  gameLabel="Bunker"
+                />
               </div>
             ) : null}
           </section>
@@ -1050,7 +947,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             // Send them straight to the dashboard so the click feels
             // immediate; the broadcast continues to the rest of the room
             // in the background.
-            router.push("/");
+            router.push("/dashboard");
           }}
           onClose={() => setEndGameConfirmOpen(false)}
         />
@@ -1262,7 +1159,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           {room.status === "FINISHED" ? (
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/dashboard")}
               className="flex h-14 w-full items-center justify-center rounded-2xl bg-ok text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
               Bosh sahifaga qaytish
@@ -1616,7 +1513,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 Natijani ko‘rish
               </button>
               <button
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/dashboard")}
                 className="flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold text-ink-primary"
               >
                 Bosh sahifa
@@ -1668,7 +1565,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         onConfirm={() => {
           emit("leave_room");
           setLeaveConfirmOpen(false);
-          router.push("/");
+          router.push("/dashboard");
         }}
         onClose={() => setLeaveConfirmOpen(false)}
       />
@@ -1679,7 +1576,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         open={cancelledModalOpen}
         onDismiss={() => {
           setCancelledModalOpen(false);
-          router.push("/");
+          router.push("/dashboard");
         }}
       />
 

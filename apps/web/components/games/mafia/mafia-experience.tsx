@@ -2,10 +2,18 @@
 
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
+import { LobbyShareActions } from "@/components/lobby-share-actions";
 import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { apiRequest } from "@/lib/api";
@@ -61,6 +69,19 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     !!roomState?.room &&
     roomState.room.status !== "FINISHED" &&
     roomState.room.status !== "CANCELLED";
+  const patchTimer = useCallback((remainingSeconds: number) => {
+    setRoomState((state) =>
+      state
+        ? {
+            ...state,
+            game: {
+              ...state.game,
+              remainingSeconds
+            }
+          }
+        : state
+    );
+  }, []);
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
@@ -73,6 +94,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   useEffect(() => {
     if (roomState?.room.status !== "CANCELLED") return;
     if (!roomState.me) return;
+    if (roomState.me.isHost) {
+      router.replace("/dashboard" as Route);
+      return;
+    }
     const code = roomState.room.code;
     const meId = roomState.me.id;
     const key = `cancelled-${code}-${meId}`;
@@ -80,9 +105,11 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     seenCancelledModalRef.current.add(key);
     setCancelledModalOpen(true);
   }, [
+    router,
     roomState?.room.status,
     roomState?.room.code,
-    roomState?.me?.id
+    roomState?.me?.id,
+    roomState?.me?.isHost
   ]);
 
   // Warm the browser cache for every situation banner used during a
@@ -182,6 +209,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       setRoomState(s);
       setLoading(false);
     };
+    const onTimer = ({ remainingSeconds }: { remainingSeconds: number }) => {
+      patchTimer(remainingSeconds);
+    };
     const onErr = ({ message }: { message: string }) => {
       pushToast({ kind: "error", text: message });
       setError(message);
@@ -202,6 +232,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("room_state", onState);
+    socket.on("timer_update", onTimer);
     socket.on("action_error", onErr);
     document.addEventListener("visibilitychange", onVisibility);
     socket.connect();
@@ -211,11 +242,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("room_state", onState);
+      socket.off("timer_update", onTimer);
       socket.off("action_error", onErr);
       document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
-  }, [roomCode, sessionId]);
+  }, [patchTimer, roomCode, sessionId]);
 
   function emit(event: string, payload?: Record<string, unknown>) {
     if (!sessionId) return;
@@ -362,18 +394,21 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     </div>
   ) : null;
   const myRoleMeta = getMafiaRoleMeta(roomState?.me?.role ?? null);
+  const hostPrimaryLabel = getMafiaHostPrimaryLabel(roomState);
   const showRoleReminder =
     roomState?.room.status === "PLAYING" &&
     roomState?.game.phase !== "ASSIGN_ROLES" &&
     !!roomState?.me?.role &&
+    !roomState?.me?.isHost &&
+    !hostPrimaryLabel &&
     !eliminatedModalOpen;
   const roleReminderButton = showRoleReminder ? (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-5 pb-4 pb-safe sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-2xl justify-end">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
+      <div className="mx-auto w-full max-w-xl">
         <button
           type="button"
           onClick={() => setRoleModalOpen(true)}
-          className="pointer-events-auto rounded-full border border-line-strong bg-bg-surface/95 px-4 py-2 text-sm font-semibold text-ink-primary shadow-pop backdrop-blur transition active:scale-[0.98]"
+          className="flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98]"
         >
           Mening kartam
         </button>
@@ -414,6 +449,20 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         </div>
       </div>
     ) : null;
+  const playingEndGameModal = (
+    <ConfirmModal
+      open={endGameConfirmOpen}
+      title="O'yinni tugatishni tasdiqlang"
+      description="O'yin to'xtatiladi va barcha o'yinchilar bosh sahifaga qaytadi."
+      confirmLabel="Ha, tugatish"
+      tone="danger"
+      onConfirm={() => {
+        setEndGameConfirmOpen(false);
+        emit("end_game");
+      }}
+      onClose={() => setEndGameConfirmOpen(false)}
+    />
+  );
 
   if (loading) {
     return (
@@ -610,6 +659,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           state={roomState}
           onConfirm={() => emit("mafia:confirm_role")}
         />
+        <MafiaHostDock
+          state={roomState}
+          onAdvancePhase={() => emit("mafia:advance_phase")}
+          onEndGame={() => setEndGameConfirmOpen(true)}
+        />
+        {playingEndGameModal}
         {selfEliminationModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
@@ -631,6 +686,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             emit("mafia:submit_night_action", { action, targetPlayerId })
           }
         />
+        <MafiaHostDock
+          state={roomState}
+          onAdvancePhase={() => emit("mafia:advance_phase")}
+          onEndGame={() => setEndGameConfirmOpen(true)}
+        />
+        {playingEndGameModal}
         {selfEliminationModal}
         {roleReminderButton}
         {roleReminderModal}
@@ -648,6 +709,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           closingConfirmation={closingConfirmation}
         />
         <MafiaNightResult state={roomState} />
+        <MafiaHostDock
+          state={roomState}
+          onAdvancePhase={() => emit("mafia:advance_phase")}
+          onEndGame={() => setEndGameConfirmOpen(true)}
+        />
+        {playingEndGameModal}
         {selfEliminationModal}
         {roleReminderButton}
         {roleReminderModal}
@@ -673,11 +740,17 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <MafiaDay
           state={roomState}
-          onAdvancePhase={() => emit("mafia:advance_phase")}
           onSubmitVote={(targetPlayerId) =>
             emit("mafia:submit_day_vote", { targetPlayerId })
           }
+          onConfirmVote={() => emit("mafia:confirm_day_vote")}
         />
+        <MafiaHostDock
+          state={roomState}
+          onAdvancePhase={() => emit("mafia:advance_phase")}
+          onEndGame={() => setEndGameConfirmOpen(true)}
+        />
+        {playingEndGameModal}
         {selfEliminationModal}
         {roleReminderButton}
         {roleReminderModal}
@@ -782,6 +855,81 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   );
 }
 
+function MafiaHostDock({
+  state,
+  onAdvancePhase,
+  onEndGame
+}: {
+  state: MafiaPublicState;
+  onAdvancePhase: () => void;
+  onEndGame: () => void;
+}) {
+  const me = state.me;
+  if (!me?.isHost || state.room.status !== "PLAYING") return null;
+  if (state.game.phase === "ASSIGN_ROLES" && !me.roleConfirmed) return null;
+
+  const primaryLabel = getMafiaHostPrimaryLabel(state);
+  const primaryDisabled =
+    state.game.phase === "ASSIGN_ROLES" &&
+    state.game.roleConfirmations.confirmed < state.game.roleConfirmations.total;
+
+  if (!primaryLabel) {
+    return (
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-5 pb-4 pb-safe sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-2xl justify-end">
+          <button
+            type="button"
+            onClick={onEndGame}
+            className="pointer-events-auto flex h-11 items-center justify-center rounded-full border border-bad/40 bg-bg-surface/95 px-4 text-sm font-semibold text-bad shadow-pop backdrop-blur transition active:scale-[0.98]"
+          >
+            O'yinni tugatish
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
+      <div className="mx-auto grid max-w-xl gap-2 sm:grid-cols-2">
+        {primaryLabel ? (
+          <button
+            type="button"
+            onClick={onAdvancePhase}
+            disabled={primaryDisabled}
+            className="flex h-12 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+          >
+            {primaryLabel}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onEndGame}
+          className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
+        >
+          O'yinni tugatish
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function getMafiaHostPrimaryLabel(state: MafiaPublicState | null): string | null {
+  if (!state?.me?.isHost || state.room.status !== "PLAYING") return null;
+  switch (state.game.phase) {
+    case "ASSIGN_ROLES":
+      return "Tunni boshlash";
+    case "NIGHT_RESULT":
+      return "Kunni boshlash";
+    case "DAY_DISCUSSION":
+      return "Ovoz berishni boshlash";
+    case "DAY_RESULT":
+      return "Keyingi tunni boshlash";
+    default:
+      return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Lobby view
 // ─────────────────────────────────────────────────────────────────────
@@ -816,19 +964,6 @@ function Lobby({
   const inviteUrl = typeof window !== "undefined"
     ? `${window.location.origin}/room/${room.code}`
     : "";
-  const [linkCopied, setLinkCopied] = useState(false);
-
-  async function handleCopyLink() {
-    if (!inviteUrl) return;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setLinkCopied(true);
-      window.setTimeout(() => setLinkCopied(false), 1500);
-      pushToast({ kind: "success", text: "Link nusxalandi" });
-    } catch {
-      pushToast({ kind: "error", text: "Nusxalab bo‘lmadi" });
-    }
-  }
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary pb-32">
@@ -858,22 +993,11 @@ function Lobby({
             {players.length} / {room.maxPlayers} o'yinchi
           </p>
 
-          <div className="mt-4 grid gap-2">
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className={`flex h-12 w-full items-center justify-center rounded-xl text-sm font-semibold transition active:scale-[0.98] ${
-                linkCopied
-                  ? "bg-ok text-bg-base"
-                  : "bg-brand text-bg-base"
-              }`}
-            >
-              {linkCopied ? "✓ Nusxalandi" : "Linkni nusxalash"}
-            </button>
-            <p className="break-all rounded-xl bg-bg-base/60 px-3 py-2 text-xs text-ink-muted">
-              {inviteUrl}
-            </p>
-          </div>
+          <LobbyShareActions
+            roomCode={room.code}
+            inviteUrl={inviteUrl}
+            gameLabel="Mafia"
+          />
         </section>
 
         {/* Composition preview */}

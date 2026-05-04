@@ -75,6 +75,13 @@ export function VotePanel({
         .map((p) => p.name),
     [players, tiebreakCandidateIds]
   );
+  const otherTiedNames = useMemo(
+    () =>
+      players
+        .filter((p) => tiebreakCandidateIds.includes(p.id) && p.id !== meId)
+        .map((p) => p.name),
+    [meId, players, tiebreakCandidateIds]
+  );
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -109,7 +116,9 @@ export function VotePanel({
 
   const helper = tiebreakActive
     ? meIsCandidate && !allAliveAreTied
-      ? `Siz tenglikdasiz — ${tiedNames.filter((n) => n).join(", ")} bilan teng ovoz to‘pladingiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.`
+      ? `Siz tenglikdasiz${
+          otherTiedNames.length ? ` — ${otherTiedNames.join(", ")} bilan` : ""
+        } teng ovoz to‘pladingiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.`
       : allAliveAreTied
         ? "Barchaning ovozi teng bo‘ldi — endi aniq bir odamni chiqarishga harakat qiling, bo‘lmasa tizim random odamni chiqarib yuboradi."
       : effectiveHasVoted
@@ -188,11 +197,11 @@ export function VotePanel({
                 </p>
               </div>
             </div>
-            {tiedNames.length > 1 ? (
+            {otherTiedNames.length > 0 ? (
               <p className="mt-3 text-ink-secondary">
                 Boshqa tenglikdagilar:{" "}
                 <span className="font-semibold text-ink-primary">
-                  {tiedNames.filter((n) => n !== undefined).join(", ")}
+                  {otherTiedNames.join(", ")}
                 </span>
               </p>
             ) : null}

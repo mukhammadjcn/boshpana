@@ -132,13 +132,11 @@ export function MafiaNight({ state, onSubmit }: Props) {
   if (!me.isAlive) {
     return (
       <NightShell remaining={game.remainingSeconds} night={game.nightNumber}>
-        <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-          <MafiaSituationArt src="/ghostimg.webp" alt="O'lgan o'yinchi" />
-          <p className="text-base font-semibold">Siz o'lgansiz</p>
-          <p className="text-sm text-ink-muted">
-            Tomoshabin sifatida tunni kutib turing.
-          </p>
-        </div>
+        <SpectatorPanel
+          players={players}
+          title="Siz o'lgansiz"
+          subtitle="Tomoshabin sifatida tunni kuzating, kimlar tirik qolganini ko'rib turing."
+        />
       </NightShell>
     );
   }
@@ -308,6 +306,7 @@ function SheriffView({
 }) {
   const me = state.me!;
   const shotsLeft = state.game.sheriffShotsRemaining;
+  const locked = !!me.pendingNightTargetId;
   const mode: "CHECK" | "SHOOT" =
     me.pendingNightAction === "SHERIFF_SHOOT" ? "SHOOT" : "CHECK";
 
@@ -318,13 +317,14 @@ function SheriffView({
           active={mode === "CHECK"}
           label="Tekshirish"
           subtitle="Cheksiz"
+          disabled={locked}
           onClick={() => onSubmit("SHERIFF_CHECK", me.pendingNightTargetId)}
         />
         <ModeButton
           active={mode === "SHOOT"}
           label="O'q uzish"
           subtitle={`${shotsLeft} o'q qoldi`}
-          disabled={shotsLeft === 0}
+          disabled={shotsLeft === 0 || locked}
           onClick={() => onSubmit("SHERIFF_SHOOT", me.pendingNightTargetId)}
         />
       </section>
@@ -365,6 +365,7 @@ function SheriffView({
           onSubmit(mode === "CHECK" ? "SHERIFF_CHECK" : "SHERIFF_SHOOT", id)
         }
         excludeIds={[me.id]}
+        disabled={locked}
       />
     </>
   );
@@ -449,13 +450,15 @@ function TargetGrid({
   targets,
   selectedId,
   onPick,
-  excludeIds
+  excludeIds,
+  disabled = false
 }: {
   title: string;
   targets: MafiaPublicState["players"];
   selectedId: string | null;
   onPick: (id: string) => void;
   excludeIds: string[];
+  disabled?: boolean;
 }) {
   const filtered = targets.filter((t) => !excludeIds.includes(t.id));
   return (
@@ -469,11 +472,12 @@ function TargetGrid({
               <button
                 type="button"
                 onClick={() => onPick(p.id)}
+                disabled={disabled}
                 className={`flex w-full items-center gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition active:scale-[0.98] ${
                   selected
                     ? "border-brand bg-brand/15 text-brand"
                     : "border-line-strong bg-bg-surface text-ink-primary"
-                }`}
+                } disabled:opacity-55`}
               >
                 <span
                   className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold uppercase ${
@@ -490,6 +494,44 @@ function TargetGrid({
         })}
       </ul>
     </section>
+  );
+}
+
+function SpectatorPanel({
+  players,
+  title,
+  subtitle
+}: {
+  players: MafiaPublicState["players"];
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="grid gap-4 rounded-3xl border border-line-strong bg-bg-surface p-5">
+      <div className="grid gap-3 text-center">
+        <MafiaSituationArt src="/ghostimg.webp" alt="O'lgan o'yinchi" />
+        <p className="text-base font-semibold">{title}</p>
+        <p className="text-sm text-ink-muted">{subtitle}</p>
+      </div>
+
+      <div className="grid gap-2">
+        {players.map((player) => (
+          <div
+            key={player.id}
+            className="flex items-center justify-between rounded-2xl border border-line-subtle bg-bg-base/60 px-3 py-2"
+          >
+            <span className="truncate text-sm font-medium">{player.name}</span>
+            <span
+              className={`text-[11px] font-medium uppercase tracking-wider ${
+                player.isAlive ? "text-ok" : "text-bad"
+              }`}
+            >
+              {player.isAlive ? "Tirik" : "O'lgan"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

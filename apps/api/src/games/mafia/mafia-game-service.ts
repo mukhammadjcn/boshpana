@@ -16,12 +16,10 @@ import { prisma } from "../../lib/prisma";
 
 import {
   MAFIA_DAY_DISCUSSION_DURATION_SECONDS,
-  MAFIA_DAY_RESULT_DURATION_SECONDS,
   MAFIA_DAY_TIEBREAK_DURATION_SECONDS,
   MAFIA_DAY_VOTE_DURATION_SECONDS,
   MAFIA_DOCTOR_MAX_SELF_HEALS,
   MAFIA_NIGHT_DURATION_SECONDS,
-  MAFIA_NIGHT_RESULT_DURATION_SECONDS,
   MAFIA_SHERIFF_MAX_SHOTS,
   type MafiaPublicState
 } from "./mafia-types";
@@ -335,21 +333,6 @@ export class MafiaGameService {
       where: { id: me.mafiaRole.id },
       data: { roleConfirmed: true }
     });
-
-    // Re-check: if everyone has confirmed, advance the phase. We could
-    // skip this DB round-trip by counting from the in-memory list +
-    // delta, but a fresh count is simpler and keeps the transition
-    // logic in one place.
-    const remaining = await prisma.mafiaPlayerRole.count({
-      where: {
-        gameId: room.mafiaGame.id,
-        isAlive: true,
-        roleConfirmed: false
-      }
-    });
-    if (remaining === 0) {
-      await this.advanceToNight(room.mafiaGame.id);
-    }
   }
 
   // First night begins. Subsequent nights also flow through here once
@@ -473,6 +456,21 @@ export class MafiaGameService {
     const allowed = MafiaGameService.ROLE_ACTIONS[myRole];
     if (!allowed.includes(input.action)) {
       throw new Error("Bu harakat sizning rolingizga mos kelmaydi.");
+    }
+
+    if (myRole === MafiaRole.SHERIFF) {
+      const existing = await prisma.mafiaNightSubmission.findUnique({
+        where: {
+          gameId_nightNumber_actorPlayerId: {
+            gameId: game.id,
+            nightNumber: game.nightNumber,
+            actorPlayerId: me.id
+          }
+        }
+      });
+      if (existing?.targetPlayerId) {
+        throw new Error("Komisar bu tunda faqat bitta odamni tanlay oladi.");
+      }
     }
 
     // Sheriff shoot caps — the schema column tracks usage across all
@@ -663,19 +661,15 @@ export class MafiaGameService {
         where: { id: game.id },
         data: {
           phase: MafiaPhase.NIGHT_RESULT,
-          // NIGHT_RESULT auto-advances after the reveal animation
-          // window — host doesn't need to tap anything.
-          timerEndsAt: new Date(
-            Date.now() + MAFIA_NIGHT_RESULT_DURATION_SECONDS * 1000
-          ),
+          // Host explicitly starts the day after everyone has seen the
+          // night-result reveal.
+          timerEndsAt: null,
           sheriffShotsUsed: { increment: sheriffShotIncrement },
           doctorSelfHealsUsed: { increment: doctorSelfHealIncrement },
           lastNightDoctorSaved: doctorSavedAny
         }
       });
     });
-
-    this.startTimer(roomCode);
     await this.realtime.broadcastRoomState(roomCode);
   }
 
@@ -771,6 +765,20 @@ export class MafiaGameService {
       throw new Error("Bu o'yinchi tiebreak nomzodi emas.");
     }
 
+    const existing = await prisma.mafiaDayVote.findUnique({
+      where: {
+        gameId_dayNumber_voterPlayerId_isTiebreak: {
+          gameId: game.id,
+          dayNumber: game.dayNumber,
+          voterPlayerId: me.id,
+          isTiebreak
+        }
+      }
+    });
+    if (existing?.isConfirmed) {
+      throw new Error("Tasdiqlangan ovozni o'zgartirib bo'lmaydi.");
+    }
+
     await prisma.mafiaDayVote.upsert({
       where: {
         gameId_dayNumber_voterPlayerId_isTiebreak: {
@@ -789,23 +797,62 @@ export class MafiaGameService {
       },
       update: {
         targetPlayerId: target.id,
-        createdAt: new Date()
+        createdAt: new Date(),
+        isConfirmed: false
       }
     });
+  }
 
-    // Auto-resolve once every alive player has voted — keeps the day
-    // snappy when the table reaches consensus before the timer.
+  async confirmDayVote(input: RoomCodeAction) {
+    const room = await this.getRoomWithState(input.code);
+    if (!room || !room.mafiaGame) throw new Error("Room state topilmadi.");
+    if (room.gameType !== GameType.MAFIA) {
+      throw new Error("Bu Mafia o'yini emas.");
+    }
+    const game = room.mafiaGame;
+    if (
+      game.phase !== MafiaPhase.DAY_VOTE &&
+      game.phase !== MafiaPhase.DAY_TIEBREAK
+    ) {
+      throw new Error("Hozir ovoz berish bosqichi emas.");
+    }
+    const me = room.players.find((p) => p.sessionId === input.sessionId);
+    if (!me || !me.mafiaRole) throw new Error("O'yinchi topilmadi.");
+    if (!me.mafiaRole.isAlive) throw new Error("O'lganlar ovoz bermaydi.");
+
+    const isTiebreak = game.phase === MafiaPhase.DAY_TIEBREAK;
+    const vote = await prisma.mafiaDayVote.findUnique({
+      where: {
+        gameId_dayNumber_voterPlayerId_isTiebreak: {
+          gameId: game.id,
+          dayNumber: game.dayNumber,
+          voterPlayerId: me.id,
+          isTiebreak
+        }
+      }
+    });
+    if (!vote) {
+      throw new Error("Avval kimga ovoz berishni tanlang.");
+    }
+    if (vote.isConfirmed) return;
+
+    await prisma.mafiaDayVote.update({
+      where: { id: vote.id },
+      data: { isConfirmed: true }
+    });
+
     const aliveCount = room.players.filter(
       (p) => p.mafiaRole?.isAlive
     ).length;
-    const submittedCount = await prisma.mafiaDayVote.count({
+    const confirmedCount = await prisma.mafiaDayVote.count({
       where: {
         gameId: game.id,
         dayNumber: game.dayNumber,
-        isTiebreak
+        isTiebreak,
+        isConfirmed: true
       }
     });
-    if (submittedCount >= aliveCount) {
+    if (confirmedCount >= aliveCount) {
       await this.resolveDayVote(input.code);
     }
   }
@@ -910,16 +957,13 @@ export class MafiaGameService {
         where: { id: game.id },
         data: {
           phase: MafiaPhase.DAY_RESULT,
-          // Reveal animation window — auto-advances to the next NIGHT
-          // (or FINISHED if the elimination decided the game).
-          timerEndsAt: new Date(
-            Date.now() + MAFIA_DAY_RESULT_DURATION_SECONDS * 1000
-          ),
+          // Host explicitly starts the next night after the table has
+          // seen the day-result reveal.
+          timerEndsAt: null,
           tiebreakCandidateIds: []
         }
       });
     });
-    this.startTimer(room.code);
     await this.realtime.broadcastRoomState(room.code);
   }
 
@@ -944,7 +988,18 @@ export class MafiaGameService {
     const room = await this.requireHostRoom(input);
     if (!room.mafiaGame) throw new Error("O'yin state topilmadi.");
     const phase = room.mafiaGame.phase;
-    if (phase === MafiaPhase.DAY_DISCUSSION) {
+    if (phase === MafiaPhase.ASSIGN_ROLES) {
+      const aliveWithRole = room.players.filter((p) => p.mafiaRole?.isAlive);
+      const allConfirmed = aliveWithRole.every(
+        (p) => p.mafiaRole?.roleConfirmed === true
+      );
+      if (!allConfirmed) {
+        throw new Error("Avval hamma rolini tasdiqlasin.");
+      }
+      await this.advanceToNight(room.mafiaGame.id);
+    } else if (phase === MafiaPhase.NIGHT_RESULT) {
+      await this.advanceFromNightResult(input.code);
+    } else if (phase === MafiaPhase.DAY_DISCUSSION) {
       this.stopTimer(input.code);
       await this.advanceToDayVote(input.code);
     } else if (
@@ -953,9 +1008,9 @@ export class MafiaGameService {
     ) {
       this.stopTimer(input.code);
       await this.resolveDayVote(input.code);
+    } else if (phase === MafiaPhase.DAY_RESULT) {
+      await this.advanceFromDayResult(input.code);
     }
-    // NIGHT / NIGHT_RESULT / DAY_RESULT advance on their own timers —
-    // no host override needed.
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -1213,6 +1268,9 @@ export class MafiaGameService {
         ? dayVotesThisRound.find((v) => v.voterPlayerId === me.id) ?? null
         : null;
     const submittedByMe = myDayVote != null;
+    const voteConfirmedCount = dayVotesThisRound.filter(
+      (v) => v.isConfirmed
+    ).length;
 
     // Last day-vote elimination — for the DAY_RESULT screen. Like the
     // night-victims derivation, we read it off MafiaPlayerRole rows.
@@ -1291,7 +1349,12 @@ export class MafiaGameService {
       votes: {
         total: dayVotesThisRound.length,
         submittedByMe,
-        myTargetPlayerId: myDayVote?.targetPlayerId ?? null
+        myTargetPlayerId: myDayVote?.targetPlayerId ?? null,
+        confirmedByMe: myDayVote?.isConfirmed ?? false,
+        confirmations: {
+          confirmed: voteConfirmedCount,
+          total: room.players.filter((p) => p.mafiaRole?.isAlive).length
+        }
       }
     };
   }

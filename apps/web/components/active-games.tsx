@@ -15,6 +15,7 @@ type ActiveGameItem = {
   name: string;
   room: {
     code: string;
+    gameType: "BUNKER" | "MAFIA";
     status: "LOBBY" | "PLAYING" | "FINISHED" | "CANCELLED";
     createdAt: string;
     phase: string;
@@ -109,7 +110,10 @@ export function ActiveGames() {
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
-                {it.room.disasterName ?? "Yangi o'yin"}{" "}
+                {it.room.disasterName ??
+                  (it.room.gameType === "MAFIA"
+                    ? "Mafia o'yini"
+                    : "Bunker o'yini")}{" "}
                 <span className="text-ink-muted">· {it.room.code}</span>
               </p>
               <p className="text-xs text-ink-secondary">

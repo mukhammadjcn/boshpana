@@ -7,8 +7,8 @@ import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 
 type Props = {
   state: MafiaPublicState;
-  onAdvancePhase: () => void;
   onSubmitVote: (targetPlayerId: string) => void;
+  onConfirmVote: () => void;
 };
 
 const roleLabel: Record<MafiaRole, string> = {
@@ -21,17 +21,21 @@ const roleLabel: Record<MafiaRole, string> = {
 // Kun bosqichi — muhokama (3 daq) → ovoz berish (60s) → kerak bo'lsa
 // tiebreak (30s) → natija (6s reveal). Har bir sub-view alohida shell
 // ichida render qilinadi.
-export function MafiaDay({ state, onAdvancePhase, onSubmitVote }: Props) {
+export function MafiaDay({
+  state,
+  onSubmitVote,
+  onConfirmVote
+}: Props) {
   const phase = state.game.phase;
   if (phase === "DAY_DISCUSSION") {
-    return <Discussion state={state} onAdvancePhase={onAdvancePhase} />;
+    return <Discussion state={state} />;
   }
   if (phase === "DAY_VOTE" || phase === "DAY_TIEBREAK") {
     return (
       <VoteView
         state={state}
         onSubmitVote={onSubmitVote}
-        onAdvancePhase={onAdvancePhase}
+        onConfirmVote={onConfirmVote}
       />
     );
   }
@@ -113,13 +117,7 @@ function DayShell({
 // DAY_DISCUSSION — 3-minute talk window; host can skip to vote
 // ─────────────────────────────────────────────────────────────────────
 
-function Discussion({
-  state,
-  onAdvancePhase
-}: {
-  state: MafiaPublicState;
-  onAdvancePhase: () => void;
-}) {
+function Discussion({ state }: { state: MafiaPublicState }) {
   const { game, players, me } = state;
   const aliveCount = players.filter((p) => p.isAlive).length;
 
@@ -166,15 +164,6 @@ function Discussion({
           ))}
       </ul>
 
-      {me?.isHost ? (
-        <button
-          type="button"
-          onClick={onAdvancePhase}
-          className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-        >
-          Ovoz berish
-        </button>
-      ) : null}
     </DayShell>
   );
 }
@@ -186,17 +175,18 @@ function Discussion({
 function VoteView({
   state,
   onSubmitVote,
-  onAdvancePhase
+  onConfirmVote
 }: {
   state: MafiaPublicState;
   onSubmitVote: (targetPlayerId: string) => void;
-  onAdvancePhase: () => void;
+  onConfirmVote: () => void;
 }) {
   const { game, players, me, votes } = state;
   const isTiebreak = game.phase === "DAY_TIEBREAK";
   const totalSeconds = isTiebreak ? 30 : 60;
   const myTargetPlayerId = votes.myTargetPlayerId;
   const myTarget = players.find((p) => p.id === myTargetPlayerId) ?? null;
+  const selectedLocked = votes.confirmedByMe;
 
   // For tiebreak, only the tied candidates are eligible. Otherwise any
   // alive non-self player can be voted.
@@ -224,13 +214,11 @@ function VoteView({
       badge={`${votes.total} / ${aliveCount}`}
     >
       {!me?.isAlive ? (
-        <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-5 text-center">
-          <MafiaSituationArt src="/ghostimg.webp" alt="O'lgan o'yinchi" />
-          <p className="text-base font-semibold">Siz o'lgansiz</p>
-          <p className="text-sm text-ink-muted">
-            Tomoshabin sifatida natijani kuting.
-          </p>
-        </div>
+        <SpectatorPanel
+          players={players}
+          title="Siz o'lgansiz"
+          subtitle="Tomoshabin sifatida ovoz natijasini va kimlar qolganini kuzatib turing."
+        />
       ) : (
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {candidates.map((p) => {
@@ -240,11 +228,12 @@ function VoteView({
                 <button
                   type="button"
                   onClick={() => onSubmitVote(p.id)}
+                  disabled={selectedLocked}
                   className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition active:scale-[0.98] ${
                     selected
                       ? "border-brand bg-brand/15 text-brand"
                       : "border-line-strong bg-bg-surface text-ink-primary"
-                  }`}
+                  } disabled:opacity-55`}
                 >
                   <span
                     className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold uppercase ${
@@ -276,23 +265,39 @@ function VoteView({
         </p>
       ) : null}
 
+      <div className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
+          Tasdiqlanganlar
+        </p>
+        <p className="mt-1 font-mono text-lg font-semibold text-brand">
+          {votes.confirmations.confirmed} / {votes.confirmations.total}
+        </p>
+      </div>
+
       <p
         className={`text-center text-xs ${
-          votes.submittedByMe ? "text-ok" : "text-ink-muted"
+          votes.confirmedByMe
+            ? "text-ok"
+            : votes.submittedByMe
+              ? "text-brand"
+              : "text-ink-muted"
         }`}
       >
-        {votes.submittedByMe
-          ? "✓ Ovozingiz qabul qilindi (qayta tanlasangiz, almashtirasiz)"
+        {votes.confirmedByMe
+          ? "✓ Ovozingiz tasdiqlandi"
+          : votes.submittedByMe
+            ? "Nomzod tanlandi — endi tasdiqlang"
           : "Hali ovoz bermadingiz"}
       </p>
 
-      {me?.isHost ? (
+      {me?.isAlive ? (
         <button
           type="button"
-          onClick={onAdvancePhase}
-          className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+          onClick={onConfirmVote}
+          disabled={!myTarget || votes.confirmedByMe}
+          className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
         >
-          Ovozni yakunlash
+          {votes.confirmedByMe ? "Tasdiqlandi" : "Ovozni tasdiqlash"}
         </button>
       ) : null}
     </DayShell>
@@ -336,5 +341,43 @@ function ResultView({ state }: { state: MafiaPublicState }) {
         </div>
       )}
     </DayShell>
+  );
+}
+
+function SpectatorPanel({
+  players,
+  title,
+  subtitle
+}: {
+  players: MafiaPublicState["players"];
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="grid gap-4 rounded-3xl border border-line-strong bg-bg-surface p-5">
+      <div className="grid gap-3 text-center">
+        <MafiaSituationArt src="/ghostimg.webp" alt="O'lgan o'yinchi" />
+        <p className="text-base font-semibold">{title}</p>
+        <p className="text-sm text-ink-muted">{subtitle}</p>
+      </div>
+
+      <div className="grid gap-2">
+        {players.map((player) => (
+          <div
+            key={player.id}
+            className="flex items-center justify-between rounded-2xl border border-line-subtle bg-bg-base/60 px-3 py-2"
+          >
+            <span className="truncate text-sm font-medium">{player.name}</span>
+            <span
+              className={`text-[11px] font-medium uppercase tracking-wider ${
+                player.isAlive ? "text-ok" : "text-bad"
+              }`}
+            >
+              {player.isAlive ? "Tirik" : "O'lgan"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

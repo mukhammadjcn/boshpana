@@ -378,6 +378,7 @@ model MafiaDayVote {
   voter          Player   @relation("MafiaVotesCast", fields: [voterPlayerId], references: [id], onDelete: Cascade)
   targetPlayerId String
   target         Player   @relation("MafiaVotesReceived", fields: [targetPlayerId], references: [id], onDelete: Cascade)
+  isConfirmed    Boolean  @default(false)
   // Tiebreak votes are tracked separately so the resolver can score
   // them in isolation without merging with the first-pass tally.
   isTiebreak     Boolean  @default(false)

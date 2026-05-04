@@ -118,7 +118,7 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
               />
             </div>
             <p className="mt-2 text-xs text-ink-muted">
-              Hamma rolini tasdiqlasa — birinchi tun avtomatik boshlanadi.
+              Hamma rolini tasdiqlagach, host birinchi tunni boshlaydi.
             </p>
           </div>
         </section>

@@ -114,5 +114,10 @@ export type MafiaPublicState = {
     total: number;
     submittedByMe: boolean;
     myTargetPlayerId: string | null;
+    confirmedByMe: boolean;
+    confirmations: {
+      confirmed: number;
+      total: number;
+    };
   };
 };

@@ -238,7 +238,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: {
           room: {
             include: {
-              bunkerGame: { include: { disaster: true } }
+              bunkerGame: { include: { disaster: true } },
+              mafiaGame: true
             }
           }
         },
@@ -252,9 +253,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           name: p.name,
           room: {
             code: p.room.code,
+            gameType: p.room.gameType,
             status: p.room.status,
             createdAt: p.room.createdAt.toISOString(),
-            phase: p.room.bunkerGame?.phase ?? "LOBBY",
+            phase:
+              p.room.gameType === "MAFIA"
+                ? (p.room.mafiaGame?.phase ?? "LOBBY")
+                : (p.room.bunkerGame?.phase ?? "LOBBY"),
             disasterName: p.room.bunkerGame?.disaster?.name ?? null
           }
         }))
