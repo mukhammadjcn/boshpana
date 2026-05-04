@@ -31,26 +31,7 @@ export function RoomExpiredState({
 
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md items-center">
         <section className="w-full rounded-[28px] border border-line-subtle bg-bg-surface p-5 shadow-card">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-bad/12 text-bad">
-            <svg
-              width="26"
-              height="26"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
-              <path d="M14 3v6h6" />
-              <path d="m9 15 6-6" />
-              <path d="m15 15-6-6" />
-            </svg>
-          </div>
-
-          <p className="mt-5 text-xs font-medium uppercase tracking-[0.25em] text-bad">
+          <p className="text-xs font-medium uppercase tracking-[0.25em] text-bad">
             Xona yopilgan
           </p>
           <h1 className="mt-2 text-2xl font-bold leading-tight">

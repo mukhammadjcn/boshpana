@@ -22,6 +22,52 @@ const GROUP_ADMIN_ONLY_TEXT =
 const COMMUNITY_BUTTON_TEXT = "👥 Hamjamiyat guruhi";
 const INVISIBLE_MESSAGE = "\u2060";
 
+const BUNKER_INFO_TEXT = `☢️ *Bunker o'yini haqida*
+
+Bu o'yinda guruh global falokatdan keyin kichik bunkerga kimlar kirishini hal qiladi. Har bir o'yinchi yashirin kartalar bilan chiqadi: kasb, sog'liq, yosh, qo'shimcha ko'nikma, buyum va ba'zan foydali yoki xavfli sirlar.
+
+O'yin odatda shunday davom etadi:
+1. Har kim o'z kartalarining bir qismini navbat bilan ochadi.
+2. O'yinchilar o'zini bunker uchun nima sabab foydali ekanini isbotlaydi.
+3. Davra bo'lib muhokama, shubha va pitch ketadi.
+4. Har raund oxirida guruh kimdir chiqib ketishi uchun ovoz beradi.
+5. Oxirida eng mos tarkib bunkerni egallaydi.
+
+Bu o'yinda asosiy kuch:
+• gapira olish va o'zingizni sotish
+• boshqalarni savollar bilan ochish
+• jamoaga haqiqatan kerak bo'ladigan kombinatsiyani topish
+
+Kartalar o'yinni bir xil qilmaydi: ba'zan kuchli kasbni yomon sog'liq buzadi, ba'zan esa oddiy ko'ringan rol noyob vaziyatda eng keraklisiga aylanadi.
+
+*Bunker o'yini haqida* yana shu komanda bilan qayta o'qish mumkin: */playbunker*
+*Mafia o'yini haqida* bilish uchun: */playmafia*`;
+
+const MAFIA_INFO_TEXT = `🕵️ *Mafia o'yini haqida*
+
+Mafia — yashirin rollarga qurilgan strategik va psixologik o'yin. O'yinchilar ikki katta tomonga bo'linadi: tinch aholi va yashirin jinoyatchilar. Har kimning roli boshqalardan yashirin bo'ladi.
+
+O'yin odatda ikki fazada o'tadi:
+1. *Tun* — maxsus rollar navbat bilan harakat qiladi.
+2. *Kun* — hamma muhokama qiladi, gumon bildiradi va ovoz beradi.
+
+O'yindagi asosiy rollar:
+• *Mafia* — yashirincha o'yinchilarni kamaytiradi
+• *Komissar* — tekshiradi va shubhalarni aniqlaydi
+• *Doktor* — kimnidir saqlab qolishga urinadi
+• *Tinch aholi* — kuzatadi, eslab qoladi va mantiq bilan topadi
+
+O'yin davomida eng muhimi:
+• kim qachon nima deganini eslab qolish
+• qarama-qarshi gaplarni topish
+• yolg'onni ishonchli gapdan ajratish
+• jamoa bo'lib to'g'ri odamni chiqarish
+
+Har raundda vaziyat o'zgaradi: birgina noto'g'ri ovoz butun o'yin balansini o'zgartirib yuborishi mumkin. Shu sabab Mafia ko'proq kuzatuv, mantiq va blefga tayanadi.
+
+*Mafia o'yini haqida* yana shu komanda bilan qayta o'qish mumkin: */playmafia*
+*Bunker o'yini haqida* bilish uchun: */playbunker*`;
+
 const WELCOME_TEXT = `🎮 *Jamoaviy.uz* ga xush kelibsiz!
 
 Bu yerda do'stlaringiz bilan *Mafia* va *Bunker* o'yinlari uchun room ochishingiz va tayyor xonaga qo'shilishingiz mumkin.
@@ -119,6 +165,27 @@ function buildGroupGamesKeyboard(): InlineKeyboard {
   }
 
   return keyboard.url("👥 Hamjamiyat guruhi", TELEGRAM_GROUP_URL);
+}
+
+function buildGameInfoKeyboard(
+  label: string,
+  startParam: "create_bunker" | "create_mafia"
+): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
+  const addToGroupUrl = buildAddToGroupUrl();
+  const startLink = buildStartAppLink(startParam) ?? buildWebAppUrl();
+
+  keyboard.url(label, startLink).row();
+
+  if (addToGroupUrl) {
+    keyboard
+      .url("➕ Botni guruhga qo'shish", addToGroupUrl)
+      .url("👥 Hamjamiyat guruhi", TELEGRAM_GROUP_URL);
+  } else {
+    keyboard.url("👥 Hamjamiyat guruhi", TELEGRAM_GROUP_URL);
+  }
+
+  return keyboard;
 }
 
 function buildPersistentPrivateKeyboard(): Keyboard {
@@ -257,6 +324,34 @@ export async function startTelegramBot(): Promise<Bot | null> {
       });
     } catch (error) {
       console.error("[bot] /games handler failed", error);
+    }
+  });
+
+  bot.command("playbunker", async (ctx) => {
+    try {
+      await ctx.reply(BUNKER_INFO_TEXT, {
+        parse_mode: "Markdown",
+        reply_markup: buildGameInfoKeyboard(
+          "☢️ Bunker o'yinini boshlash",
+          "create_bunker"
+        )
+      });
+    } catch (error) {
+      console.error("[bot] /playbunker handler failed", error);
+    }
+  });
+
+  bot.command("playmafia", async (ctx) => {
+    try {
+      await ctx.reply(MAFIA_INFO_TEXT, {
+        parse_mode: "Markdown",
+        reply_markup: buildGameInfoKeyboard(
+          "🕵️ Mafia o'yinini boshlash",
+          "create_mafia"
+        )
+      });
+    } catch (error) {
+      console.error("[bot] /playmafia handler failed", error);
     }
   });
 

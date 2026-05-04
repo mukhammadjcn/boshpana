@@ -2,7 +2,6 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 
-import { BrandMark } from "@/components/brand-mark";
 import { apiRequest } from "@/lib/api";
 import {
   type AuthUser,
@@ -166,8 +165,7 @@ export function TelegramAuthGate() {
   if (stage.kind === "loading" || stage.kind === "outside") {
     return (
       <main className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-bg-base px-6 text-ink-primary">
-        <BrandMark size={128} className="rounded-[2rem] shadow-pop" />
-        <p className="mt-6 text-xs font-medium uppercase tracking-[0.3em] text-brand">
+        <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand">
           Jamoaviy.uz
         </p>
         <div className="mt-3 flex items-center gap-2 text-sm text-ink-secondary">
