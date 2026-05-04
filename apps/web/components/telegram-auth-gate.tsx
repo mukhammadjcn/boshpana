@@ -21,6 +21,16 @@ import {
 function resolveStartParamPath(): string | null {
   const param = getTelegramStartParam();
   if (!param) return null;
+  const normalized = param.trim().toLowerCase();
+
+  if (normalized === "page_mafia" || normalized === "mafia") {
+    return "/games/mafia";
+  }
+
+  if (normalized === "page_bunker" || normalized === "bunker") {
+    return "/games/bunker";
+  }
+
   // Accept either a bare room code or `room_<code>` style payloads.
   const code = param.replace(/^room[_-]?/i, "").toUpperCase();
   if (!/^[A-Z0-9]{4,8}$/.test(code)) return null;

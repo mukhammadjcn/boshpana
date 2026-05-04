@@ -24,7 +24,7 @@ const WELCOME_TEXT = `🎮 *Jamoaviy.uz* ga xush kelibsiz!
 Bu yerda do'stlaringiz bilan *Mafia* va *Bunker* o'yinlari uchun room ochishingiz, tayyor xonaga kod bilan qo'shilishingiz va o'yin sahifalarini tez ochishingiz mumkin.
 
 👇 Tugmalardan birini tanlang:
-• *O'yin yaratish* — Mini App ichida room ochish
+• *O'yinni boshlash* — Mini App ichida room ochish
 • *Mafia o'yini* — Mafia sahifasi va qoidalari
 • *Bunker o'yini* — Bunker sahifasi va qoidalari
 • *Telegram guruhi* — chat va yangiliklar
@@ -48,9 +48,14 @@ function buildWebAppUrl(): string {
   return `${base}/telegram`;
 }
 
-function buildSiteUrl(path: string): string {
-  const base = env.telegramWebAppUrl.replace(/\/$/, "");
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+function buildStartAppLink(startParam: string): string | null {
+  const username = env.telegramBotUsername.trim().replace(/^@/, "");
+  if (!username) return null;
+  const param = encodeURIComponent(startParam);
+  if (env.telegramWebAppName) {
+    return `https://t.me/${username}/${env.telegramWebAppName}?startapp=${param}`;
+  }
+  return `https://t.me/${username}?startapp=${param}`;
 }
 
 function buildAddToGroupUrl(): string | null {
@@ -60,30 +65,33 @@ function buildAddToGroupUrl(): string | null {
 }
 
 function buildStartKeyboard(): InlineKeyboard {
-  const keyboard = new InlineKeyboard()
-    .webApp("🎮 O'yin yaratish", buildWebAppUrl())
-    .row()
-    .url("🕵️ Mafia o'yini", buildSiteUrl("/games/mafia"))
-    .row()
-    .url("☢️ Bunker o'yini", buildSiteUrl("/games/bunker"))
-    .row();
+  const mafiaLink = buildStartAppLink("page_mafia");
+  const bunkerLink = buildStartAppLink("page_bunker");
 
+  return new InlineKeyboard()
+    .webApp("🎮 O'yinni boshlash", buildWebAppUrl())
+    .row()
+    .url("🕵️ Mafia o'yini", mafiaLink ?? buildWebAppUrl())
+    .url("☢️ Bunker o'yini", bunkerLink ?? buildWebAppUrl())
+    .row()
+    .url("👥 Telegram guruhi", TELEGRAM_GROUP_URL);
+}
+
+function buildGroupKeyboard(): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
   const addToGroupUrl = buildAddToGroupUrl();
+  const mafiaLink = buildStartAppLink("page_mafia");
+  const bunkerLink = buildStartAppLink("page_bunker");
+
   if (addToGroupUrl) {
     keyboard.url("➕ Botni guruhga qo'shish", addToGroupUrl).row();
   }
 
-  return keyboard.url("👥 Telegram guruhi", TELEGRAM_GROUP_URL);
-}
-
-function buildGroupKeyboard(): InlineKeyboard {
-  return new InlineKeyboard()
-    .url("🎮 O'yin yaratish", buildSiteUrl("/"))
+  return keyboard
+    .url("🕵️ Mafia o'yini", mafiaLink ?? buildWebAppUrl())
+    .url("☢️ Bunker o'yini", bunkerLink ?? buildWebAppUrl())
     .row()
-    .url("🕵️ Mafia o'yini", buildSiteUrl("/games/mafia"))
-    .url("☢️ Bunker o'yini", buildSiteUrl("/games/bunker"))
-    .row()
-    .url("👥 Telegram guruhi", TELEGRAM_GROUP_URL);
+    .url("👥 Hamjamiyat guruhi", TELEGRAM_GROUP_URL);
 }
 
 function isGroupChat(type: string) {
