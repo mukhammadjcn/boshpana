@@ -1,4 +1,10 @@
-import { Bot, type CommandContext, type Context, InlineKeyboard, Keyboard } from "grammy";
+import {
+  Bot,
+  type CommandContext,
+  type Context,
+  InlineKeyboard,
+  Keyboard,
+} from "grammy";
 
 type BotCtx = CommandContext<Context>;
 
@@ -9,7 +15,7 @@ import {
   getAuthSession,
   getAuthSessionByBotHash,
   getAuthSessionByChatId,
-  updateAuthSession
+  updateAuthSession,
 } from "../services/auth-session-store";
 
 let botInstance: Bot | null = null;
@@ -86,7 +92,8 @@ const GROUP_WELCOME_TEXT = `👋 *Rahmat, meni guruhga qo'shdingiz!*
 
 Bugun nima o'ynaymiz? Men *Jamoaviy.uz* botiman — shu guruhdagilar uchun *Mafia* va *Bunker* o'yinlarini tez boshlashga yordam beraman.
 
-👇 Adminlar */games* yoki */play* deb yozib, o'yin tugmalarini ochishi mumkin.
+Bunker o'yini haqida bilish uchun: /playbunker
+Mafia o'yini haqida bilish uchun: /playmafia
 
 Pastdagi tugmalar orqali yangi guruhga bot qo'shing, Mafia/Bunker create sahifalarini oching yoki hamjamiyat guruhiga o'ting.`;
 
@@ -169,7 +176,7 @@ function buildGroupGamesKeyboard(): InlineKeyboard {
 
 function buildGameInfoKeyboard(
   label: string,
-  startParam: "create_bunker" | "create_mafia"
+  startParam: "create_bunker" | "create_mafia",
 ): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   const addToGroupUrl = buildAddToGroupUrl();
@@ -195,7 +202,7 @@ function buildPersistentPrivateKeyboard(): Keyboard {
     .webApp("🕵️ Mafia o'yini", buildTelegramEntryUrl("/dashboard/create/mafia"))
     .webApp(
       "☢️ Bunker o'yini",
-      buildTelegramEntryUrl("/dashboard/create/bunker")
+      buildTelegramEntryUrl("/dashboard/create/bunker"),
     )
     .row()
     .text(COMMUNITY_BUTTON_TEXT)
@@ -206,10 +213,10 @@ function buildPersistentPrivateKeyboard(): Keyboard {
 
 async function refreshPrivateKeyboard(ctx: Context) {
   await ctx.reply("♻️ Tugmalar yangilanmoqda...", {
-    reply_markup: { remove_keyboard: true }
+    reply_markup: { remove_keyboard: true },
   });
   await ctx.reply(INVISIBLE_MESSAGE, {
-    reply_markup: buildPersistentPrivateKeyboard()
+    reply_markup: buildPersistentPrivateKeyboard(),
   });
 }
 
@@ -235,7 +242,9 @@ async function ensureGroupAdmin(ctx: Context): Promise<boolean> {
     }
   } catch (error) {
     console.error("[bot] getChatMember failed", error);
-    await ctx.reply("Admin huquqini tekshirib bo'lmadi. Qaytadan urinib ko'ring.");
+    await ctx.reply(
+      "Admin huquqini tekshirib bo'lmadi. Qaytadan urinib ko'ring.",
+    );
     return false;
   }
 
@@ -269,11 +278,11 @@ export async function startTelegramBot(): Promise<Bot | null> {
       const inGroup = isGroupChat(ctx.chat.type);
       await ctx.reply(WELCOME_TEXT, {
         parse_mode: "Markdown",
-        reply_markup: buildEntryInlineKeyboard()
+        reply_markup: buildEntryInlineKeyboard(),
       });
-      if (!inGroup) {
-        await refreshPrivateKeyboard(ctx);
-      }
+      // if (!inGroup) {
+      //   await refreshPrivateKeyboard(ctx);
+      // }
     } catch (error) {
       console.error("[bot] /start handler failed", error);
     }
@@ -285,12 +294,12 @@ export async function startTelegramBot(): Promise<Bot | null> {
       await ctx.reply(
         "Quyidagi tugmalardan birini tanlang: botni guruhga qo'shing, Mafia/Bunker create sahifasini oching yoki hamjamiyat guruhiga o'ting.",
         {
-          reply_markup: buildEntryInlineKeyboard()
-        }
+          reply_markup: buildEntryInlineKeyboard(),
+        },
       );
-      if (!inGroup) {
-        await refreshPrivateKeyboard(ctx);
-      }
+      // if (!inGroup) {
+      //   await refreshPrivateKeyboard(ctx);
+      // }
     } catch (error) {
       console.error("[bot] /help handler failed", error);
     }
@@ -305,9 +314,9 @@ export async function startTelegramBot(): Promise<Bot | null> {
           parse_mode: "Markdown",
           reply_markup: new InlineKeyboard().url(
             "👥 Guruhga kirish",
-            TELEGRAM_GROUP_URL
-          )
-        }
+            TELEGRAM_GROUP_URL,
+          ),
+        },
       );
     } catch (error) {
       console.error("[bot] community handler failed", error);
@@ -318,10 +327,13 @@ export async function startTelegramBot(): Promise<Bot | null> {
     if (!(await ensureGroupAdmin(ctx))) return;
 
     try {
-      await ctx.reply("Bugun nima o'ynaymiz? Pastdagi tugmalardan birini tanlang.", {
-        parse_mode: "Markdown",
-        reply_markup: buildGroupGamesKeyboard()
-      });
+      await ctx.reply(
+        "Bugun nima o'ynaymiz? Pastdagi tugmalardan birini tanlang.",
+        {
+          parse_mode: "Markdown",
+          reply_markup: buildGroupGamesKeyboard(),
+        },
+      );
     } catch (error) {
       console.error("[bot] /games handler failed", error);
     }
@@ -333,8 +345,8 @@ export async function startTelegramBot(): Promise<Bot | null> {
         parse_mode: "Markdown",
         reply_markup: buildGameInfoKeyboard(
           "☢️ Bunker o'yinini boshlash",
-          "create_bunker"
-        )
+          "create_bunker",
+        ),
       });
     } catch (error) {
       console.error("[bot] /playbunker handler failed", error);
@@ -347,8 +359,8 @@ export async function startTelegramBot(): Promise<Bot | null> {
         parse_mode: "Markdown",
         reply_markup: buildGameInfoKeyboard(
           "🕵️ Mafia o'yinini boshlash",
-          "create_mafia"
-        )
+          "create_mafia",
+        ),
       });
     } catch (error) {
       console.error("[bot] /playmafia handler failed", error);
@@ -366,7 +378,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
     try {
       await ctx.reply(GROUP_WELCOME_TEXT, {
         parse_mode: "Markdown",
-        reply_markup: buildEntryInlineKeyboard()
+        reply_markup: buildEntryInlineKeyboard(),
       });
     } catch (error) {
       console.error("[bot] group welcome failed", error);
@@ -382,14 +394,14 @@ export async function startTelegramBot(): Promise<Bot | null> {
     ) {
       await ctx.reply(
         "Iltimos, faqat o'zingizning telefon raqamingizni ulashing.",
-        { reply_markup: { remove_keyboard: true } }
+        { reply_markup: { remove_keyboard: true } },
       );
       return;
     }
     const phone = normalizePhone(contact.phone_number);
     if (!phone) {
       await ctx.reply("Telefon raqam noto'g'ri formatda.", {
-        reply_markup: { remove_keyboard: true }
+        reply_markup: { remove_keyboard: true },
       });
       return;
     }
@@ -398,7 +410,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
     if (!session) {
       await ctx.reply(
         "Avtorizatsiya sessiyasi topilmadi yoki muddati tugagan. Saytda qaytadan urinib ko'ring.",
-        { reply_markup: { remove_keyboard: true } }
+        { reply_markup: { remove_keyboard: true } },
       );
       return;
     }
@@ -410,22 +422,22 @@ export async function startTelegramBot(): Promise<Bot | null> {
           first_name: ctx.from.first_name,
           last_name: ctx.from.last_name,
           language_code: ctx.from.language_code,
-          is_premium: ctx.from.is_premium
+          is_premium: ctx.from.is_premium,
         },
-        phone
+        phone,
       );
       await updateAuthSession(session.token, {
         status: "confirmed",
-        userId: user.id
+        userId: user.id,
       });
       await ctx.reply(
         "✅ Telefon raqam qabul qilindi. Saytga qayting — avtomatik kirib turasiz.",
-        { reply_markup: { remove_keyboard: true } }
+        { reply_markup: { remove_keyboard: true } },
       );
     } catch (error) {
       console.error("[bot] phone share failed", error);
       await ctx.reply("Xatolik yuz berdi. Qaytadan urinib ko'ring.", {
-        reply_markup: { remove_keyboard: true }
+        reply_markup: { remove_keyboard: true },
       });
     }
   });
@@ -460,7 +472,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
     if (!session.userId) {
       try {
         await ctx.editMessageText(
-          "Foydalanuvchi topilmadi. Iltimos, qaytadan urinib ko'ring."
+          "Foydalanuvchi topilmadi. Iltimos, qaytadan urinib ko'ring.",
         );
       } catch {
         // ignore
@@ -470,7 +482,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
     await updateAuthSession(token, { status: "confirmed" });
     try {
       await ctx.editMessageText(
-        "✅ Tasdiqlandi. Saytga qayting — avtomatik kirib turasiz."
+        "✅ Tasdiqlandi. Saytga qayting — avtomatik kirib turasiz.",
       );
     } catch {
       // ignore
@@ -484,14 +496,16 @@ export async function startTelegramBot(): Promise<Bot | null> {
   // Long-polling — no public webhook required. We start it but don't
   // await; bot.start() returns a promise that only resolves when the bot
   // is stopped.
-  bot.start({
-    drop_pending_updates: true,
-    onStart: (info) => {
-      console.log(`[bot] @${info.username} polling boshlandi.`);
-    }
-  }).catch((error) => {
-    console.error("[bot] polling failed", error);
-  });
+  bot
+    .start({
+      drop_pending_updates: true,
+      onStart: (info) => {
+        console.log(`[bot] @${info.username} polling boshlandi.`);
+      },
+    })
+    .catch((error) => {
+      console.error("[bot] polling failed", error);
+    });
 
   botInstance = bot;
   return bot;
@@ -508,16 +522,13 @@ export async function stopTelegramBot(): Promise<void> {
 }
 
 // Handles `/start auth_<hash>` from the browser-initiated bot login flow.
-async function handleBotAuthDeepLink(
-  ctx: BotCtx,
-  hash: string
-): Promise<void> {
+async function handleBotAuthDeepLink(ctx: BotCtx, hash: string): Promise<void> {
   if (!ctx.from) return;
   const chatId = String(ctx.from.id);
   const session = await getAuthSessionByBotHash(hash);
   if (!session) {
     await ctx.reply(
-      "Avtorizatsiya sessiyasi topilmadi yoki muddati tugagan. Saytda qaytadan urinib ko'ring."
+      "Avtorizatsiya sessiyasi topilmadi yoki muddati tugagan. Saytda qaytadan urinib ko'ring.",
     );
     return;
   }
@@ -532,7 +543,7 @@ async function handleBotAuthDeepLink(
     first_name: ctx.from.first_name,
     last_name: ctx.from.last_name,
     language_code: ctx.from.language_code,
-    is_premium: ctx.from.is_premium
+    is_premium: ctx.from.is_premium,
   };
   let user;
   try {
@@ -550,8 +561,8 @@ async function handleBotAuthDeepLink(
       {
         reply_markup: new InlineKeyboard()
           .text("✅ Ha, kiraman", `auth_yes:${session.token}`)
-          .text("❌ Yo'q", `auth_no:${session.token}`)
-      }
+          .text("❌ Yo'q", `auth_no:${session.token}`),
+      },
     );
     return;
   }
@@ -563,7 +574,7 @@ async function handleBotAuthDeepLink(
       reply_markup: new Keyboard()
         .requestContact("📱 Telefon raqamni ulashish")
         .oneTime()
-        .resized()
-    }
+        .resized(),
+    },
   );
 }
