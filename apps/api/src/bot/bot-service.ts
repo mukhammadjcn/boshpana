@@ -20,6 +20,7 @@ const GROUP_ADMIN_ONLY_TEXT =
   "⛔️ O'yinlarni faqat guruh adminlari boshlashi mumkin.";
 
 const COMMUNITY_BUTTON_TEXT = "👥 Hamjamiyat guruhi";
+const INVISIBLE_MESSAGE = "\u2060";
 
 const WELCOME_TEXT = `🎮 *Jamoaviy.uz* ga xush kelibsiz!
 
@@ -136,6 +137,15 @@ function buildPersistentPrivateKeyboard(): Keyboard {
     .placeholder("Jamoaviy tugmalaridan birini tanlang");
 }
 
+async function refreshPrivateKeyboard(ctx: Context) {
+  await ctx.reply("♻️ Tugmalar yangilanmoqda...", {
+    reply_markup: { remove_keyboard: true }
+  });
+  await ctx.reply(INVISIBLE_MESSAGE, {
+    reply_markup: buildPersistentPrivateKeyboard()
+  });
+}
+
 function isGroupChat(type: string) {
   return type === "group" || type === "supergroup";
 }
@@ -195,9 +205,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
         reply_markup: buildEntryInlineKeyboard()
       });
       if (!inGroup) {
-        await ctx.reply("⬇️ Doimiy o'yin tugmalari pastda tayyor.", {
-          reply_markup: buildPersistentPrivateKeyboard()
-        });
+        await refreshPrivateKeyboard(ctx);
       }
     } catch (error) {
       console.error("[bot] /start handler failed", error);
@@ -214,9 +222,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
         }
       );
       if (!inGroup) {
-        await ctx.reply("⬇️ Doimiy o'yin tugmalari pastda tayyor.", {
-          reply_markup: buildPersistentPrivateKeyboard()
-        });
+        await refreshPrivateKeyboard(ctx);
       }
     } catch (error) {
       console.error("[bot] /help handler failed", error);

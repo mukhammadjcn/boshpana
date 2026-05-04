@@ -13,12 +13,13 @@ export function BrandMark({
       style={{ width: size, height: size }}
     >
       <Image
-        src="/android-chrome-512x512.png"
+        src="/apple-touch-icon.png"
         alt="Jamoaviy.uz logo"
         fill
         sizes={`${size}px`}
         className="object-cover"
         priority
+        unoptimized
       />
     </span>
   );
