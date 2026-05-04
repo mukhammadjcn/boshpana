@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
+import { JoinRoomModal } from "@/components/join-room-modal";
 import { MafiaSituationArt } from "./mafia-situation-art";
 import type {
   MafiaNightActionType,
@@ -47,6 +49,8 @@ const roleHeader: Record<
 // strict 20s — server resolveNight'da yakunlaydi. UI mafia/komisar/
 // doktorlarga real tanlov beradi, aholiga esa pufak savol (anti-cheat).
 export function MafiaNight({ state, onSubmit }: Props) {
+  const router = useRouter();
+  const [joinOpen, setJoinOpen] = useState(false);
   const { game, me, players } = state;
   const role = me?.role ?? null;
 
@@ -59,11 +63,68 @@ export function MafiaNight({ state, onSubmit }: Props) {
   );
 
   if (!me || !role) {
+    const title = !me
+      ? "Siz bu o'yinda topilmadingiz"
+      : "Sizning rolingiz yuklanmadi";
+    const description = !me
+      ? "Bu sessiya hozirgi o'yinchi bilan bog'lanmagan. Bosh sahifaga qaytishingiz yoki boshqa xona kodiga qo'shilishingiz mumkin."
+      : "O'yin davom etyapti, lekin siz uchun kerakli tungi ma'lumot to'liq kelmadi. Bosh sahifaga qaytishingiz yoki boshqa xonaga qo'shilishingiz mumkin.";
+
     return (
       <NightShell remaining={game.remainingSeconds} night={game.nightNumber}>
-        <p className="text-center text-sm text-ink-muted">
-          O'yinchi topilmadi.
-        </p>
+        <div className="grid gap-4 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-warn/12 text-warn">
+            <svg
+              width="26"
+              height="26"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v5" />
+              <path d="M12 16h.01" />
+            </svg>
+          </div>
+
+          <div className="grid gap-2">
+            <p className="text-xs font-medium uppercase tracking-[0.25em] text-warn">
+              Tungi holat ochilmadi
+            </p>
+            <h1 className="text-xl font-bold sm:text-2xl">{title}</h1>
+            <p className="text-sm leading-7 text-ink-muted">{description}</p>
+          </div>
+
+          <div className="rounded-2xl border border-line-subtle bg-bg-base px-4 py-3 text-left">
+            <p className="text-xs text-ink-muted">Room code</p>
+            <p className="mt-1 font-mono text-xl font-semibold tracking-[0.28em] text-ink-primary">
+              {state.room.code}
+            </p>
+          </div>
+
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={() => setJoinOpen(true)}
+              className="flex h-12 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              Yangi xonaga qo'shilish
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+            >
+              Bosh sahifaga qaytish
+            </button>
+          </div>
+        </div>
+
+        <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />
       </NightShell>
     );
   }
@@ -467,4 +528,3 @@ function ModeButton({
     </button>
   );
 }
-

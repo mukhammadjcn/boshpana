@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
+import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
@@ -423,13 +424,8 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     );
   }
 
-  if (error || !roomState) {
-    return (
-      <main className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-bad">
-        <TelegramChrome backHref="/dashboard" />
-        {error ?? "Xona topilmadi."}
-      </main>
-    );
+  if (!roomState) {
+    return <RoomExpiredState roomCode={roomCode} detail={error} />;
   }
 
   const { room, players, me, game } = roomState;

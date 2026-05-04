@@ -114,16 +114,7 @@ export function DashboardHome() {
           </h1>
 
           <div className="mt-5 grid gap-5 lg:mt-8">
-            {!usage ? (
-              <div className="animate-pulse rounded-2xl border border-line-subtle bg-bg-surface p-4">
-                <div className="flex items-center justify-between">
-                  <div className="h-4 w-24 rounded bg-bg-elevated" />
-                  <div className="h-4 w-12 rounded bg-bg-elevated" />
-                </div>
-                <div className="mt-2 h-2 w-full rounded-full bg-bg-elevated" />
-                <div className="mt-2 h-3 w-3/5 rounded bg-bg-elevated" />
-              </div>
-            ) : (
+            {usage && limitReached ? (
               <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
                 <div className="flex items-center justify-between text-sm">
                   <p className="font-semibold text-ink-primary">Oylik limit</p>
@@ -149,13 +140,11 @@ export function DashboardHome() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-ink-muted">
-                  30 kunda {usage.roomCreationLimit} ta o'yin yarata olasiz.{" "}
-                  {limitReached
-                    ? "Limit tugagan — keyingi davrigacha kuting."
-                    : `Hozir ${usage.remaining} ta qoldi.`}
+                  30 kunda {usage.roomCreationLimit} ta o'yin yarata olasiz.
+                  Limit tugagan — keyingi davrigacha kuting.
                 </p>
               </div>
-            )}
+            ) : null}
 
             <ActiveGames />
 

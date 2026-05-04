@@ -14,14 +14,18 @@ import {
 
 let botInstance: Bot | null = null;
 
-const WELCOME_TEXT = `👋 *Boshpana — Bunker Online*
+const TELEGRAM_GROUP_URL = "https://t.me/jamoaviy_group";
 
-Halokatdan keyin bunkerda kim qoladi? 6 ta yashirin atribut, ovoz berish va eliminatsiya bilan o'ynaladigan real-time party o'yin.
+const WELCOME_TEXT = `👋 *Jamoaviy.uz*
 
-🎮 Mini App'da o'ynang — do'stlaringiz bilan room oching yoki ulashilgan kod orqali kirib boring.
+Telegram ichida do'stlaringiz bilan tezda room ochib, birga o'ynaydigan jamoaviy mini app.
 
-⏱ Bir o'yin: 10–20 daqiqa
-👥 3–10 o'yinchi
+🎮 Hozircha ikki o'yin bor: *Mafia* va *Bunker*
+🚪 Room oching yoki kod orqali tayyor xonaga qo'shiling
+👥 Yangilik va chat uchun Telegram guruhimizga ham kirishingiz mumkin
+
+⏱ Bir o'yin: 10–60 daqiqa
+👥 3–16 o'yinchi
 📱 To'liq mobile-friendly`;
 
 function buildWebAppUrl(): string {
@@ -31,9 +35,20 @@ function buildWebAppUrl(): string {
   return `${base}/telegram`;
 }
 
+function buildSiteUrl(path: string): string {
+  const base = env.telegramWebAppUrl.replace(/\/$/, "");
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 function buildKeyboard(): InlineKeyboard {
-  const url = buildWebAppUrl();
-  return new InlineKeyboard().webApp("🎮 O'yinni ochish", url);
+  return new InlineKeyboard()
+    .webApp("🎮 O'yin yaratish", buildWebAppUrl())
+    .row()
+    .url("🕵️ Mafia o'yini", buildSiteUrl("/games/mafia"))
+    .row()
+    .url("☢️ Bunker o'yini", buildSiteUrl("/games/bunker"))
+    .row()
+    .url("👥 Telegram guruhi", TELEGRAM_GROUP_URL);
 }
 
 function normalizePhone(raw: string): string | null {
@@ -71,7 +86,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
   bot.command("help", async (ctx) => {
     try {
       await ctx.reply(
-        "Yordam kerak bo'lsa, /start buyrug'ini bosib o'yinni Mini App'da oching.",
+        "Quyidagi tugmalardan birini tanlang: o'yin yarating, Mafia/Bunker sahifasini oching yoki Telegram guruhga o'ting.",
         { reply_markup: buildKeyboard() }
       );
     } catch (error) {

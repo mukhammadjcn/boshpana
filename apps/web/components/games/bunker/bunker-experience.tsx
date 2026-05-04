@@ -13,6 +13,7 @@ import {
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
+import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { HostControls } from "./bunker-host-controls";
 import { PlayerCard } from "./bunker-player-card";
@@ -753,25 +754,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         </main>
       );
     }
-    return (
-      <main className="grid min-h-screen place-items-center bg-bg-base px-5 text-ink-secondary">
-        <TelegramChrome backHref="/dashboard" />
-        <div className="flex flex-col items-center gap-4 text-center">
-          <p className="text-base font-semibold text-ink-primary">
-            Room topilmadi.
-          </p>
-          <p className="text-sm text-ink-secondary">
-            Bu xona o'chirilgan yoki kod noto'g'ri.
-          </p>
-          <button
-            onClick={() => router.push("/")}
-            className="flex h-12 items-center justify-center rounded-2xl bg-brand px-6 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-          >
-            Bosh sahifa
-          </button>
-        </div>
-      </main>
-    );
+    return <RoomExpiredState roomCode={roomCode} detail={error} />;
   }
 
   if (!me) {

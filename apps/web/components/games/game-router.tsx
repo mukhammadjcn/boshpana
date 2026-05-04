@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
 import type { GameType, RoomStatus } from "@/lib/types";
+import { RoomExpiredState } from "@/components/room-expired-state";
 
 import { BunkerExperience } from "./bunker/bunker-experience";
 import { MafiaExperience } from "./mafia/mafia-experience";
@@ -42,11 +43,7 @@ export function GameRouter({ roomCode, view }: Props) {
   }, [roomCode]);
 
   if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6 text-center text-sm text-red-300">
-        {error}
-      </div>
-    );
+    return <RoomExpiredState roomCode={roomCode} detail={error} />;
   }
 
   if (!info) {

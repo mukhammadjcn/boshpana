@@ -32,6 +32,6 @@ export const env = {
   telegramAuthMaxAgeSeconds: Number(
     process.env.TELEGRAM_AUTH_MAX_AGE_SECONDS ?? 86400
   ),
-  roomCreationLimit: Number(process.env.ROOM_CREATION_LIMIT_PER_30D ?? 50),
+  roomCreationLimit: Number(process.env.ROOM_CREATION_LIMIT_PER_30D ?? 100),
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379"
 };

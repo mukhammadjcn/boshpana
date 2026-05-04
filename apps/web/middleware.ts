@@ -7,11 +7,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const hasAdminSession = request.cookies.get(ADMIN_COOKIE)?.value === "1";
+
   if (request.nextUrl.pathname === "/admin/login") {
+    if (hasAdminSession) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
     return NextResponse.next();
   }
 
-  if (request.cookies.get(ADMIN_COOKIE)?.value === "1") {
+  if (hasAdminSession) {
     return NextResponse.next();
   }
 

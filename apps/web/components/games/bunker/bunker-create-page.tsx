@@ -165,7 +165,7 @@ export function BunkerCreatePage() {
             </ul>
           </div>
 
-          {usage && (
+          {usage && limitReached && (
             <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
               <div className="flex items-center justify-between text-sm">
                 <p className="font-semibold text-ink-primary">Oylik limit</p>
@@ -190,11 +190,9 @@ export function BunkerCreatePage() {
                   }}
                 />
               </div>
-              {limitReached && (
-                <p className="mt-2 text-xs text-bad">
-                  Limit tugagan — keyingi davrigacha kuting.
-                </p>
-              )}
+              <p className="mt-2 text-xs text-bad">
+                Limit tugagan — keyingi davrigacha kuting.
+              </p>
             </div>
           )}
 
