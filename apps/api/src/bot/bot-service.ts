@@ -19,15 +19,17 @@ const PLAYLOAD_STARTGROUP = "play";
 const GROUP_ADMIN_ONLY_TEXT =
   "⛔️ O'yinlarni faqat guruh adminlari boshlashi mumkin.";
 
+const COMMUNITY_BUTTON_TEXT = "👥 Hamjamiyat guruhi";
+
 const WELCOME_TEXT = `🎮 *Jamoaviy.uz* ga xush kelibsiz!
 
-Bu yerda do'stlaringiz bilan *Mafia* va *Bunker* o'yinlari uchun room ochishingiz, tayyor xonaga kod bilan qo'shilishingiz va o'yin sahifalarini tez ochishingiz mumkin.
+Bu yerda do'stlaringiz bilan *Mafia* va *Bunker* o'yinlari uchun room ochishingiz va tayyor xonaga qo'shilishingiz mumkin.
 
 👇 Tugmalardan birini tanlang:
-• *O'yinni boshlash* — Mini App ichida room ochish
-• *Mafia o'yini* — Mafia sahifasi va qoidalari
-• *Bunker o'yini* — Bunker sahifasi va qoidalari
-• *Telegram guruhi* — chat va yangiliklar
+• *Botni guruhga qo'shish* — botni yangi chatga olib boring
+• *Mafia o'yini* — to'g'ridan-to'g'ri Mafia create sahifasi
+• *Bunker o'yini* — to'g'ridan-to'g'ri Bunker create sahifasi
+• *Hamjamiyat guruhi* — chat va yangiliklar
 
 ⏱ Bir o'yin: 10–60 daqiqa
 👥 3–16 o'yinchi
@@ -39,13 +41,21 @@ Bugun nima o'ynaymiz? Men *Jamoaviy.uz* botiman — shu guruhdagilar uchun *Mafi
 
 👇 Adminlar */games* yoki */play* deb yozib, o'yin tugmalarini ochishi mumkin.
 
-Pastdagi tugmalar orqali o'yin sahifalarini oching, room yarating yoki community guruhimizga o'ting.`;
+Pastdagi tugmalar orqali yangi guruhga bot qo'shing, Mafia/Bunker create sahifalarini oching yoki hamjamiyat guruhiga o'ting.`;
 
 function buildWebAppUrl(): string {
   // Telegram opens this URL inside the in-app browser. We always direct
   // to /telegram so the auth/loading flow runs.
   const base = env.telegramWebAppUrl.replace(/\/$/, "");
   return `${base}/telegram`;
+}
+
+function buildTelegramEntryUrl(targetPath?: string): string {
+  const url = new URL(buildWebAppUrl());
+  if (targetPath) {
+    url.searchParams.set("redirect", targetPath);
+  }
+  return url.toString();
 }
 
 function buildStartAppLink(startParam: string): string | null {
@@ -64,27 +74,16 @@ function buildAddToGroupUrl(): string | null {
   return `https://t.me/${username}?startgroup=${PLAYLOAD_STARTGROUP}`;
 }
 
-function buildStartKeyboard(): InlineKeyboard {
-  const mafiaLink = buildStartAppLink("page_mafia");
-  const bunkerLink = buildStartAppLink("page_bunker");
-
-  return new InlineKeyboard()
-    .webApp("🎮 O'yinni boshlash", buildWebAppUrl())
-    .row()
-    .url("🕵️ Mafia o'yini", mafiaLink ?? buildWebAppUrl())
-    .url("☢️ Bunker o'yini", bunkerLink ?? buildWebAppUrl())
-    .row()
-    .url("👥 Telegram guruhi", TELEGRAM_GROUP_URL);
-}
-
-function buildGroupKeyboard(): InlineKeyboard {
+function buildUniversalKeyboard(): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   const addToGroupUrl = buildAddToGroupUrl();
-  const mafiaLink = buildStartAppLink("page_mafia");
-  const bunkerLink = buildStartAppLink("page_bunker");
+  const mafiaLink = buildStartAppLink("create_mafia");
+  const bunkerLink = buildStartAppLink("create_bunker");
 
   if (addToGroupUrl) {
     keyboard.url("➕ Botni guruhga qo'shish", addToGroupUrl).row();
+  } else {
+    keyboard.webApp("➕ Botni guruhga qo'shish", buildWebAppUrl()).row();
   }
 
   return keyboard
@@ -92,6 +91,22 @@ function buildGroupKeyboard(): InlineKeyboard {
     .url("☢️ Bunker o'yini", bunkerLink ?? buildWebAppUrl())
     .row()
     .url("👥 Hamjamiyat guruhi", TELEGRAM_GROUP_URL);
+}
+
+function buildPersistentPrivateKeyboard(): Keyboard {
+  return new Keyboard()
+    .webApp("🎮 O'yinni boshlash", buildTelegramEntryUrl("/dashboard"))
+    .row()
+    .webApp("🕵️ Mafia o'yini", buildTelegramEntryUrl("/dashboard/create/mafia"))
+    .webApp(
+      "☢️ Bunker o'yini",
+      buildTelegramEntryUrl("/dashboard/create/bunker")
+    )
+    .row()
+    .text(COMMUNITY_BUTTON_TEXT)
+    .persistent()
+    .resized()
+    .placeholder("Jamoaviy tugmalaridan birini tanlang");
 }
 
 function isGroupChat(type: string) {
@@ -149,7 +164,9 @@ export async function startTelegramBot(): Promise<Bot | null> {
     try {
       await ctx.reply(WELCOME_TEXT, {
         parse_mode: "Markdown",
-        reply_markup: buildStartKeyboard()
+        reply_markup: isGroupChat(ctx.chat.type)
+          ? buildUniversalKeyboard()
+          : buildPersistentPrivateKeyboard()
       });
     } catch (error) {
       console.error("[bot] /start handler failed", error);
@@ -159,11 +176,33 @@ export async function startTelegramBot(): Promise<Bot | null> {
   bot.command("help", async (ctx) => {
     try {
       await ctx.reply(
-        "Quyidagi tugmalardan birini tanlang: o'yin yarating, Mafia/Bunker sahifasini oching, botni guruhga qo'shing yoki Telegram guruhga o'ting.",
-        { reply_markup: buildStartKeyboard() }
+        "Quyidagi tugmalardan birini tanlang: botni guruhga qo'shing, Mafia/Bunker create sahifasini oching yoki hamjamiyat guruhiga o'ting.",
+        {
+          reply_markup: isGroupChat(ctx.chat.type)
+            ? buildUniversalKeyboard()
+            : buildPersistentPrivateKeyboard()
+        }
       );
     } catch (error) {
       console.error("[bot] /help handler failed", error);
+    }
+  });
+
+  bot.hears(COMMUNITY_BUTTON_TEXT, async (ctx) => {
+    if (isGroupChat(ctx.chat.type)) return;
+    try {
+      await ctx.reply(
+        "Bu *Jamoaviy.uz* platformasining ommaviy chatidir. U yerda savollar berishingiz, o'yinlarga oid muhokamalarda qatnashishingiz va yangiliklarni kuzatishingiz mumkin.",
+        {
+          parse_mode: "Markdown",
+          reply_markup: new InlineKeyboard().url(
+            "👥 Guruhga kirish",
+            TELEGRAM_GROUP_URL
+          )
+        }
+      );
+    } catch (error) {
+      console.error("[bot] community handler failed", error);
     }
   });
 
@@ -173,7 +212,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
     try {
       await ctx.reply("Bugun nima o'ynaymiz? Pastdagi tugmalardan birini tanlang.", {
         parse_mode: "Markdown",
-        reply_markup: buildGroupKeyboard()
+        reply_markup: buildUniversalKeyboard()
       });
     } catch (error) {
       console.error("[bot] /games handler failed", error);
@@ -191,7 +230,7 @@ export async function startTelegramBot(): Promise<Bot | null> {
     try {
       await ctx.reply(GROUP_WELCOME_TEXT, {
         parse_mode: "Markdown",
-        reply_markup: buildGroupKeyboard()
+        reply_markup: buildUniversalKeyboard()
       });
     } catch (error) {
       console.error("[bot] group welcome failed", error);

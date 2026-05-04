@@ -23,12 +23,20 @@ function resolveStartParamPath(): string | null {
   if (!param) return null;
   const normalized = param.trim().toLowerCase();
 
-  if (normalized === "page_mafia" || normalized === "mafia") {
-    return "/games/mafia";
+  if (
+    normalized === "create_mafia" ||
+    normalized === "page_mafia" ||
+    normalized === "mafia"
+  ) {
+    return "/dashboard/create/mafia";
   }
 
-  if (normalized === "page_bunker" || normalized === "bunker") {
-    return "/games/bunker";
+  if (
+    normalized === "create_bunker" ||
+    normalized === "page_bunker" ||
+    normalized === "bunker"
+  ) {
+    return "/dashboard/create/bunker";
   }
 
   // Accept either a bare room code or `room_<code>` style payloads.
@@ -37,11 +45,21 @@ function resolveStartParamPath(): string | null {
   return `/room/${code}`;
 }
 
+function resolveRedirectQueryPath(): string | null {
+  if (typeof window === "undefined") return null;
+  const raw = new URLSearchParams(window.location.search).get("redirect");
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//")) return null;
+  return raw;
+}
+
 function navigateAfterAuth() {
   if (typeof window === "undefined") return;
   // Authenticated users always land inside the dashboard shell — never
   // back on the public landing page.
-  const target = resolveStartParamPath() ?? "/dashboard";
+  const target =
+    resolveStartParamPath() ?? resolveRedirectQueryPath() ?? "/dashboard";
   window.location.replace(target);
 }
 
