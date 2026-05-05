@@ -19,7 +19,9 @@ async function bootstrap() {
 
   await app.register(cors, {
     origin: true,
-    credentials: true
+    credentials: true,
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Language"]
   });
 
   // Eagerly initialise the Redis connection so failures surface at boot

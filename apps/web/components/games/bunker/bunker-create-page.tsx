@@ -10,6 +10,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { JoinRoomModal } from "@/components/join-room-modal";
 import { apiRequest } from "@/lib/api";
 import { type AuthUser, getAuthUser, setAuthUser } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { getOrCreateSessionId } from "@/lib/storage";
 
 type UsageResponse = {
@@ -32,6 +33,7 @@ const rules = [
 ];
 
 export function BunkerCreatePage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [usage, setUsage] = useState<UsageResponse | null>(null);
@@ -114,14 +116,14 @@ export function BunkerCreatePage() {
           <Link
             href={"/dashboard" as Route}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-ink-secondary"
-            aria-label="Orqaga"
+            aria-label={t("Orqaga")}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </Link>
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            Apokalipsis stol o'yini
+            {t("Apokalipsis stol o'yini")}
           </p>
           <span className="h-9 w-9" />
         </header>
@@ -133,7 +135,7 @@ export function BunkerCreatePage() {
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface">
             <Image
               src="/bunkerbanner.webp"
-              alt="Bunker banner"
+              alt={t("Bunker banner")}
               fill
               sizes="(max-width: 768px) 100vw, 672px"
               className="object-cover"
@@ -143,15 +145,15 @@ export function BunkerCreatePage() {
           </div>
 
           <h1 className="mt-5 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-            Bunker — kim omon qoladi?
+            {t("Bunker — kim omon qoladi?")}
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            3-16 o'yinchi · 30-60 daqiqa
+            {t("3-16 o'yinchi · 30-60 daqiqa")}
           </p>
 
           <div className="mt-6 grid gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-              Qoidalar
+              {t("Qoidalar")}
             </p>
             <ul className="grid gap-2 text-sm text-ink-secondary">
               {rules.map((rule, index) => (
@@ -159,7 +161,7 @@ export function BunkerCreatePage() {
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
                     {index + 1}
                   </span>
-                  <span>{rule}</span>
+                  <span>{t(rule)}</span>
                 </li>
               ))}
             </ul>
@@ -168,7 +170,7 @@ export function BunkerCreatePage() {
           {usage && limitReached && (
             <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
               <div className="flex items-center justify-between text-sm">
-                <p className="font-semibold text-ink-primary">Oylik limit</p>
+                <p className="font-semibold text-ink-primary">{t("Oylik limit")}</p>
                 <p
                   className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
                 >
@@ -191,7 +193,7 @@ export function BunkerCreatePage() {
                 />
               </div>
               <p className="mt-2 text-xs text-bad">
-                Limit tugagan — keyingi davrigacha kuting.
+                {t("Limit tugagan — keyingi davrigacha kuting.")}
               </p>
             </div>
           )}
@@ -201,12 +203,12 @@ export function BunkerCreatePage() {
             className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
           >
             <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-              Yangi lobby
+              {t("Yangi lobby")}
             </p>
 
             <label className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                Nickname
+                {t("Nickname")}
               </span>
               <input
                 value={hostName}
@@ -214,13 +216,13 @@ export function BunkerCreatePage() {
                 required
                 maxLength={20}
                 className="h-12 w-full rounded-xl border border-line-strong bg-bg-base px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-                placeholder="Masalan, Alisher"
+                placeholder={t("Masalan, Alisher")}
               />
             </label>
 
             <div className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                O'yin nechta odam qolganda tugaydi?
+                {t("O'yin nechta odam qolganda tugaydi?")}
               </span>
               <div className="grid grid-cols-3 gap-2">
                 {winnerOptions.map((option) => {
@@ -238,10 +240,10 @@ export function BunkerCreatePage() {
                       }`}
                     >
                       <span className="text-sm font-semibold">
-                        {option.label}
+                        {t(option.label)}
                       </span>
                       <span className="text-[11px] text-ink-muted">
-                        {option.hint}
+                        {t(option.hint)}
                       </span>
                     </button>
                   );
@@ -251,7 +253,7 @@ export function BunkerCreatePage() {
 
             <div className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                Mavzu
+                {t("Mavzu")}
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -264,9 +266,9 @@ export function BunkerCreatePage() {
                       : "border-line-strong bg-bg-base text-ink-secondary"
                   }`}
                 >
-                  <span className="text-sm font-semibold">Normal</span>
+                  <span className="text-sm font-semibold">{t("Normal")}</span>
                   <span className="text-[11px] text-ink-muted">
-                    Hamma uchun
+                    {t("Hamma uchun")}
                   </span>
                 </button>
                 <button
@@ -281,7 +283,7 @@ export function BunkerCreatePage() {
                 >
                   <span className="text-sm font-semibold">18+</span>
                   <span className="text-[11px] text-ink-muted">
-                    Aralash kartalar
+                    {t("Aralash kartalar")}
                   </span>
                 </button>
               </div>
@@ -303,10 +305,10 @@ export function BunkerCreatePage() {
               }`}
             >
               {creating
-                ? "Yaratilmoqda..."
+                ? t("Yaratilmoqda...")
                 : limitReached
-                  ? "Limit tugagan"
-                  : "O'yin yaratish"}
+                  ? t("Limit tugagan")
+                  : t("O'yin yaratish")}
             </button>
           </form>
 
@@ -315,7 +317,7 @@ export function BunkerCreatePage() {
             onClick={() => setJoinOpen(true)}
             className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
           >
-            Kod orqali qo'shilish
+            {t("Kod orqali qo'shilish")}
           </button>
         </section>
       </div>

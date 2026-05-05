@@ -10,6 +10,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { JoinRoomModal } from "@/components/join-room-modal";
 import { apiRequest } from "@/lib/api";
 import { type AuthUser, getAuthUser, setAuthUser } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { getOrCreateSessionId } from "@/lib/storage";
 
 type UsageResponse = {
@@ -29,6 +30,7 @@ const MIN_PLAYERS = 4;
 const MAX_PLAYERS = 16;
 
 export function MafiaCreatePage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [usage, setUsage] = useState<UsageResponse | null>(null);
@@ -132,14 +134,14 @@ export function MafiaCreatePage() {
           <Link
             href={"/dashboard" as Route}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-ink-secondary"
-            aria-label="Orqaga"
+            aria-label={t("Orqaga")}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </Link>
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            Kun va tun mafiya
+            {t("Kun va tun mafiya")}
           </p>
           <span className="h-9 w-9" />
         </header>
@@ -151,7 +153,7 @@ export function MafiaCreatePage() {
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface">
             <Image
               src="/mafiabanner.webp"
-              alt="Mafia banner"
+              alt={t("Mafia banner")}
               fill
               sizes="(max-width: 768px) 100vw, 672px"
               className="object-cover"
@@ -161,15 +163,18 @@ export function MafiaCreatePage() {
           </div>
 
           <h1 className="mt-5 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-            Mafia — kim xiyonatkor?
+            {t("Mafia — kim xiyonatkor?")}
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            {MIN_PLAYERS}-{MAX_PLAYERS} o'yinchi · 30-45 daqiqa
+            {t("{min}-{max} o'yinchi · 30-45 daqiqa", {
+              min: MIN_PLAYERS,
+              max: MAX_PLAYERS
+            })}
           </p>
 
           <div className="mt-6 grid gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-              Qoidalar
+              {t("Qoidalar")}
             </p>
             <ul className="grid gap-2 text-sm text-ink-secondary">
               {rules.map((rule, index) => (
@@ -177,7 +182,7 @@ export function MafiaCreatePage() {
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
                     {index + 1}
                   </span>
-                  <span>{rule}</span>
+                  <span>{t(rule)}</span>
                 </li>
               ))}
             </ul>
@@ -186,7 +191,7 @@ export function MafiaCreatePage() {
           {usage && limitReached && (
             <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
               <div className="flex items-center justify-between text-sm">
-                <p className="font-semibold text-ink-primary">Oylik limit</p>
+                <p className="font-semibold text-ink-primary">{t("Oylik limit")}</p>
                 <p
                   className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
                 >
@@ -209,7 +214,7 @@ export function MafiaCreatePage() {
                 />
               </div>
               <p className="mt-2 text-xs text-bad">
-                Limit tugagan — keyingi davrigacha kuting.
+                {t("Limit tugagan — keyingi davrigacha kuting.")}
               </p>
             </div>
           )}
@@ -219,12 +224,12 @@ export function MafiaCreatePage() {
             className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
           >
             <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-              Yangi o'yin
+              {t("Yangi o'yin")}
             </p>
 
             <label className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                Nickname
+                {t("Nickname")}
               </span>
               <input
                 value={hostName}
@@ -232,14 +237,14 @@ export function MafiaCreatePage() {
                 required
                 maxLength={20}
                 className="h-12 w-full rounded-xl border border-line-strong bg-bg-base px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-                placeholder="Masalan, Alisher"
+                placeholder={t("Masalan, Alisher")}
               />
             </label>
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                  Maks o'yinchi
+                  {t("Maks o'yinchi")}
                 </span>
                 <span className="font-mono text-sm text-brand">
                   {maxPlayers}
@@ -259,7 +264,7 @@ export function MafiaCreatePage() {
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                  Mafia soni
+                  {t("Mafia soni")}
                 </span>
                 <span className="font-mono text-sm text-brand">
                   {mafiaCount}
@@ -278,7 +283,7 @@ export function MafiaCreatePage() {
 
             <div className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                Maxsus rollar
+                {t("Maxsus rollar")}
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -291,9 +296,9 @@ export function MafiaCreatePage() {
                       : "border-line-strong bg-bg-base text-ink-secondary"
                   }`}
                 >
-                  <span className="text-sm font-semibold">Komisar</span>
+                  <span className="text-sm font-semibold">{t("Komisar")}</span>
                   <span className="text-[11px] text-ink-muted">
-                    {hasSheriff ? "Bor" : "Yo'q"}
+                    {hasSheriff ? t("Bor") : t("Yo'q")}
                   </span>
                 </button>
                 <button
@@ -306,26 +311,25 @@ export function MafiaCreatePage() {
                       : "border-line-strong bg-bg-base text-ink-secondary"
                   }`}
                 >
-                  <span className="text-sm font-semibold">Doktor</span>
+                  <span className="text-sm font-semibold">{t("Doktor")}</span>
                   <span className="text-[11px] text-ink-muted">
-                    {hasDoctor ? "Bor" : "Yo'q"}
+                    {hasDoctor ? t("Bor") : t("Yo'q")}
                   </span>
                 </button>
               </div>
             </div>
 
             <div className="rounded-xl border border-line-strong bg-bg-base px-3 py-2.5 text-xs text-ink-muted">
-              Tarkib: <span className="font-semibold text-ink-primary">{citizenCount}</span>{" "}
-              fuqaro · <span className="font-semibold text-ink-primary">{mafiaCount}</span>{" "}
-              mafia
-              {hasSheriff && <> · 1 komisar</>}
-              {hasDoctor && <> · 1 doktor</>}
+              {t("Tarkib")}: <span className="font-semibold text-ink-primary">{citizenCount}</span>{" "}
+              {t("fuqaro")} · <span className="font-semibold text-ink-primary">{mafiaCount}</span>{" "}
+              {t("mafia")}
+              {hasSheriff && <> · 1 {t("komisar")}</>}
+              {hasDoctor && <> · 1 {t("doktor")}</>}
             </div>
 
             {!compositionValid && (
               <p className="rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-                Tarkib noto'g'ri: kamida 1 ta oddiy aholi qoladigan qilib
-                sozlang.
+                {t("Tarkib noto'g'ri: kamida 1 ta oddiy aholi qoladigan qilib sozlang.")}
               </p>
             )}
 
@@ -350,10 +354,10 @@ export function MafiaCreatePage() {
               }`}
             >
               {creating
-                ? "Yaratilmoqda..."
+                ? t("Yaratilmoqda...")
                 : limitReached
-                  ? "Limit tugagan"
-                  : "O'yin yaratish"}
+                  ? t("Limit tugagan")
+                  : t("O'yin yaratish")}
             </button>
           </form>
 
@@ -362,7 +366,7 @@ export function MafiaCreatePage() {
             onClick={() => setJoinOpen(true)}
             className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
           >
-            Kod orqali qo'shilish
+            {t("Kod orqali qo'shilish")}
           </button>
         </section>
       </div>

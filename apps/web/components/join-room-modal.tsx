@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { apiRequest } from "@/lib/api";
 import { getAuthUser } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { getOrCreateSessionId } from "@/lib/storage";
 
 type JoinRoomModalProps = {
@@ -19,6 +20,7 @@ export function JoinRoomModal({
   defaultCode = ""
 }: JoinRoomModalProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const [joinName, setJoinName] = useState("");
   const [joinCode, setJoinCode] = useState(defaultCode);
   const [joinLoading, setJoinLoading] = useState(false);
@@ -97,14 +99,14 @@ export function JoinRoomModal({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Roomga qo‘shilish
+              {t("Roomga qo‘shilish")}
             </p>
-            <h2 className="mt-1 text-xl font-semibold">Kod va nickname</h2>
+            <h2 className="mt-1 text-xl font-semibold">{t("Kod va nickname")}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Yopish"
+            aria-label={t("Yopish")}
             className="-mr-1 grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-elevated text-ink-secondary"
           >
             ×
@@ -130,7 +132,7 @@ export function JoinRoomModal({
             required
             maxLength={20}
             className="h-14 rounded-2xl border border-line-strong bg-bg-base px-4 text-base text-ink-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-            placeholder="Nickname"
+            placeholder={t("Nickname")}
           />
         </div>
 
@@ -144,7 +146,7 @@ export function JoinRoomModal({
           disabled={joinLoading || !joinCode.trim() || !joinName.trim()}
           className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
         >
-          {joinLoading ? "Kirilmoqda..." : "Roomga kirish"}
+          {joinLoading ? t("Kirilmoqda...") : t("Roomga kirish")}
         </button>
       </form>
     </div>

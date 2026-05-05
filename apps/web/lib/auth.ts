@@ -12,6 +12,7 @@ export type AuthUser = {
   nickname: string | null;
   photoUrl: string | null;
   phone: string | null;
+  languageCode: string | null;
   isPremium: boolean;
 };
 

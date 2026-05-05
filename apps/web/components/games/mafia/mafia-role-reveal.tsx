@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useI18n } from "@/lib/i18n";
 import {
   getMafiaRoleMeta,
   MafiaRoleCardContent
@@ -21,6 +22,7 @@ const HIDE_AFTER_MS = 3000;
 // ochishi mumkin. Mafia o'z sheriklarining ismini ham shu vaqt
 // oralig'ida ko'radi.
 export function MafiaRoleReveal({ state, onConfirm }: Props) {
+  const { t } = useI18n();
   const me = state.me;
   const role = me?.role ?? null;
   const meta = getMafiaRoleMeta(role);
@@ -51,7 +53,7 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
         <header className="flex items-center justify-between py-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            Rol tarqatildi
+            {t("Rol tarqatildi")}
           </p>
           <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
             {state.room.code}
@@ -60,11 +62,10 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
 
         <section className="mt-2 flex-1 pb-10">
           <h1 className="text-2xl font-bold leading-tight sm:text-3xl">
-            Rolingizni ko'ring
+            {t("Rolingizni ko'ring")}
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            Tugmani bosib turing — rolingiz va sheriklaringiz (agar mafia
-            bo'lsangiz) 3 soniya ko'rinadi, so'ng yana yashiriladi.
+            {t("Tugmani bosing — rolingiz va sheriklaringiz (agar mafia bo'lsangiz) 3 soniya ko'rinadi, so'ng yana yashiriladi.")}
           </p>
 
           {/* Role card */}
@@ -92,10 +93,10 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
                   ?
                 </span>
                 <p className="text-base font-semibold text-ink-primary">
-                  Rolimni ko'rish
+                  {t("Rolimni ko'rish")}
                 </p>
                 <p className="max-w-xs text-xs text-ink-muted">
-                  Tugmani bosing — qaytadan istalgancha ko'ra olasiz.
+                  {t("Tugmani bosing — qaytadan istalgancha ko'ra olasiz.")}
                 </p>
               </div>
             )}
@@ -104,7 +105,7 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
           {/* Confirmation status */}
           <div className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4">
             <div className="flex items-center justify-between text-sm">
-              <p className="font-semibold">Tasdiqlanganlar</p>
+              <p className="font-semibold">{t("Tasdiqlanganlar")}</p>
               <p className="font-mono text-brand">
                 {cCount} / {cTotal}
               </p>
@@ -118,7 +119,7 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
               />
             </div>
             <p className="mt-2 text-xs text-ink-muted">
-              Hamma rolini tasdiqlagach, host birinchi tunni boshlaydi.
+              {t("Hamma rolini tasdiqlagach, host birinchi tunni boshlaydi.")}
             </p>
           </div>
         </section>
@@ -135,7 +136,7 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
                 : "bg-brand text-bg-base"
             }`}
           >
-            {confirmed ? "✓ Tasdiqlandi — kuting" : "Tasdiqlash"}
+            {confirmed ? t("✓ Tasdiqlandi — kuting") : t("Tasdiqlash")}
           </button>
         </div>
       </div>

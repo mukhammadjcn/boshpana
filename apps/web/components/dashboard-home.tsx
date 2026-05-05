@@ -7,8 +7,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { JoinRoomModal } from "@/components/join-room-modal";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { apiRequest } from "@/lib/api";
 import { type AuthUser, getAuthUser, setAuthUser } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { ActiveGames } from "./active-games";
 
 type UsageResponse = {
@@ -51,6 +53,7 @@ const games: GameCard[] = [
 ];
 
 export function DashboardHome() {
+  const { t } = useI18n();
   const [joinOpen, setJoinOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [usage, setUsage] = useState<UsageResponse | null>(null);
@@ -78,7 +81,7 @@ export function DashboardHome() {
     };
   }, []);
 
-  const greeting = user?.nickname ?? user?.firstName ?? "do'stim";
+  const greeting = user?.nickname ?? user?.firstName ?? t("do'stim");
   const limitReached = !!usage && usage.remaining <= 0;
 
   return (
@@ -91,33 +94,25 @@ export function DashboardHome() {
               <p className="text-base font-semibold lg:text-lg">
                 Jamoaviy.uz
               </p>
-              <p className="text-xs text-ink-muted">Jamoaviy o'yinlar</p>
+              <p className="text-xs text-ink-muted">{t("Jamoaviy o'yinlar")}</p>
             </div>
           </div>
-          <Link
-            href={"/dashboard/profile" as Route}
-            className="flex items-center gap-2 rounded-full border border-line-strong bg-bg-surface py-1.5 pl-1.5 pr-3 text-sm"
-          >
-            <Avatar user={user} />
-            <span className="max-w-[6rem] truncate text-xs font-medium lg:max-w-none lg:text-sm">
-              {user?.nickname ?? user?.firstName ?? "Profil"}
-            </span>
-          </Link>
+          <LanguageSwitcher variant="select" />
         </header>
 
         <section className="mt-2 flex-1 pb-10 lg:mt-6">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            Salom, {greeting}
+            {t("Salom, {name}", { name: greeting })}
           </p>
           <h1 className="mt-1 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-            Bugun qaysi o'yinni o'ynaymiz?
+            {t("Bugun qaysi o'yinni o'ynaymiz?")}
           </h1>
 
           <div className="mt-5 grid gap-5 lg:mt-8">
             {usage && limitReached ? (
               <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
                 <div className="flex items-center justify-between text-sm">
-                  <p className="font-semibold text-ink-primary">Oylik limit</p>
+                  <p className="font-semibold text-ink-primary">{t("Oylik limit")}</p>
                   <p
                     className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
                   >
@@ -140,8 +135,10 @@ export function DashboardHome() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-ink-muted">
-                  30 kunda {usage.roomCreationLimit} ta o'yin yarata olasiz.
-                  Limit tugagan — keyingi davrigacha kuting.
+                  {t(
+                    "30 kunda {limit} ta o'yin yarata olasiz. Limit tugagan — keyingi davrigacha kuting.",
+                    { limit: usage.roomCreationLimit }
+                  )}
                 </p>
               </div>
             ) : null}
@@ -150,7 +147,7 @@ export function DashboardHome() {
 
             <div className="grid gap-3">
               <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                O'yinlar
+                {t("O'yinlar")}
               </p>
               {!usage ? (
                 <div className="grid gap-4">
@@ -172,7 +169,7 @@ export function DashboardHome() {
               onClick={() => setJoinOpen(true)}
               className="flex h-12 items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
             >
-              Kod orqali qo'shilish
+              {t("Kod orqali qo'shilish")}
             </button>
           </div>
         </section>
@@ -209,18 +206,22 @@ function GameCardItem({ game }: { game: GameCard }) {
         <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent" />
         {!game.available && (
           <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur">
-            Tez orada
+            <Translated text="Tez orada" />
           </span>
         )}
       </div>
 
       <div className="p-4">
         <p className="text-lg font-semibold text-ink-primary">{game.title}</p>
-        <p className="mt-1 text-sm text-ink-secondary">{game.subtitle}</p>
+        <p className="mt-1 text-sm text-ink-secondary">
+          <Translated text={game.subtitle} />
+        </p>
         <div className="mt-3 flex items-center justify-between text-xs text-ink-muted">
-          <span>{game.players}</span>
+          <span>
+            <Translated text={game.players} />
+          </span>
           <span className="flex items-center gap-1 text-brand">
-            Kirish
+            <Translated text="Kirish" />
             <svg
               width="14"
               height="14"
@@ -240,6 +241,11 @@ function GameCardItem({ game }: { game: GameCard }) {
   );
 }
 
+function Translated({ text }: { text: string }) {
+  const { t } = useI18n();
+  return <>{t(text)}</>;
+}
+
 function GameCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-2xl border border-line-subtle bg-bg-surface">
@@ -254,26 +260,5 @@ function GameCardSkeleton() {
         </div>
       </div>
     </div>
-  );
-}
-
-function Avatar({ user }: { user: AuthUser | null }) {
-  if (user?.photoUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img
-        src={user.photoUrl}
-        alt=""
-        className="h-7 w-7 shrink-0 rounded-full object-cover"
-      />
-    );
-  }
-  const initial = (user?.nickname ?? user?.firstName ?? "?")
-    .slice(0, 1)
-    .toUpperCase();
-  return (
-    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
-      {initial}
-    </span>
   );
 }

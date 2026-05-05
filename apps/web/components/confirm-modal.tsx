@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useI18n } from "@/lib/i18n";
 
 type ConfirmModalProps = {
   open: boolean;
@@ -36,13 +37,16 @@ export function ConfirmModal({
   open,
   title,
   description,
-  confirmLabel = "Tasdiqlash",
-  cancelLabel = "Bekor qilish",
+  confirmLabel,
+  cancelLabel,
   tone = "danger",
   busy = false,
   onConfirm,
   onClose
 }: ConfirmModalProps) {
+  const { t } = useI18n();
+  const resolvedConfirmLabel = confirmLabel ?? t("Tasdiqlash");
+  const resolvedCancelLabel = cancelLabel ?? t("Bekor qilish");
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
@@ -64,7 +68,7 @@ export function ConfirmModal({
     >
       <button
         type="button"
-        aria-label="Yopish"
+        aria-label={t("Yopish")}
         onClick={busy ? undefined : onClose}
         className="absolute inset-0 cursor-default"
       />
@@ -73,7 +77,7 @@ export function ConfirmModal({
         <p
           className={`text-xs font-medium uppercase tracking-[0.2em] ${styles.accent}`}
         >
-          Tasdiqlash kerak
+          {t("Tasdiqlash kerak")}
         </p>
         <h2 className="mt-2 text-xl font-bold leading-snug text-ink-primary">
           {title}
@@ -89,14 +93,14 @@ export function ConfirmModal({
             onClick={onConfirm}
             className={`flex h-14 w-full items-center justify-center rounded-2xl text-base font-semibold transition active:scale-[0.98] disabled:opacity-50 ${styles.button}`}
           >
-            {busy ? "..." : confirmLabel}
+            {busy ? "..." : resolvedConfirmLabel}
           </button>
           <button
             disabled={busy}
             onClick={onClose}
             className="flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold text-ink-primary disabled:opacity-50"
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
         </div>
       </div>

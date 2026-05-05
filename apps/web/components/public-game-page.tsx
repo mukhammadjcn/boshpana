@@ -1,9 +1,13 @@
+"use client";
+
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 import { BrandMark } from "@/components/brand-mark";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { TelegramChrome } from "@/components/telegram-chrome";
+import { useI18n } from "@/lib/i18n";
 
 type HeroStat = {
   label: string;
@@ -58,6 +62,7 @@ export function PublicGamePage({
   audience,
   createHref
 }: PublicGamePageProps) {
+  const { t } = useI18n();
   const loginHref = `/login?redirect=${encodeURIComponent(createHref)}` as Route;
 
   return (
@@ -72,16 +77,19 @@ export function PublicGamePage({
                 Jamoaviy.uz
               </p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
-                Jamoaviy o'yinlar
+                {t("Jamoaviy o'yinlar")}
               </p>
             </div>
           </Link>
-          <Link
-            href={loginHref}
-            className="inline-flex h-10 items-center justify-center rounded-2xl bg-brand px-4 text-xs font-semibold text-bg-base transition active:scale-[0.98] sm:text-sm"
-          >
-            Login qilib yaratish
-          </Link>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher variant="select" />
+            <Link
+              href={loginHref}
+              className="inline-flex h-10 items-center justify-center rounded-2xl bg-brand px-4 text-xs font-semibold text-bg-base transition active:scale-[0.98] sm:text-sm"
+            >
+              {t("Login qilib yaratish")}
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -89,13 +97,13 @@ export function PublicGamePage({
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-14 lg:px-8 lg:py-20">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand">
-              {eyebrow}
+              {t(eyebrow)}
             </p>
             <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-              {title}
+              {t(title)}
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-ink-secondary sm:text-base sm:leading-8">
-              {description}
+              {t(description)}
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -103,13 +111,13 @@ export function PublicGamePage({
                 href={loginHref}
                 className="inline-flex h-14 items-center justify-center rounded-2xl bg-brand px-6 text-base font-semibold text-bg-base transition active:scale-[0.98]"
               >
-                O'yin yaratish
+                {t("O'yin yaratish")}
               </Link>
               <Link
                 href={"/" as Route}
                 className="inline-flex h-14 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-6 text-base font-semibold text-ink-primary transition active:scale-[0.98]"
               >
-                Landingga qaytish
+                {t("Landingga qaytish")}
               </Link>
             </div>
 
@@ -123,7 +131,7 @@ export function PublicGamePage({
                     {item.value}
                   </p>
                   <p className="mt-1 text-[11px] uppercase tracking-wider text-ink-muted sm:text-xs">
-                    {item.label}
+                    {t(item.label)}
                   </p>
                 </div>
               ))}
@@ -134,7 +142,7 @@ export function PublicGamePage({
             <div className="relative aspect-[16/11] w-full">
               <Image
                 src={image}
-                alt={imageAlt}
+                alt={t(imageAlt)}
                 fill
                 sizes="(max-width: 1024px) 100vw, 560px"
                 className="object-cover"
@@ -144,13 +152,12 @@ export function PublicGamePage({
             </div>
             <div className="grid gap-3 p-5 sm:p-6">
               <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-                Nima uchun bu sahifa bor
+                {t("Nima uchun bu sahifa bor")}
               </p>
               <p className="text-sm leading-7 text-ink-secondary">
-                Bu yerda o'yinning mantig'i, kimlar uchun mosligi va yaratish
-                paytida chiqadigan barcha asosiy configlar oldindan tushuntirib
-                beriladi. Shu sabab login qilmasdan turib ham jamoangiz uchun
-                qaysi rejim to'g'ri kelishini tanlashingiz mumkin.
+                {t(
+                  "Bu yerda o'yinning mantig'i, kimlar uchun mosligi va yaratish paytida chiqadigan barcha asosiy configlar oldindan tushuntirib beriladi. Shu sabab login qilmasdan turib ham jamoangiz uchun qaysi rejim to'g'ri kelishini tanlashingiz mumkin."
+                )}
               </p>
             </div>
           </div>
@@ -161,15 +168,15 @@ export function PublicGamePage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-              Bo'lim maqsadi
+              {t("Bo'lim maqsadi")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              O'yin nimaga qurilganini oldindan bilib oling
+              {t("O'yin nimaga qurilganini oldindan bilib oling")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-              Har bir blok bir savolga javob beradi: o'yin nimaligi, qanday
-              ketishi, configlar nima uchun kerakligi va qaysi davra uchun mos
-              ekani.
+              {t(
+                "Har bir blok bir savolga javob beradi: o'yin nimaligi, qanday ketishi, configlar nima uchun kerakligi va qaysi davra uchun mos ekani."
+              )}
             </p>
           </div>
 
@@ -179,9 +186,9 @@ export function PublicGamePage({
                 key={item.title}
                 className="rounded-3xl border border-line-subtle bg-bg-surface p-5"
               >
-                <p className="text-base font-semibold">{item.title}</p>
+                <p className="text-base font-semibold">{t(item.title)}</p>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                  {item.body}
+                  {t(item.body)}
                 </p>
               </article>
             ))}
@@ -193,15 +200,15 @@ export function PublicGamePage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-              O'yin oqimi
+              {t("O'yin oqimi")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              Raundlar qanday ishlashini bilish uchun
+              {t("Raundlar qanday ishlashini bilish uchun")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-              Bu bo'lim host va o'yinchilar uchun jarayonni soddalashtiradi:
-              qachon gapiriladi, qachon qaror beriladi va qayerda dramatik
-              burilishlar bo'lishini ko'rsatadi.
+              {t(
+                "Bu bo'lim host va o'yinchilar uchun jarayonni soddalashtiradi: qachon gapiriladi, qachon qaror beriladi va qayerda dramatik burilishlar bo'lishini ko'rsatadi."
+              )}
             </p>
           </div>
 
@@ -214,9 +221,9 @@ export function PublicGamePage({
                 <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-soft font-mono text-sm font-semibold text-brand">
                   {index + 1}
                 </span>
-                <p className="mt-4 text-base font-semibold">{step.title}</p>
+                <p className="mt-4 text-base font-semibold">{t(step.title)}</p>
                 <p className="mt-2 text-sm leading-7 text-ink-secondary">
-                  {step.body}
+                  {t(step.body)}
                 </p>
               </li>
             ))}
@@ -228,15 +235,15 @@ export function PublicGamePage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-              Yaratish configlari
+              {t("Yaratish configlari")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              Har bir sozlama nimani boshqaradi
+              {t("Har bir sozlama nimani boshqaradi")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-              Login qilgandan keyin aynan shu configlar bilan room ochiladi.
-              Pastdagi izohlar har bir parametr nima uchun borligini va qachon
-              qaysi variant foydaliroq bo'lishini ko'rsatadi.
+              {t(
+                "Login qilgandan keyin aynan shu configlar bilan room ochiladi. Pastdagi izohlar har bir parametr nima uchun borligini va qachon qaysi variant foydaliroq bo'lishini ko'rsatadi."
+              )}
             </p>
           </div>
 
@@ -249,18 +256,18 @@ export function PublicGamePage({
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.22em] text-ink-muted">
-                      Config
+                      {t("Config")}
                     </p>
                     <h3 className="mt-2 text-lg font-semibold">
-                      {item.label}
+                      {t(item.label)}
                     </h3>
                   </div>
                   <span className="rounded-full border border-brand/25 bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-                    {item.value}
+                    {t(item.value)}
                   </span>
                 </div>
                 <p className="mt-4 text-sm leading-7 text-ink-secondary">
-                  {item.reason}
+                  {t(item.reason)}
                 </p>
               </article>
             ))}
@@ -272,15 +279,15 @@ export function PublicGamePage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-              Kimlar uchun
+              {t("Kimlar uchun")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              To'g'ri davrani tanlash uchun qisqa yo'nalish
+              {t("To'g'ri davrani tanlash uchun qisqa yo'nalish")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-              Bu bo'lim o'yinni qaysi jamoa bilan tezroq ishga tushirish
-              mumkinligini ko'rsatadi: kayfiyat, tajriba va davra kattaligiga
-              qarab.
+              {t(
+                "Bu bo'lim o'yinni qaysi jamoa bilan tezroq ishga tushirish mumkinligini ko'rsatadi: kayfiyat, tajriba va davra kattaligiga qarab."
+              )}
             </p>
           </div>
 
@@ -290,9 +297,9 @@ export function PublicGamePage({
                 key={item.title}
                 className="rounded-3xl border border-line-subtle bg-bg-surface p-5"
               >
-                <h3 className="text-base font-semibold">{item.title}</h3>
+                <h3 className="text-base font-semibold">{t(item.title)}</h3>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                  {item.body}
+                  {t(item.body)}
                 </p>
               </article>
             ))}
@@ -306,15 +313,15 @@ export function PublicGamePage({
             <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-                  Keyingi qadam
+                  {t("Keyingi qadam")}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-                  Jamoani yig'ing va room ochishni boshlang
+                  {t("Jamoani yig'ing va room ochishni boshlang")}
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-                  Yaratish tugmasi sizni login sahifasiga olib boradi, login
-                  tugashi bilan esa shu o'yinning create sahifasiga avtomatik
-                  o'tasiz.
+                  {t(
+                    "Yaratish tugmasi sizni login sahifasiga olib boradi, login tugashi bilan esa shu o'yinning create sahifasiga avtomatik o'tasiz."
+                  )}
                 </p>
               </div>
               <div className="grid gap-3">
@@ -322,13 +329,13 @@ export function PublicGamePage({
                   href={loginHref}
                   className="inline-flex h-14 items-center justify-center rounded-2xl bg-brand px-6 text-base font-semibold text-bg-base transition active:scale-[0.98]"
                 >
-                  Login qilib yaratish
+                  {t("Login qilib yaratish")}
                 </Link>
                 <Link
                   href={"/" as Route}
                   className="inline-flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-6 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
                 >
-                  Boshqa o'yinlarni ko'rish
+                  {t("Boshqa o'yinlarni ko'rish")}
                 </Link>
               </div>
             </div>

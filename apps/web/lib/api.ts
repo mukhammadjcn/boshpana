@@ -1,4 +1,5 @@
 import { getAuthToken } from "./auth";
+import { getStoredLanguage } from "./i18n";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -22,8 +23,10 @@ export async function apiRequest<T>(
   init?: ApiRequestInit
 ): Promise<T> {
   const token = getAuthToken();
+  const language = getStoredLanguage();
   const headers = {
     "Content-Type": "application/json",
+    "X-Language": language,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(init?.headers ?? {})
   };

@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
+import { useI18n } from "@/lib/i18n";
 import { MafiaSituationArt } from "./mafia-situation-art";
 import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 
@@ -10,32 +11,36 @@ type Props = {
   state: MafiaPublicState;
 };
 
-const roleMeta: Record<
+function getRoleMeta(t: (text: string, vars?: Record<string, string | number>) => string): Record<
   MafiaRole,
   { label: string; tone: "ok" | "bad" | "brand" }
-> = {
-  CITIZEN: { label: "Oddiy aholi", tone: "ok" },
-  MAFIA: { label: "Mafia", tone: "bad" },
-  SHERIFF: { label: "Komisar", tone: "brand" },
-  DOCTOR: { label: "Doktor", tone: "ok" }
-};
+> {
+  return {
+    CITIZEN: { label: t("Oddiy aholi"), tone: "ok" },
+    MAFIA: { label: "Mafia", tone: "bad" },
+    SHERIFF: { label: t("Komisar"), tone: "brand" },
+    DOCTOR: { label: t("Doktor"), tone: "ok" }
+  };
+}
 
 // Yakuniy ekran — qaysi jamoa yutgani va hamma rollarning ochilishi.
 // Bunkerning post-game yondashuviga o'xshash: banner + role reveal +
 // bosh sahifaga qaytish tugmasi.
 export function MafiaFinished({ state }: Props) {
   const router = useRouter();
+  const { t } = useI18n();
   const winner = state.game.winner;
   const players = [...state.players].sort(
     (a, b) => a.seatOrder - b.seatOrder
   );
+  const roleMeta = getRoleMeta(t);
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe pb-safe sm:px-6 lg:px-8">
         <header className="flex items-center justify-between pt-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            O'yin yakunlandi
+            {t("O'yin yakunlandi")}
           </p>
           <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
             {state.room.code}
@@ -52,7 +57,7 @@ export function MafiaFinished({ state }: Props) {
           {winner ? (
             <MafiaSituationArt
               src={winner === "MAFIA" ? "/mafiaimg.webp" : "/cityimg.webp"}
-              alt={winner === "MAFIA" ? "Mafia g'olib" : "Shahar g'olib"}
+              alt={winner === "MAFIA" ? t("Mafia g'olib") : t("Shahar g'olib")}
               size="lg"
             />
           ) : null}
@@ -62,15 +67,15 @@ export function MafiaFinished({ state }: Props) {
             }`}
           >
             {winner === "MAFIA"
-              ? "Mafia jamoasi g'olib"
+              ? t("Mafia jamoasi g'olib")
               : winner === "CITY"
-                ? "Shahar g'olib"
-                : "O'yin to'xtatildi"}
+                ? t("Shahar g'olib")
+                : t("O'yin to'xtatildi")}
           </p>
         </section>
 
         <section className="grid gap-2">
-          <p className="text-sm font-semibold">Barcha rollar</p>
+          <p className="text-sm font-semibold">{t("Barcha rollar")}</p>
           <ul className="grid gap-2">
             {players.map((p) => {
               const role = p.revealedRole;
@@ -99,7 +104,7 @@ export function MafiaFinished({ state }: Props) {
                       {p.name}
                     </p>
                     <p className={`text-[11px] ${toneClass}`}>
-                      {meta?.label ?? "Rol noma'lum"}
+                      {meta?.label ?? t("Rol noma'lum")}
                     </p>
                   </div>
                   <span
@@ -107,7 +112,7 @@ export function MafiaFinished({ state }: Props) {
                       p.isAlive ? "text-ok" : "text-ink-muted"
                     }`}
                   >
-                    {p.isAlive ? "Tirik" : "O'lgan"}
+                    {p.isAlive ? t("Tirik") : t("O'lgan")}
                   </span>
                 </li>
               );
@@ -120,7 +125,7 @@ export function MafiaFinished({ state }: Props) {
           onClick={() => router.push("/dashboard" as Route)}
           className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
         >
-          Bosh sahifaga qaytish
+          {t("Bosh sahifaga qaytish")}
         </button>
       </div>
     </main>

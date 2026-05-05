@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { BottomNav } from "@/components/bottom-nav";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 
 type Outcome = "HOSTED" | "WON" | "ELIMINATED" | "PLAYED" | "CANCELLED";
 
@@ -25,25 +26,6 @@ type HistoryResponse = {
   totalPages: number;
 };
 
-const outcomeLabel: Record<Outcome, string> = {
-  WON: "G‘olib",
-  ELIMINATED: "Yakunlangan",
-  HOSTED: "Yakunlangan",
-  PLAYED: "Yakunlangan",
-  CANCELLED: "Bekor qilingan"
-};
-
-// Sub-label clarifies the nuance under the badge when relevant. For host
-// games where the host was voted out the game still ended naturally — we
-// note that they didn't survive but don't paint the whole row red.
-const outcomeNote: Record<Outcome, string | null> = {
-  WON: null,
-  ELIMINATED: "Siz chiqib ketgan",
-  HOSTED: "Qo‘lda tugatildi",
-  PLAYED: null,
-  CANCELLED: "O‘yin boshlanmagan"
-};
-
 const outcomeStyles: Record<Outcome, string> = {
   WON: "bg-ok/15 text-ok border-ok/30",
   ELIMINATED: "bg-bg-elevated text-ink-secondary border-line-strong",
@@ -54,9 +36,11 @@ const outcomeStyles: Record<Outcome, string> = {
 
 const PAGE_SIZE = 10;
 
-function formatDate(iso: string) {
+function formatDate(iso: string, language: string) {
   const d = new Date(iso);
-  return d.toLocaleString("uz-UZ", {
+  const locale =
+    language === "ru" ? "ru-RU" : language === "en" ? "en-US" : "uz-UZ";
+  return d.toLocaleString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -66,6 +50,7 @@ function formatDate(iso: string) {
 }
 
 export function GameHistoryView() {
+  const { language, t } = useI18n();
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -107,25 +92,40 @@ export function GameHistoryView() {
 
   const canPrev = page > 1;
   const canNext = page < totalPages;
+  const outcomeLabel: Record<Outcome, string> = {
+    WON: t("G'olib"),
+    ELIMINATED: t("Yakunlangan"),
+    HOSTED: t("Yakunlangan"),
+    PLAYED: t("Yakunlangan"),
+    CANCELLED: t("Bekor qilingan")
+  };
+  const outcomeNote: Record<Outcome, string | null> = {
+    WON: null,
+    ELIMINATED: t("Siz chiqib ketgan"),
+    HOSTED: t("Qo'lda tugatildi"),
+    PLAYED: null,
+    CANCELLED: t("O'yin boshlanmagan")
+  };
 
   return (
     <main className="mx-auto min-h-screen max-w-xl px-4 pt-safe pb-safe">
       <header>
         <p className="text-xs font-medium uppercase tracking-wider text-brand">
-          Tarix
+          {t("Tarix")}
         </p>
-        <h1 className="mt-1 text-2xl font-bold">Mening o‘yinlarim</h1>
+        <h1 className="mt-1 text-2xl font-bold">{t("Mening o'yinlarim")}</h1>
       </header>
 
       <p className="mt-2 text-sm text-ink-secondary">
-        Tugagan o‘yinlaringiz tarixi. Faqat sana va falokat saqlanadi —
-        kartalar, ovozlar va boshqa ma‘lumotlar avtomatik tozalanadi.
+        {t(
+          "Tugagan o'yinlaringiz tarixi. Faqat sana va falokat saqlanadi — kartalar, ovozlar va boshqa ma'lumotlar avtomatik tozalanadi."
+        )}
       </p>
 
       <section className="mt-6">
         {!authReady ? (
           <div className="rounded-2xl border border-line-subtle bg-bg-surface p-5 text-sm text-ink-secondary">
-            Tarixni ko‘rish uchun avval Telegram orqali tizimga kiring.
+            {t("Tarixni ko'rish uchun avval Telegram orqali tizimga kiring.")}
           </div>
         ) : loading ? (
           <ul className="grid animate-pulse gap-3">
@@ -151,7 +151,7 @@ export function GameHistoryView() {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-line-subtle bg-bg-surface p-5 text-sm text-ink-secondary">
-            Hozircha tugagan o‘yin yo‘q.
+            {t("Hozircha tugagan o'yin yo'q.")}
           </div>
         ) : (
           <ul className="grid gap-3">
@@ -159,7 +159,9 @@ export function GameHistoryView() {
               const isCancelled = it.outcome === "CANCELLED";
               const title =
                 it.disasterName ??
-                (isCancelled ? "O‘yin yaratilmagan" : "Falokat noma‘lum");
+                (isCancelled
+                  ? t("O'yin yaratilmagan")
+                  : t("Falokat noma'lum"));
               return (
                 <li
                   key={it.id}
@@ -168,7 +170,7 @@ export function GameHistoryView() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-                        {formatDate(it.playedAt)}
+                        {formatDate(it.playedAt, language)}
                       </p>
                       <p
                         className={`mt-1 truncate text-base font-semibold ${
@@ -178,9 +180,13 @@ export function GameHistoryView() {
                         {title}
                       </p>
                       <p className="mt-1 text-xs text-ink-secondary">
-                        {it.roomCode ? `Xona: ${it.roomCode}` : null}
+                        {it.roomCode
+                          ? t("Xona: {code}", { code: it.roomCode })
+                          : null}
                         {it.roomCode && it.playerCount ? " · " : null}
-                        {it.playerCount ? `${it.playerCount} o‘yinchi` : null}
+                        {it.playerCount
+                          ? t("{count} o'yinchi", { count: it.playerCount })
+                          : null}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
@@ -209,19 +215,23 @@ export function GameHistoryView() {
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={!canPrev}
               className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:opacity-40"
-              aria-label="Oldingi sahifa"
+              aria-label={t("Oldingi sahifa")}
             >
               ←
             </button>
             <p className="text-xs text-ink-muted">
-              {page} / {totalPages} · jami {total}
+              {t("{page} / {totalPages} · jami {total}", {
+                page,
+                totalPages,
+                total
+              })}
             </p>
             <button
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={!canNext}
               className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:opacity-40"
-              aria-label="Keyingi sahifa"
+              aria-label={t("Keyingi sahifa")}
             >
               →
             </button>

@@ -6,6 +6,7 @@ import {
   isInsideTelegram,
   openTelegramLink,
 } from "@/lib/telegram";
+import { useI18n } from "@/lib/i18n";
 import { pushToast } from "@/store/useToastStore";
 import { useMemo, useState } from "react";
 
@@ -20,6 +21,7 @@ export function LobbyShareActions({
   inviteUrl,
   gameLabel,
 }: LobbyShareActionsProps) {
+  const { t } = useI18n();
   const [linkCopied, setLinkCopied] = useState(false);
   const insideTelegram = isInsideTelegram();
   const tgStartappLink = useMemo(
@@ -33,9 +35,9 @@ export function LobbyShareActions({
       await navigator.clipboard.writeText(inviteUrl);
       setLinkCopied(true);
       window.setTimeout(() => setLinkCopied(false), 1600);
-      pushToast({ kind: "success", text: "Link nusxalandi" });
+      pushToast({ kind: "success", text: t("Link nusxalandi") });
     } catch {
-      pushToast({ kind: "error", text: "Nusxalab bo'lmadi" });
+      pushToast({ kind: "error", text: t("Nusxalab bo'lmadi") });
     }
   }
 
@@ -43,7 +45,10 @@ export function LobbyShareActions({
     const url = tgStartappLink ?? inviteUrl;
     const shareUrl = buildTelegramShareUrl(
       url,
-      `Jamoaviy.uz — ${gameLabel} uchun ${roomCode} xonasiga qo'shiling`,
+      t("Jamoaviy.uz — {gameLabel} uchun {roomCode} xonasiga qo'shiling", {
+        gameLabel,
+        roomCode
+      }),
     );
     openTelegramLink(shareUrl);
   }
@@ -57,7 +62,7 @@ export function LobbyShareActions({
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#229ED9] text-sm font-semibold text-white transition active:scale-[0.98]"
         >
           <TelegramIcon />
-          Telegramda ulashish
+          {t("Telegramda ulashish")}
         </button>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
@@ -67,7 +72,7 @@ export function LobbyShareActions({
             className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#229ED9] text-sm font-semibold text-white transition active:scale-[0.98]"
           >
             <TelegramIcon />
-            Telegramda ulashish
+            {t("Telegramda ulashish")}
           </button>
           <button
             type="button"
@@ -77,9 +82,9 @@ export function LobbyShareActions({
                 ? "bg-ok text-bg-base"
                 : "border border-line-strong bg-bg-elevated text-ink-primary"
             }`}
-          >
-            <CopyIcon />
-            {linkCopied ? "Nusxalandi" : "Linkni nusxalash"}
+            >
+              <CopyIcon />
+            {linkCopied ? t("Nusxalandi") : t("Linkni nusxalash")}
           </button>
         </div>
       )}

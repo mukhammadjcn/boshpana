@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { getAuthToken } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 const GAMES = [
   {
@@ -67,6 +69,7 @@ const BRAND_POINTS = [
 ];
 
 export function HomePage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [redirecting, setRedirecting] = useState(false);
   const loginHref = "/login" as Route;
@@ -83,7 +86,7 @@ export function HomePage() {
       <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
         <div className="flex items-center gap-2 text-sm">
           <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-          Yuklanmoqda...
+          {t("Yuklanmoqda...")}
         </div>
       </main>
     );
@@ -100,16 +103,19 @@ export function HomePage() {
                 Jamoaviy.uz
               </p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
-                Jamoaviy o'yinlar
+                {t("Jamoaviy o'yinlar")}
               </p>
             </div>
           </div>
-          <BotCta
-            href={loginHref}
-            label="Telegramda ochish"
-            variant="primary"
-            size="sm"
-          />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher variant="select" />
+            <BotCta
+              href={loginHref}
+              label={t("Telegramda ochish")}
+              variant="primary"
+              size="sm"
+            />
+          </div>
         </div>
       </header>
 
@@ -118,31 +124,30 @@ export function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16 lg:px-8 lg:py-24">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand">
-              Telegram party games platform
+              {t("Telegram party games platform")}
             </p>
             <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
               <span className="text-brand">Jamoaviy.uz</span>{" "}
-              ichida
-              do'stlar bilan o'ynaladigan o'yinlar jamlangan
+              {t("ichida do'stlar bilan o'ynaladigan o'yinlar jamlangan")}
             </h1>
             <p className="mt-4 text-base leading-7 text-ink-secondary sm:text-lg sm:leading-8">
-              Bu yerda Bunker va Mafia kabi jamoaviy o'yinlar alohida
-              routelar bilan taqdim etiladi. Har bir route ichida o'yin haqida
-              kengaytirilgan ma'lumot, create configlari va ularning nima uchun
-              kerakligi yozilgan bo'ladi.
+              {t(
+                "Bu yerda Bunker va Mafia kabi jamoaviy o'yinlar alohida routelar bilan taqdim etiladi. Har bir route ichida o'yin haqida kengaytirilgan ma'lumot, create configlari va ularning nima uchun kerakligi yozilgan bo'ladi."
+              )}
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <p className="text-xs text-ink-muted sm:text-sm">
-                O'yin yaratish uchun Telegram orqali kirasiz, tanlash esa
-                public landing ichida ham ochiq
+                {t(
+                  "O'yin yaratish uchun Telegram orqali kirasiz, tanlash esa public landing ichida ham ochiq"
+                )}
               </p>
             </div>
 
             <ul className="mt-8 grid grid-cols-3 gap-3 text-center text-xs sm:text-sm">
-              <Stat value="2+" label="o'yin" />
-              <Stat value="Telegram" label="login" />
-              <Stat value="Mobile" label="first" />
+              <Stat value="2+" label={t("o'yin")} />
+              <Stat value="Telegram" label={t("login")} />
+              <Stat value="Mobile" label={t("first")} />
             </ul>
           </div>
 
@@ -165,33 +170,14 @@ export function HomePage() {
                   <div>
                     <p className="text-sm font-semibold">Jamoaviy.uz</p>
                     <p className="text-xs text-ink-muted">
-                      Bunker, Mafia va yana ko'proq o'yinlar uchun kirish nuqtasi
+                      {t("Bunker, Mafia va yana ko'proq o'yinlar uchun kirish nuqtasi")}
                     </p>
                   </div>
                 </div>
                 <div className="grid gap-2 rounded-2xl border border-line-subtle bg-bg-base/60 p-4 text-sm text-ink-secondary">
-                  <p>
-                    <span className="font-semibold text-ink-primary">
-                      Bunker
-                    </span>{" "}
-                    route ichida pitch, vote va survivor flow
-                    tushuntiriladi.
-                  </p>
-                  <p>
-                    <span className="font-semibold text-ink-primary">
-                      Mafia
-                    </span>{" "}
-                    route ichida role balance, tun-kun fazalari va
-                    create tarkibi ko'rsatiladi.
-                  </p>
-                  <p>
-                    Har ikki sahifadagi{" "}
-                    <span className="font-semibold text-ink-primary">
-                      O'yin yaratish
-                    </span>{" "}
-                    tugmasi login bilan
-                    kerakli create page'ga olib boradi.
-                  </p>
+                  <p>{t("Bunker route ichida pitch, vote va survivor flow tushuntiriladi.")}</p>
+                  <p>{t("Mafia route ichida role balance, tun-kun fazalari va create tarkibi ko'rsatiladi.")}</p>
+                  <p>{t("Har ikki sahifadagi O'yin yaratish tugmasi login bilan kerakli create page'ga olib boradi.")}</p>
                 </div>
               </div>
             </div>
@@ -207,14 +193,15 @@ export function HomePage() {
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              O'yin routelari
+              {t("O'yin routelari")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              Landing ichidan ikki yangi public kirish nuqtasi
+              {t("Landing ichidan ikki yangi public kirish nuqtasi")}
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
-              Har bir karta alohida game page'ga olib boradi. Ichkarida qoidalar,
-              maqsad, configlar va login redirect bilan create tugmasi bor.
+              {t(
+                "Har bir karta alohida game page'ga olib boradi. Ichkarida qoidalar, maqsad, configlar va login redirect bilan create tugmasi bor."
+              )}
             </p>
           </div>
 
@@ -241,16 +228,16 @@ export function HomePage() {
                     <div>
                       <p className="text-xl font-semibold">{game.title}</p>
                       <p className="mt-2 text-sm leading-7 text-ink-secondary">
-                        {game.body}
+                        {t(game.body)}
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full border border-brand/25 bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-                      Yangi o'yin
+                      {t("Yangi o'yin")}
                     </span>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs text-ink-muted sm:text-sm">
-                    <span>{game.meta}</span>
-                    <span className="font-semibold text-brand">{game.cta}</span>
+                    <span>{t(game.meta)}</span>
+                    <span className="font-semibold text-brand">{t(game.cta)}</span>
                   </div>
                 </div>
               </Link>
@@ -263,10 +250,10 @@ export function HomePage() {
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Platforma qadri
+              {t("Platforma qadri")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              Nima uchun aynan shu struktura tanlandi
+              {t("Nima uchun aynan shu struktura tanlandi")}
             </h2>
           </div>
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -275,9 +262,9 @@ export function HomePage() {
                 key={f.title}
                 className="rounded-2xl border border-line-subtle bg-bg-surface p-5"
               >
-                <p className="mt-3 text-base font-semibold">{f.title}</p>
+                <p className="mt-3 text-base font-semibold">{t(f.title)}</p>
                 <p className="mt-2 text-sm leading-6 text-ink-secondary">
-                  {f.body}
+                  {t(f.body)}
                 </p>
               </li>
             ))}
@@ -289,14 +276,15 @@ export function HomePage() {
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Qanday ishlaydi
+              {t("Qanday ishlaydi")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              User flow 4 qadamda aniq ko'rinadi
+              {t("User flow 4 qadamda aniq ko'rinadi")}
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
-              Bu bo'lim yangi mehmon uchun saytdagi harakat yo'lini soddalashtiradi:
-              tanlash, tushunish, login qilish va room yaratish.
+              {t(
+                "Bu bo'lim yangi mehmon uchun saytdagi harakat yo'lini soddalashtiradi: tanlash, tushunish, login qilish va room yaratish."
+              )}
             </p>
           </div>
           <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -309,10 +297,10 @@ export function HomePage() {
                   {a.n}
                 </span>
                 <p className="mt-3 text-sm font-semibold sm:text-base">
-                  {a.title}
+                  {t(a.title)}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-ink-secondary">
-                  {a.body}
+                  {t(a.body)}
                 </p>
               </li>
             ))}
@@ -326,24 +314,24 @@ export function HomePage() {
             <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
               <div>
                 <h2 className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-                  Do'stlar bilan birga{" "}
-                  <span className="text-brand">qaysi o'yindan boshlaysiz?</span>
+                  {t("Do'stlar bilan birga")}{" "}
+                  <span className="text-brand">{t("qaysi o'yindan boshlaysiz?")}</span>
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-                  Public landing ichidan o'yinni tanlang, route ichida
-                  configlarni ko'ring va create tugmasi orqali login qilib
-                  to'g'ridan-to'g'ri room yaratishga o'ting.
+                  {t(
+                    "Public landing ichidan o'yinni tanlang, route ichida configlarni ko'ring va create tugmasi orqali login qilib to'g'ridan-to'g'ri room yaratishga o'ting."
+                  )}
                 </p>
               </div>
               <div className="grid gap-3">
                 <BotCta
                   href={loginHref}
-                  label="Telegramda boshlash"
+                  label={t("Telegramda boshlash")}
                   variant="primary"
                   size="lg"
                 />
                 <p className="text-center text-xs text-ink-muted">
-                  Jamoaviy.uz ichida host yaratadi, jamoa esa havola bilan kiradi.
+                  {t("Jamoaviy.uz ichida host yaratadi, jamoa esa havola bilan kiradi.")}
                 </p>
               </div>
             </div>
@@ -354,7 +342,7 @@ export function HomePage() {
       <footer className="border-t border-line-subtle">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>© {new Date().getFullYear()} Jamoaviy.uz</p>
-          <p>Bunker · Mafia · Mobile-first · Telegram orqali</p>
+          <p>{t("Bunker · Mafia · Mobile-first · Telegram orqali")}</p>
         </div>
       </footer>
     </main>

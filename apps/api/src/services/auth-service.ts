@@ -104,7 +104,6 @@ export async function upsertUserFromTelegram(
     telegramUsername: tgUser.username ?? null,
     firstName: tgUser.first_name ?? null,
     lastName: tgUser.last_name ?? null,
-    languageCode: tgUser.language_code ?? null,
     isPremium: !!tgUser.is_premium,
     ...(phone ? { phone } : {})
   };
@@ -127,6 +126,7 @@ export async function upsertUserFromTelegram(
     create: {
       telegramId: String(tgUser.id),
       nickname: defaultNickname,
+      languageCode: tgUser.language_code ?? null,
       ...updateData
     },
     update: updateData
@@ -205,6 +205,7 @@ export function publicUser(
     nickname: user.nickname,
     photoUrl: user.photoUrl,
     phone: user.phone,
+    languageCode: user.languageCode,
     isPremium: user.isPremium
   };
 }

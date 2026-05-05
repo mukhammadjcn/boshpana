@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { useI18n } from "@/lib/i18n";
 import { MafiaSituationArt } from "./mafia-situation-art";
 import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 
@@ -11,12 +12,14 @@ type Props = {
   onConfirmVote: () => void;
 };
 
-const roleLabel: Record<MafiaRole, string> = {
-  CITIZEN: "Oddiy aholi",
-  MAFIA: "Mafia",
-  SHERIFF: "Komisar",
-  DOCTOR: "Doktor"
-};
+function getRoleLabel(t: (text: string, vars?: Record<string, string | number>) => string): Record<MafiaRole, string> {
+  return {
+    CITIZEN: t("Oddiy aholi"),
+    MAFIA: "Mafia",
+    SHERIFF: t("Komisar"),
+    DOCTOR: t("Doktor")
+  };
+}
 
 // Kun bosqichi — muhokama (3 daq) → ovoz berish (60s) → kerak bo'lsa
 // tiebreak (30s) → natija (6s reveal). Har bir sub-view alohida shell
@@ -64,6 +67,7 @@ function DayShell({
   badge?: string;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const fraction = Math.max(
     0,
     Math.min(1, totalSeconds === 0 ? 0 : remaining / totalSeconds)
@@ -94,7 +98,7 @@ function DayShell({
             >
               {mins > 0
                 ? `${mins}:${String(secs).padStart(2, "0")}`
-                : `${secs}s`}
+                : t("{seconds}s", { seconds: secs })}
             </span>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-elevated">
@@ -118,24 +122,25 @@ function DayShell({
 // ─────────────────────────────────────────────────────────────────────
 
 function Discussion({ state }: { state: MafiaPublicState }) {
+  const { t } = useI18n();
   const { game, players, me } = state;
   const aliveCount = players.filter((p) => p.isAlive).length;
 
   return (
     <DayShell
-      title={`Kun · #${game.dayNumber}`}
-      subtitle="Muhokama vaqti — kim mafia ekanligi haqida bahslashing"
+      title={t("Kun · #{dayNumber}", { dayNumber: game.dayNumber })}
+      subtitle={t("Muhokama vaqti — kim mafia ekanligi haqida bahslashing")}
       remaining={game.remainingSeconds}
       totalSeconds={180}
       badge={state.room.code}
     >
       <section className="grid gap-3 rounded-3xl border border-line-subtle bg-bg-surface p-5 text-center">
-        <MafiaSituationArt src="/talkimg.webp" alt="Muhokama" />
+        <MafiaSituationArt src="/talkimg.webp" alt={t("Muhokama")} />
         <p className="text-base font-semibold">
-          Hozircha tirik qolganlar: {aliveCount}
+          {t("Hozircha tirik qolganlar: {count}", { count: aliveCount })}
         </p>
         <p className="text-sm text-ink-muted">
-          Bahslashing. Mafia kim ekan?
+          {t("Bahslashing. Mafia kim ekan?")}
         </p>
       </section>
 
@@ -151,14 +156,14 @@ function Discussion({ state }: { state: MafiaPublicState }) {
                 {p.name.slice(0, 2)}
               </span>
               <span className="flex-1 truncate text-sm font-medium">
-                {p.name} {me?.id === p.id ? "(siz)" : ""}
+                {p.name} {me?.id === p.id ? t("(siz)") : ""}
               </span>
               <span
                 className={`text-[10px] font-medium uppercase tracking-wider ${
                   p.online ? "text-ok" : "text-ink-muted"
                 }`}
               >
-                {p.online ? "Onlayn" : "Offlayn"}
+                {p.online ? t("Onlayn") : t("Offlayn")}
               </span>
             </li>
           ))}
@@ -181,6 +186,7 @@ function VoteView({
   onSubmitVote: (targetPlayerId: string) => void;
   onConfirmVote: () => void;
 }) {
+  const { t } = useI18n();
   const { game, players, me, votes } = state;
   const isTiebreak = game.phase === "DAY_TIEBREAK";
   const totalSeconds = isTiebreak ? 30 : 60;
@@ -203,11 +209,15 @@ function VoteView({
 
   return (
     <DayShell
-      title={isTiebreak ? "Qayta ovoz · teng ovoz" : `Ovoz · Kun #${game.dayNumber}`}
+      title={
+        isTiebreak
+          ? t("Qayta ovoz · teng ovoz")
+          : t("Ovoz · Kun #{dayNumber}", { dayNumber: game.dayNumber })
+      }
       subtitle={
         isTiebreak
-          ? "Tenglashgan nomzodlardan birini tanlang"
-          : "Sizningcha kim mafia? Birini tanlang"
+          ? t("Tenglashgan nomzodlardan birini tanlang")
+          : t("Sizningcha kim mafia? Birini tanlang")
       }
       remaining={game.remainingSeconds}
       totalSeconds={totalSeconds}
@@ -216,8 +226,8 @@ function VoteView({
       {!me?.isAlive ? (
         <SpectatorPanel
           players={players}
-          title="Siz o'lgansiz"
-          subtitle="Tomoshabin sifatida ovoz natijasini va kimlar qolganini kuzatib turing."
+          title={t("Siz o'lgansiz")}
+          subtitle={t("Tomoshabin sifatida ovoz natijasini va kimlar qolganini kuzatib turing.")}
         />
       ) : (
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -250,7 +260,7 @@ function VoteView({
                       selected ? "text-brand" : "text-ink-muted"
                     }`}
                   >
-                    {selected ? "Tanlandi" : "Ovoz"}
+                    {selected ? t("Tanlandi") : t("Ovoz")}
                   </span>
                 </button>
               </li>
@@ -261,13 +271,13 @@ function VoteView({
 
       {myTarget ? (
         <p className="rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-center text-sm text-brand">
-          Siz {myTarget.name}ni tanladingiz.
+          {t("Siz {name}ni tanladingiz.", { name: myTarget.name })}
         </p>
       ) : null}
 
       <div className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center">
         <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-          Tasdiqlanganlar
+          {t("Tasdiqlanganlar")}
         </p>
         <p className="mt-1 font-mono text-lg font-semibold text-brand">
           {votes.confirmations.confirmed} / {votes.confirmations.total}
@@ -284,10 +294,10 @@ function VoteView({
         }`}
       >
         {votes.confirmedByMe
-          ? "✓ Ovozingiz tasdiqlandi"
+          ? t("✓ Ovozingiz tasdiqlandi")
           : votes.submittedByMe
-            ? "Nomzod tanlandi — endi tasdiqlang"
-          : "Hali ovoz bermadingiz"}
+            ? t("Nomzod tanlandi — endi tasdiqlang")
+          : t("Hali ovoz bermadingiz")}
       </p>
 
       {me?.isAlive ? (
@@ -297,7 +307,7 @@ function VoteView({
           disabled={!myTarget || votes.confirmedByMe}
           className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
         >
-          {votes.confirmedByMe ? "Tasdiqlandi" : "Ovozni tasdiqlash"}
+          {votes.confirmedByMe ? t("Tasdiqlandi") : t("Ovozni tasdiqlash")}
         </button>
       ) : null}
     </DayShell>
@@ -309,34 +319,38 @@ function VoteView({
 // ─────────────────────────────────────────────────────────────────────
 
 function ResultView({ state }: { state: MafiaPublicState }) {
+  const { t } = useI18n();
   const { game, players } = state;
   const eliminated = players.find(
     (p) => p.id === game.lastEliminatedPlayerId
   );
   const role = game.lastEliminatedRole;
+  const roleLabel = getRoleLabel(t);
 
   return (
     <DayShell
-      title={`Kun yakunlandi · #${game.dayNumber}`}
-      subtitle="Ovoz berish natijasi"
+      title={t("Kun yakunlandi · #{dayNumber}", { dayNumber: game.dayNumber })}
+      subtitle={t("Ovoz berish natijasi")}
       remaining={game.remainingSeconds}
       totalSeconds={6}
       badge={state.room.code}
     >
       {eliminated && role ? (
         <div className="grid gap-3 rounded-3xl border border-bad/30 bg-bad/10 p-6 text-center animate-fade-in">
-          <MafiaSituationArt src="/diedimg.webp" alt="Chetlatilgan o'yinchi" />
+          <MafiaSituationArt src="/diedimg.webp" alt={t("Chetlatilgan o'yinchi")} />
           <p className="text-base font-semibold text-bad">
-            {eliminated.name} chetlatildi
+            {t("{name} chetlatildi", { name: eliminated.name })}
           </p>
-          <p className="text-xs text-ink-muted">Roli: {roleLabel[role]}</p>
+          <p className="text-xs text-ink-muted">
+            {t("Roli: {role}", { role: roleLabel[role] })}
+          </p>
         </div>
       ) : (
         <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-          <MafiaSituationArt src="/novoiceimg.webp" alt="Hech kim chetlatilmadi" />
-          <p className="text-base font-semibold">Hech kim chetlatilmadi</p>
+          <MafiaSituationArt src="/novoiceimg.webp" alt={t("Hech kim chetlatilmadi")} />
+          <p className="text-base font-semibold">{t("Hech kim chetlatilmadi")}</p>
           <p className="text-xs text-ink-muted">
-            Ovozlar bo'linib ketdi yoki qayta ovoz ham tenglashdi.
+            {t("Ovozlar bo'linib ketdi yoki qayta ovoz ham tenglashdi.")}
           </p>
         </div>
       )}
@@ -353,10 +367,11 @@ function SpectatorPanel({
   title: string;
   subtitle: string;
 }) {
+  const { t } = useI18n();
   return (
     <div className="grid gap-4 rounded-3xl border border-line-strong bg-bg-surface p-5">
       <div className="grid gap-3 text-center">
-        <MafiaSituationArt src="/ghostimg.webp" alt="O'lgan o'yinchi" />
+        <MafiaSituationArt src="/ghostimg.webp" alt={t("O'lgan o'yinchi")} />
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm text-ink-muted">{subtitle}</p>
       </div>
@@ -373,7 +388,7 @@ function SpectatorPanel({
                 player.isAlive ? "text-ok" : "text-bad"
               }`}
             >
-              {player.isAlive ? "Tirik" : "O'lgan"}
+              {player.isAlive ? t("Tirik") : t("O'lgan")}
             </span>
           </div>
         ))}

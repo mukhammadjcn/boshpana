@@ -16,6 +16,7 @@ import { ConfirmModal } from "@/components/confirm-modal";
 import { LobbyShareActions } from "@/components/lobby-share-actions";
 import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
+import { useI18n } from "@/lib/i18n";
 import { HostControls } from "./bunker-host-controls";
 import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
@@ -87,6 +88,7 @@ type Announcement = {
 
 export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const [sessionId, setSessionId] = useState("");
   const [joinName, setJoinName] = useState("");
   // Initialize loading=false if zustand store already has fresh state for this
@@ -420,11 +422,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     }
     setAnnouncement({
       key,
-      title: `${player.name} o‘yindan chiqdi`,
-      description:
-        "Bu o‘yinchi endi ovoz bera olmaydi, lekin kuzatishda davom etadi."
+      title: t("{name} o'yindan chiqdi", { name: player.name }),
+      description: t(
+        "Bu o'yinchi endi ovoz bera olmaydi, lekin kuzatishda davom etadi."
+      )
     });
   }, [
+    t,
     roomState?.game.lastEliminatedPlayerId,
     roomState?.game.roundNumber,
     roomState?.me?.id
@@ -593,11 +597,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     if (!me) return [];
     return cardOrder.map((type) => ({
       type,
-      label: cardLabels[type],
+      label: t(cardLabels[type]),
       value: me.cards[type],
       isRevealed: me.revealed.includes(type)
     }));
-  }, [me]);
+  }, [me, t]);
   const myVisibleCards = useMemo(
     () =>
       Object.fromEntries(
@@ -697,7 +701,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           <TelegramChrome backHref="/dashboard" />
           <div className="flex items-center gap-2 text-sm">
             <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-            Room yuklanmoqda...
+            {t("Room yuklanmoqda...")}
           </div>
         </main>
       );
@@ -714,21 +718,21 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             <p
               className={`text-xs font-medium uppercase tracking-wider ${finished ? "text-bad" : "text-warn"}`}
             >
-              {finished ? "Yopiq" : "Boshlangan"}
+              {finished ? t("Yopiq") : t("Boshlangan")}
             </p>
             <h1 className="mt-1 text-2xl font-bold">
               {finished
-                ? "Bu o‘yin yakunlangan"
-                : "Bu o‘yin allaqachon boshlangan"}
+                ? t("Bu o'yin yakunlangan")
+                : t("Bu o'yin allaqachon boshlangan")}
             </h1>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
               {finished
-                ? "Yangi o‘yin yarating yoki ochiq xona kodini so‘rang."
-                : "O‘yin boshlanganidan keyin yangi o‘yinchi qo‘shila olmaydi. Yangi o‘yin yaratishingiz yoki boshqa xona kodi bilan kirishingiz mumkin."}
+                ? t("Yangi o'yin yarating yoki ochiq xona kodini so'rang.")
+                : t("O'yin boshlanganidan keyin yangi o'yinchi qo'shila olmaydi. Yangi o'yin yaratishingiz yoki boshqa xona kodi bilan kirishingiz mumkin.")}
             </p>
 
             <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-              <p className="text-xs text-ink-muted">Room code</p>
+              <p className="text-xs text-ink-muted">{t("Room code")}</p>
               <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
                 {roomCode}
               </p>
@@ -738,7 +742,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               onClick={() => router.push("/dashboard")}
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
-              Bosh sahifa
+              {t("Bosh sahifa")}
             </button>
           </div>
         </main>
@@ -751,18 +755,17 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
           <div className="mx-auto max-w-md pt-6">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Taklif
+              {t("Taklif")}
             </p>
             <h1 className="mt-1 text-2xl font-bold">
-              Roomga kirish uchun tizimga kiring
+              {t("Roomga kirish uchun tizimga kiring")}
             </h1>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              Roomga qo'shilish uchun bot orqali bir martalik avtorizatsiya
-              kerak. Tasdiqlangach to'g'ridan-to'g'ri shu xonaga tushasiz.
+              {t("Roomga qo'shilish uchun bot orqali bir martalik avtorizatsiya kerak. Tasdiqlangach to'g'ridan-to'g'ri shu xonaga tushasiz.")}
             </p>
 
             <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-              <p className="text-xs text-ink-muted">Room code</p>
+              <p className="text-xs text-ink-muted">{t("Room code")}</p>
               <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
                 {roomCode}
               </p>
@@ -773,7 +776,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
               <span aria-hidden>✈</span>
-              Telegramda kirish
+              {t("Telegramda kirish")}
             </a>
           </div>
         </main>
@@ -784,14 +787,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
         <div className="mx-auto max-w-md pt-6">
           <p className="text-xs font-medium uppercase tracking-wider text-brand">
-            Taklif
+            {t("Taklif")}
           </p>
           <h1 className="mt-1 text-2xl font-bold">
-            Roomga kirish uchun nickname yozing
+            {t("Roomga kirish uchun nickname yozing")}
           </h1>
 
           <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-            <p className="text-xs text-ink-muted">Room code</p>
+            <p className="text-xs text-ink-muted">{t("Room code")}</p>
             <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
               {roomCode}
             </p>
@@ -804,10 +807,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               required
               maxLength={20}
               className="h-14 rounded-2xl border border-line-strong bg-bg-surface px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-              placeholder="Nickname"
+              placeholder={t("Nickname")}
             />
             <button className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]">
-              Roomga kirish
+              {t("Roomga kirish")}
             </button>
           </form>
           {error ? (
@@ -831,23 +834,26 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               onClick={() => router.push("/dashboard")}
               className="-ml-2 flex h-10 items-center gap-1.5 rounded-xl px-2 text-sm text-ink-secondary"
             >
-              <span aria-hidden>←</span> Bosh sahifa
+              <span aria-hidden>←</span> {t("Bosh sahifa")}
             </button>
             <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary">
-              Lobby
+              {t("Lobby")}
             </span>
           </header>
 
           <section className="mt-2 rounded-3xl border border-line-subtle bg-bg-surface p-5">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Room code
+              {t("Room code")}
             </p>
             <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em]">
               {room.code}
             </p>
             <p className="mt-2 text-sm text-ink-secondary">
-              {players.length} / {room.maxPlayers} o‘yinchi · Finish:{" "}
-              {room.winnerTarget} kishi
+              {t("{players} / {maxPlayers} o'yinchi · Finish: {winnerTarget} kishi", {
+                players: players.length,
+                maxPlayers: room.maxPlayers,
+                winnerTarget: room.winnerTarget
+              })}
             </p>
 
             {me.isHost ? (
@@ -863,9 +869,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
 
           <section className="mt-4">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-base font-semibold">O‘yinchilar</h2>
+              <h2 className="text-base font-semibold">{t("O'yinchilar")}</h2>
               <p className="text-xs text-ink-muted">
-                Kamida 3 kishi · {alivePlayers.length} ta tayyor
+                {t("Kamida 3 kishi · {count} ta tayyor", {
+                  count: alivePlayers.length
+                })}
               </p>
             </div>
             <ul className="grid gap-2 sm:grid-cols-2">
@@ -888,14 +896,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           {!me.isHost ? (
             <>
               <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
-                Host o‘yinni boshlashini kuting...
+                {t("Host o'yinni boshlashini kuting...")}
               </p>
               <button
                 type="button"
                 onClick={() => setLeaveConfirmOpen(true)}
                 className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.99]"
               >
-                Roomdan chiqish
+                {t("Roomdan chiqish")}
               </button>
             </>
           ) : null}
@@ -968,7 +976,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <div className="mx-auto flex max-w-xl items-center justify-between gap-2 px-4 pt-safe pb-2.5">
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-              Round{" "}
+              {t("Round")}{" "}
               {room.status === "FINISHED"
                 ? "—"
                 : Math.max(room.round, 1)}{" "}
@@ -979,13 +987,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               className="animate-fade-in truncate text-sm font-semibold text-ink-primary"
             >
               {game.phase === "ROUND_REVEAL" && !game.currentTurnPlayerId
-                ? "Reveal kutilmoqda"
+                ? t("Reveal kutilmoqda")
                 : votingFinished
-                  ? "Eliminatsiya tugadi"
-                  : phaseHelp[game.phase]}
+                  ? t("Eliminatsiya tugadi")
+                  : t(phaseHelp[game.phase])}
               {currentTurnPlayer
                 ? ` · ${currentTurnPlayer.name}${
-                    currentTurnPlayer.id === me.id ? " (siz)" : ""
+                    currentTurnPlayer.id === me.id ? ` ${t("(siz)")}` : ""
                   }`
                 : ""}
             </p>
@@ -994,7 +1002,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             <Timer seconds={game.remainingSeconds} />
             <button
               onClick={toggleAudio}
-              aria-label={audioEnabled ? "Ovozni o‘chirish" : "Ovoz yoqish"}
+              aria-label={audioEnabled ? t("Ovozni o'chirish") : t("Ovozni yoqish")}
               className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-surface text-ink-secondary"
             >
               {audioEnabled ? "🔊" : "🔇"}
@@ -1023,7 +1031,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 className="block w-full px-4 pt-3 pb-3 text-left transition active:opacity-80"
               >
                 <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
-                  Fojea
+                  {t("Fojea")}
                 </p>
                 <p className="mt-0.5 text-base font-semibold">
                   {game.disaster.name}
@@ -1042,7 +1050,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 className="block w-full px-4 pt-3 pb-4 text-left transition active:opacity-80"
               >
                 <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
-                  Round {game.roundNumber} vaziyati
+                  {t("Round {roundNumber} vaziyati", {
+                    roundNumber: game.roundNumber
+                  })}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-ink-primary">
                   {game.situation.text}
@@ -1055,11 +1065,12 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         {room.status === "FINISHED" ? (
           <section className="mt-4 rounded-2xl border border-ok/30 bg-ok/10 p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-ok">
-              Yakuniy natija
+              {t("Yakuniy natija")}
             </p>
             <p className="mt-1 text-base font-semibold">
-              Yutganlar:{" "}
-              {winners.map((p) => p.name).join(", ") || "Hech kim qolmadi"}
+              {t("Yutganlar: {names}", {
+                names: winners.map((p) => p.name).join(", ") || t("Hech kim qolmadi")
+              })}
             </p>
           </section>
         ) : null}
@@ -1068,10 +1079,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <section className="mt-4">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink-primary">
-              O‘yinchilar
+              {t("O'yinchilar")}
             </h2>
             <p className="text-xs text-ink-muted">
-              Tirik {alivePlayers.length} / {players.length}
+              {t("Tirik {alive} / {total}", {
+                alive: alivePlayers.length,
+                total: players.length
+              })}
             </p>
           </div>
           <ul className="grid gap-2">
@@ -1124,7 +1138,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                   room.status === "PLAYING" && game.phase === "ROUND_PITCH"
                 }
                 advanceTurnLabel={
-                  hasMoreRevealPlayers ? "Keyingi o‘yinchi" : "Pitchni yakunlash"
+                  hasMoreRevealPlayers ? "Keyingi o'yinchi" : "Pitchni yakunlash"
                 }
                 canStartVoting={
                   room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
@@ -1152,7 +1166,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               onClick={() => emit("advance_turn")}
               className="mb-2 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
-              Pitchni tugatish
+              {t("Pitchni tugatish")}
             </button>
           ) : null}
 
@@ -1162,7 +1176,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               onClick={() => router.push("/dashboard")}
               className="flex h-14 w-full items-center justify-center rounded-2xl bg-ok text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
-              Bosh sahifaga qaytish
+              {t("Bosh sahifaga qaytish")}
             </button>
           ) : (
             <button
@@ -1171,14 +1185,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
             >
               <div>
-                <p className="text-xs text-ink-muted">Mening kartalarim</p>
+                <p className="text-xs text-ink-muted">{t("Mening kartalarim")}</p>
                 <p className="text-sm font-semibold">
-                  {myRevealedCount}/6 ochilgan
-                  {!me.isAlive ? " · chiqqansiz" : ""}
+                  {t("{count}/6 ochilgan", { count: myRevealedCount })}
+                  {!me.isAlive ? ` · ${t("chiqqansiz")}` : ""}
                 </p>
               </div>
               <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-                Ko‘rish
+                {t("Ko'rish")}
               </span>
             </button>
           )}
@@ -1204,10 +1218,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-brand">
-                  Mening kartalarim
+                  {t("Mening kartalarim")}
                 </p>
                 <h2 className="mt-0.5 text-lg font-semibold">
-                  {myRevealedCount}/6 ochilgan
+                  {t("{count}/6 ochilgan", { count: myRevealedCount })}
                 </h2>
               </div>
               <button
@@ -1234,11 +1248,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                     </p>
                     {card.isRevealed ? (
                       <span className="rounded-full bg-brand/20 px-2 py-0.5 text-[10px] font-semibold text-brand">
-                        Ochiq
+                        {t("Ochiq")}
                       </span>
                     ) : (
                       <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-[10px] font-semibold text-ink-muted">
-                        Yashirin
+                        {t("Yashirin")}
                       </span>
                     )}
                   </div>
@@ -1278,7 +1292,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             ) : null}
             <div className="px-5 pb-5 pt-1">
               <p className="text-xs font-medium uppercase tracking-wider text-brand">
-                Fojea
+                {t("Fojea")}
               </p>
               <h2 className="mt-1 text-2xl font-bold">{game.disaster.name}</h2>
               <p className="mt-3 text-sm leading-7 text-ink-secondary">
@@ -1289,7 +1303,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                   onClick={() => setIntroOpen(false)}
                   className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
                 >
-                  Tushundim
+                  {t("Tushundim")}
                 </button>
               </div>
             </div>
@@ -1308,7 +1322,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           <div className="relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
             <p className="text-xs font-medium uppercase tracking-wider text-warn">
-              Round {game.roundNumber} vaziyati
+              {t("Round {roundNumber} vaziyati", {
+                roundNumber: game.roundNumber
+              })}
             </p>
             <p className="mt-3 text-base leading-7 text-ink-primary">
               {game.situation.text}
@@ -1317,7 +1333,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               onClick={() => setSituationOpen(false)}
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
-              Roundga kirish
+              {t("Roundga kirish")}
             </button>
           </div>
         </div>
@@ -1333,12 +1349,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           <div className="relative z-10 max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl border-t border-line-subtle bg-bg-surface px-5 pt-4 pb-safe shadow-pop sm:rounded-3xl sm:border">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Sizning navbatingiz
+              {t("Sizning navbatingiz")}
             </p>
-            <h2 className="mt-1 text-2xl font-bold">Bitta kartani tanlang</h2>
+            <h2 className="mt-1 text-2xl font-bold">{t("Bitta kartani tanlang")}</h2>
             <p className="mt-2 text-sm leading-6 text-ink-secondary">
-              Tanlaganingizdan keyin 2 daqiqada nega aynan shu kartani
-              ochganingizni tushuntirasiz.
+              {t("Tanlaganingizdan keyin 2 daqiqada nega aynan shu kartani ochganingizni tushuntirasiz.")}
             </p>
             <div className="mt-4 grid gap-2">
               {revealOptions.map((card) => (
@@ -1416,14 +1431,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 </svg>
               </div>
               <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-bad">
-                Eliminatsiya
+                {t("Eliminatsiya")}
               </p>
               <h2 className="mt-2 text-2xl font-bold text-ink-primary">
-                Siz bunkerdan chiqarildingiz
+                {t("Siz bunkerdan chiqarildingiz")}
               </h2>
               <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                Sizning kartalaringiz endi hammaga ochiq. Ovoz bera
-                olmaysiz, lekin o‘yin oxirigacha kuzatib turishingiz mumkin.
+                {t("Sizning kartalaringiz endi hammaga ochiq. Ovoz bera olmaysiz, lekin o'yin oxirigacha kuzatib turishingiz mumkin.")}
               </p>
             </div>
 
@@ -1432,7 +1446,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 onClick={() => setEliminatedModalOpen(false)}
                 className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98]"
               >
-                Kuzatishda davom etish
+                {t("Kuzatishda davom etish")}
               </button>
             </div>
           </div>
@@ -1486,22 +1500,22 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               <p
                 className={`mt-4 text-xs font-medium uppercase tracking-[0.25em] ${me.isAlive ? "text-brand" : "text-bad"}`}
               >
-                {me.isAlive ? "G‘alaba" : "O‘yin tugadi"}
+                {me.isAlive ? t("G'alaba") : t("O'yin tugadi")}
               </p>
               <h2 className="mt-2 text-2xl font-bold text-ink-primary">
                 {me.isAlive
-                  ? "Siz bunkerda omon qoldingiz!"
-                  : "Bu safar omad yor bo‘lmadi"}
+                  ? t("Siz bunkerda omon qoldingiz!")
+                  : t("Bu safar omad yor bo'lmadi")}
               </h2>
               <p className="mt-3 text-sm leading-7 text-ink-secondary">
                 {me.isAlive
-                  ? "Tabriklaymiz — insoniyatning kelajagini siz tiklaysiz."
-                  : "Siz o‘yindan chiqib ketgansiz, lekin o‘yin yakunlandi."}
+                  ? t("Tabriklaymiz — insoniyatning kelajagini siz tiklaysiz.")
+                  : t("Siz o'yindan chiqib ketgansiz, lekin o'yin yakunlandi.")}
                 {winners.length > 0
-                  ? ` Bunkerda qolganlar: ${winners
+                  ? ` ${t("Bunkerda qolganlar:")} ${winners
                       .map((w) => w.name)
                       .join(", ")}.`
-                  : " Bunkerda hech kim qolmadi."}
+                  : ` ${t("Bunkerda hech kim qolmadi.")}`}
               </p>
             </div>
 
@@ -1510,13 +1524,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 onClick={() => setWinnerModalOpen(false)}
                 className="flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
               >
-                Natijani ko‘rish
+                {t("Natijani ko'rish")}
               </button>
               <button
                 onClick={() => router.push("/dashboard")}
                 className="flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold text-ink-primary"
               >
-                Bosh sahifa
+                {t("Bosh sahifa")}
               </button>
             </div>
           </div>
@@ -1525,10 +1539,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
 
       <ConfirmModal
         open={endGameConfirmOpen}
-        title="O‘yinni tugatmoqchimisiz?"
-        description="O‘yin shu zahoti yakunlanadi va barcha ishtirokchilar uchun tugaydi. Bu amalni bekor qilib bo‘lmaydi."
-        confirmLabel="Ha, tugatish"
-        cancelLabel="Yo‘q"
+        title={t("O'yinni tugatmoqchimisiz?")}
+        description={t("O'yin shu zahoti yakunlanadi va barcha ishtirokchilar uchun tugaydi. Bu amalni bekor qilib bo'lmaydi.")}
+        confirmLabel={t("Ha, tugatish")}
+        cancelLabel={t("Yo'q")}
         tone="danger"
         onConfirm={() => {
           emit("end_game");
@@ -1540,11 +1554,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       <ConfirmModal
         open={!!kickTarget}
         title={
-          kickTarget ? `${kickTarget.name}ni o‘yindan chiqarish?` : ""
+          kickTarget ? t("{name}ni o'yindan chiqarish?", { name: kickTarget.name }) : ""
         }
-        description="Ushbu o‘yinchining barcha kartalari ochiladi va u o‘yindan chiqib ketgan deb belgilanadi. Buni odatda biror o‘yinchi tarmoqdan tushib qolib, o‘yin to‘xtab qolganda ishlating."
-        confirmLabel="Chiqarish"
-        cancelLabel="Bekor qilish"
+        description={t("Ushbu o'yinchining barcha kartalari ochiladi va u o'yindan chiqib ketgan deb belgilanadi. Buni odatda biror o'yinchi tarmoqdan tushib qolib, o'yin to'xtab qolganda ishlating.")}
+        confirmLabel={t("Chiqarish")}
+        cancelLabel={t("Bekor qilish")}
         tone="danger"
         onConfirm={() => {
           if (kickTarget) {
@@ -1557,10 +1571,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
 
       <ConfirmModal
         open={leaveConfirmOpen}
-        title="Roomdan chiqasizmi?"
-        description="Siz xonadan chiqasiz va o‘yin boshlanganda ishtirok etmaysiz. Xohlasangiz keyin link orqali yana qo‘shilishingiz mumkin."
-        confirmLabel="Ha, chiqish"
-        cancelLabel="Bekor qilish"
+        title={t("Roomdan chiqasizmi?")}
+        description={t("Siz xonadan chiqasiz va o'yin boshlanganda ishtirok etmaysiz. Xohlasangiz keyin link orqali yana qo'shilishingiz mumkin.")}
+        confirmLabel={t("Ha, chiqish")}
+        cancelLabel={t("Bekor qilish")}
         tone="danger"
         onConfirm={() => {
           emit("leave_room");
@@ -1608,7 +1622,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-              Karta ochildi
+              {t("Karta ochildi")}
             </p>
             <h3 className="mt-1 text-xl font-bold text-ink-primary">
               {revealModal.playerName}
@@ -1645,7 +1659,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                   } as React.CSSProperties}
                 >
                   <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
-                    {cardLabels[revealModal.newCardType]} · yangi
+                    {t("{label} · yangi", {
+                      label: t(cardLabels[revealModal.newCardType])
+                    })}
                   </p>
                   <p className="mt-2 text-base font-semibold leading-7 text-ink-primary">
                     {revealModal.newCardValue}
@@ -1657,7 +1673,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             {revealModal.olderCards.length > 0 ? (
               <div className="mt-4">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-                  Avval ochilganlar
+                  {t("Avval ochilganlar")}
                 </p>
                 <ul className="mt-2 grid gap-2">
                   {revealModal.olderCards.map((c) => (
@@ -1666,7 +1682,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                       className="rounded-xl border border-line-subtle bg-bg-base/60 px-3 py-2"
                     >
                       <p className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
-                        {cardLabels[c.type]}
+                        {t(cardLabels[c.type])}
                       </p>
                       <p className="mt-0.5 text-sm leading-6 text-ink-secondary">
                         {c.value}
@@ -1682,7 +1698,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               onClick={() => setRevealModal(null)}
               className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
             >
-              Tushundim
+              {t("Tushundim")}
             </button>
           </div>
         </div>
@@ -1695,12 +1711,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
 // socket is dropped. Pinned to the top under any safe-area inset so it
 // doesn't collide with Telegram's chrome.
 function ConnectionBanner({ connected }: { connected: boolean }) {
+  const { t } = useI18n();
   if (connected) return null;
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
       <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-        Qayta ulanmoqda…
+        {t("Qayta ulanmoqda…")}
       </div>
     </div>
   );

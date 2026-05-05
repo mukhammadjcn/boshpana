@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n";
+
 const cardLabels: Record<string, string> = {
   PROFESSION: "Kasb",
   HEALTH: "Sog‘liq",
@@ -40,6 +42,7 @@ export function PlayerCard({
   showPresence = false,
   onKick
 }: PlayerCardProps) {
+  const { t } = useI18n();
   const entries = Object.entries(revealedCards).filter(([, value]) => value);
   const initials = getInitials(name);
 
@@ -74,12 +77,12 @@ export function PlayerCard({
             <p className="truncate text-sm font-semibold">{name}</p>
             <p className="text-[11px] text-ink-muted">
               {showPresence && online === false
-                ? "Tarmoqda emas"
+                ? t("Tarmoqda emas")
                 : isMe
-                  ? "Siz"
+                  ? t("Siz")
                   : isHost
-                    ? "Host"
-                    : "O‘yinchi"}
+                    ? t("Host")
+                    : t("O'yinchi")}
             </p>
           </div>
           {showPresence ? (
@@ -112,12 +115,12 @@ export function PlayerCard({
             </p>
             {isMe ? (
               <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold uppercase text-brand">
-                Siz
+                {t("Siz")}
               </span>
             ) : null}
             {isHost ? (
               <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-[10px] font-semibold uppercase text-ink-secondary">
-                Host
+                {t("Host")}
               </span>
             ) : null}
           </div>
@@ -131,21 +134,21 @@ export function PlayerCard({
             }`}
           >
             {isCurrentTurn
-              ? "Hozir navbat"
+              ? t("Hozir navbat")
               : gameOver
                 ? isAlive
-                  ? "Yutgan"
-                  : "Yutqazgan"
+                  ? t("Yutgan")
+                  : t("Yutqazgan")
                 : isAlive
-                  ? `${entries.length}/6 ochiq`
-                  : "O‘yindan chiqqan"}
+                  ? t("{count}/6 ochiq", { count: entries.length })
+                  : t("O'yindan chiqqan")}
           </p>
         </div>
         {onKick && isAlive && !isHost ? (
           <button
             type="button"
             onClick={onKick}
-            aria-label={`${name}ni chiqarish`}
+            aria-label={t("{name}ni chiqarish", { name })}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
           >
             <svg
@@ -172,7 +175,7 @@ export function PlayerCard({
           {entries.map(([key, value]) => (
             <div key={key} className="flex items-baseline gap-2 text-sm">
               <span className="w-16 shrink-0 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                {cardLabels[key] ?? key}
+                {cardLabels[key] ? t(cardLabels[key]) : key}
               </span>
               <span className="flex-1 text-ink-primary">{value}</span>
             </div>
@@ -221,10 +224,11 @@ function StatusDot({
   isCurrentTurn?: boolean;
   gameOver?: boolean;
 }) {
+  const { t } = useI18n();
   if (isCurrentTurn) {
     return (
       <span className="flex items-center gap-1 rounded-full bg-brand px-2 py-1 text-[10px] font-semibold uppercase text-bg-base">
-        Navbat
+        {t("Navbat")}
       </span>
     );
   }
@@ -235,7 +239,7 @@ function StatusDot({
           isAlive ? "bg-ok/20 text-ok" : "bg-bad/15 text-bad"
         }`}
       >
-        {isAlive ? "Yutgan" : "Chiqqan"}
+        {isAlive ? t("Yutgan") : t("Chiqqan")}
       </span>
     );
   }
@@ -250,10 +254,11 @@ function StatusDot({
 }
 
 function PresenceDot({ online }: { online: boolean }) {
+  const { t } = useI18n();
   return (
     <span
-      aria-label={online ? "Tarmoqda" : "Tarmoqdan tushgan"}
-      title={online ? "Tarmoqda" : "Tarmoqdan tushgan"}
+      aria-label={online ? t("Tarmoqda") : t("Tarmoqdan tushgan")}
+      title={online ? t("Tarmoqda") : t("Tarmoqdan tushgan")}
       className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${
         online
           ? "bg-ok/15 text-ok"
@@ -266,7 +271,7 @@ function PresenceDot({ online }: { online: boolean }) {
           online ? "bg-ok" : "bg-ink-muted"
         }`}
       />
-      {online ? "Onlayn" : "Offlayn"}
+      {online ? t("Onlayn") : t("Offlayn")}
     </span>
   );
 }

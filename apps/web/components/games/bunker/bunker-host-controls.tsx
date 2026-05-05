@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useI18n } from "@/lib/i18n";
+
 type HostControlsProps = {
   isHost: boolean;
   isLobby?: boolean;
@@ -41,6 +43,7 @@ export function HostControls({
   onSkipVoting,
   onEndGame,
 }: HostControlsProps) {
+  const { t } = useI18n();
   // Optimistic pending state for host actions: clicking flips the button
   // into a "yuborilmoqda" state immediately so taps feel instant. Cleared
   // when the resulting phase change re-derives `primary`/`secondary`
@@ -49,29 +52,29 @@ export function HostControls({
 
   // After voting resolved, the only useful host action is moving on.
   const primary = canStartGame
-    ? { label: "O‘yinni boshlash", onClick: onStartGame }
+    ? { label: t("O'yinni boshlash"), onClick: onStartGame }
     : canStartRound
-      ? { label: "1-roundni boshlash", onClick: onStartRound }
+      ? { label: t("1-roundni boshlash"), onClick: onStartRound }
       : canStartReveals
-        ? { label: "Kartalarni ochishni boshlash", onClick: onStartReveals }
+        ? { label: t("Kartalarni ochishni boshlash"), onClick: onStartReveals }
         : canAdvanceTurn
-          ? { label: advanceTurnLabel, onClick: onAdvanceTurn }
+          ? { label: t(advanceTurnLabel), onClick: onAdvanceTurn }
           : votingFinished && canSkipVoting
-            ? { label: "Keyingi roundni boshlash", onClick: onSkipVoting }
+            ? { label: t("Keyingi roundni boshlash"), onClick: onSkipVoting }
             : canStartVoting
-              ? { label: "Ovoz berish", onClick: onStartVoting }
+              ? { label: t("Ovoz berish"), onClick: onStartVoting }
               : null;
 
   // Secondary action depends on whether voting already happened this round.
   // Before voting: offer to skip it. After voting: offer another vote pass
   // (useful in 8+ player games where one elimination per round is too slow).
   const secondary = !votingFinished && canStartVoting && canSkipVoting
-    ? { label: "Ovozsiz keyingi round", onClick: onSkipVoting }
+    ? { label: t("Ovozsiz keyingi round"), onClick: onSkipVoting }
     : votingFinished && canStartVoting
-      ? { label: "Yana ovoz berish", onClick: onStartVoting }
+      ? { label: t("Yana ovoz berish"), onClick: onStartVoting }
       : null;
 
-  const endLabel = isLobby ? "Roomni o'chirish" : "O‘yinni tugatish";
+  const endLabel = isLobby ? t("Roomni o'chirish") : t("O'yinni tugatish");
 
   // Reset the optimistic flag when the available actions change — that's
   // our signal that the server's state broadcast landed and the new phase
@@ -120,14 +123,14 @@ export function HostControls({
   return (
     <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-medium text-ink-muted">Host paneli</p>
+        <p className="text-xs font-medium text-ink-muted">{t("Host paneli")}</p>
         {!isLobby ? (
           <button
             type="button"
             onClick={onEndGame}
             className="text-xs font-medium text-bad hover:underline"
           >
-            O‘yinni tugatish
+            {t("O'yinni tugatish")}
           </button>
         ) : null}
       </div>
@@ -142,7 +145,7 @@ export function HostControls({
             {pending === "primary" ? (
               <>
                 <Spinner />
-                Yuborilmoqda…
+                {t("Yuborilmoqda…")}
               </>
             ) : (
               primary.label
@@ -158,7 +161,7 @@ export function HostControls({
             {pending === "secondary" ? (
               <>
                 <Spinner />
-                Yuborilmoqda…
+                {t("Yuborilmoqda…")}
               </>
             ) : (
               secondary.label

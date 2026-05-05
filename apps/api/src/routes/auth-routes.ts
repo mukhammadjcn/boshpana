@@ -199,25 +199,54 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }
   );
 
-  app.patch<{ Body: { nickname?: string } }>(
+  app.patch<{ Body: { nickname?: string; languageCode?: string | null } }>(
     "/api/me/profile",
     { preHandler: requireAuth },
     async (request, reply) => {
       const user = request.authUser!;
-      const raw = (request.body?.nickname ?? "").trim();
-      if (!raw) {
+      const nicknameInput = request.body?.nickname;
+      const raw = typeof nicknameInput === "string" ? nicknameInput.trim() : undefined;
+      const languageCodeInput = request.body?.languageCode;
+      const normalizedLanguageCode =
+        typeof languageCodeInput === "string"
+          ? languageCodeInput.trim().toLowerCase()
+          : null;
+
+      if (raw !== undefined && !raw) {
         return reply
           .status(400)
           .send({ message: "Nickname bo'sh bo'lmasligi kerak." });
       }
-      if (raw.length > 32) {
+      if (raw && raw.length > 32) {
         return reply
           .status(400)
           .send({ message: "Nickname 32 belgidan oshmasin." });
       }
+      if (
+        normalizedLanguageCode !== null &&
+        !["uz", "ru", "en"].includes(normalizedLanguageCode)
+      ) {
+        return reply
+          .status(400)
+          .send({ message: "Til noto'g'ri." });
+      }
+
+      const data: { nickname?: string; languageCode?: string | null } = {};
+      if (raw) {
+        data.nickname = raw;
+      }
+      if (normalizedLanguageCode !== null) {
+        data.languageCode = normalizedLanguageCode;
+      }
+      if (!Object.keys(data).length) {
+        return reply
+          .status(400)
+          .send({ message: "Yangilash uchun kamida bitta maydon yuboring." });
+      }
+
       const updated = await prisma.user.update({
         where: { id: user.id },
-        data: { nickname: raw }
+        data
       });
       return reply.send({ user: publicUser(updated) });
     }

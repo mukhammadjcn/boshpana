@@ -14,6 +14,8 @@ import {
   setAuthToken,
   setAuthUser
 } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 type CreateResponse = {
   token: string;
@@ -39,6 +41,7 @@ const POLL_MS = 2500;
 const TOTAL_TTL_SECONDS = 300;
 
 export function LoginPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const redirectTo = params.get("redirect") ?? "/dashboard";
@@ -140,29 +143,32 @@ export function LoginPage() {
                 Jamoaviy.uz
               </p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
-                Jamoaviy o'yinlar
+                {t("Jamoaviy o'yinlar")}
               </p>
             </div>
           </a>
-          <a
-            href="/"
-            className="rounded-xl border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary"
-          >
-            ← Landing
-          </a>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher variant="select" />
+            <a
+              href="/"
+              className="rounded-xl border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary"
+            >
+              ← {t("Landing")}
+            </a>
+          </div>
         </div>
       </header>
 
       <section className="mx-auto flex max-w-md flex-col px-4 py-8 sm:py-12 lg:py-16">
         <div className="text-center">
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand">
-            Tizimga kirish
+            {t("Tizimga kirish")}
           </p>
           <h1 className="mt-2 text-2xl font-bold leading-tight sm:text-3xl">
-            Telegram orqali kiring
+            {t("Telegram orqali kiring")}
           </h1>
           <p className="mt-2 text-sm leading-7 text-ink-secondary">
-            QR kodni telefon kamerasi bilan skanerlang yoki tugmani bosing
+            {t("QR kodni telefon kamerasi bilan skanerlang yoki tugmani bosing")}
           </p>
         </div>
 
@@ -187,15 +193,15 @@ export function LoginPage() {
             />
           ) : (
             <div className="rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-              Bot ulanmagan. Administratorga murojaat qiling.
+              {t("Bot ulanmagan. Administratorga murojaat qiling.")}
             </div>
           )}
         </div>
 
         <ol className="mt-6 grid gap-2 rounded-2xl border border-line-subtle bg-bg-surface p-5 text-sm leading-6 text-ink-secondary">
-          <Step n={1}>QR kodni telefon kamerasi bilan oching yoki tugmani bosing.</Step>
-          <Step n={2}>Bot ko'rsatmalariga rioya qiling — kerak bo'lsa telefon raqamni ulashing.</Step>
-          <Step n={3}>Avtomatik kirib turasiz — qaytib bu sahifaga kelishingiz shart emas.</Step>
+          <Step n={1}>{t("QR kodni telefon kamerasi bilan oching yoki tugmani bosing.")}</Step>
+          <Step n={2}>{t("Bot ko'rsatmalariga rioya qiling — kerak bo'lsa telefon raqamni ulashing.")}</Step>
+          <Step n={3}>{t("Avtomatik kirib turasiz — qaytib bu sahifaga kelishingiz shart emas.")}</Step>
         </ol>
 
         <DevLoginCard
@@ -229,6 +235,7 @@ function DevLoginCardImpl({
 }: {
   onSuccess: (payload: { token: string; user: AuthUser }) => void;
 }) {
+  const { t } = useI18n();
   const [nickname, setNickname] = useState("Dev");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -256,13 +263,13 @@ function DevLoginCardImpl({
     <div className="mt-4 grid gap-3 rounded-2xl border border-dashed border-warn/40 bg-warn/5 p-4 text-sm">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-warn">
         <span className="rounded-full bg-warn/20 px-2 py-0.5">DEV</span>
-        <span>Faqat ishlab chiqish muhitida</span>
+        <span>{t("Faqat ishlab chiqish muhitida")}</span>
       </div>
       <input
         value={nickname}
         onChange={(e) => setNickname(e.target.value)}
         maxLength={20}
-        placeholder="Test nickname"
+        placeholder={t("Test nickname")}
         className="h-10 rounded-xl border border-line-strong bg-bg-base px-3 text-sm outline-none focus:border-warn"
       />
       {err ? <p className="text-xs text-bad">{err}</p> : null}
@@ -272,7 +279,7 @@ function DevLoginCardImpl({
         disabled={busy}
         className="flex h-11 items-center justify-center rounded-xl bg-warn/80 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
       >
-        {busy ? "Kirilmoqda…" : "Dev login (Telegramsiz)"}
+        {busy ? t("Kirilmoqda…") : t("Dev login (Telegramsiz)")}
       </button>
     </div>
   );
@@ -287,14 +294,15 @@ function ActiveCard({
   remaining: number;
   status: StatusResponse["status"];
 }) {
+  const { t } = useI18n();
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
   const progress = Math.max(0, Math.min(100, (remaining / TOTAL_TTL_SECONDS) * 100));
   const lowTime = remaining <= 60;
   const hint =
     status === "needs_phone"
-      ? "Bot telefon raqamingizni so'rayapti — Telegramda ulashishni tugating."
-      : "Tasdiqlash kutilmoqda — Telegramni ochiq qoldiring.";
+      ? t("Bot telefon raqamingizni so'rayapti — Telegramda ulashishni tugating.")
+      : t("Tasdiqlash kutilmoqda — Telegramni ochiq qoldiring.");
   return (
     <div className="grid gap-5">
       {/* QR code */}
@@ -358,7 +366,7 @@ function ActiveCard({
         className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
       >
         <span aria-hidden>✈</span>
-        Telegram orqali kirish
+        {t("Telegram orqali kirish")}
       </a>
     </div>
   );
@@ -377,41 +385,42 @@ function SkeletonCard() {
 }
 
 function ExpiredCard({ onRetry }: { onRetry: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="grid gap-4 py-2 text-center">
       <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-line-strong bg-bg-elevated text-2xl">
         ⌛
       </div>
       <p className="text-sm leading-6 text-ink-secondary">
-        Sessiya muddati tugadi. Yangi havola olish uchun qaytadan urinib
-        ko'ring.
+        {t("Sessiya muddati tugadi. Yangi havola olish uchun qaytadan urinib ko'ring.")}
       </p>
       <button
         type="button"
         onClick={onRetry}
         className="flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-elevated text-sm font-semibold"
       >
-        Qayta urinish
+        {t("Qayta urinish")}
       </button>
     </div>
   );
 }
 
 function RejectedCard({ onRetry }: { onRetry: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="grid gap-4 py-2 text-center">
       <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-bad/40 bg-bad/10 text-2xl">
         ✕
       </div>
       <p className="text-sm leading-6 text-bad">
-        Telegramda kirish bekor qilindi.
+        {t("Telegramda kirish bekor qilindi.")}
       </p>
       <button
         type="button"
         onClick={onRetry}
         className="flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-elevated text-sm font-semibold"
       >
-        Qayta urinish
+        {t("Qayta urinish")}
       </button>
     </div>
   );

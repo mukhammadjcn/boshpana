@@ -5,6 +5,7 @@ import Script from "next/script";
 import { SafeAreaBlur } from "@/components/safe-area-blur";
 import { TelegramBootstrap } from "@/components/telegram-bootstrap";
 import { ToastViewport } from "@/components/toast-viewport";
+import { I18nProvider } from "@/lib/i18n";
 import {
   SITE_DESCRIPTION,
   SITE_NAME,
@@ -89,12 +90,13 @@ export default function RootLayout({
   return (
     <html lang="uz" className={`${display.variable} ${mono.variable}`}>
       <body>
-        <Script
-          src="https://telegram.org/js/telegram-web-app.js"
-          strategy="beforeInteractive"
-        />
-        <Script id="telegram-safearea-bootstrap" strategy="beforeInteractive">
-          {`(function () {
+        <I18nProvider>
+          <Script
+            src="https://telegram.org/js/telegram-web-app.js"
+            strategy="beforeInteractive"
+          />
+          <Script id="telegram-safearea-bootstrap" strategy="beforeInteractive">
+            {`(function () {
             var apply = function () {
               var wa = window.Telegram && window.Telegram.WebApp;
               if (!wa) return false;
@@ -128,11 +130,12 @@ export default function RootLayout({
               if (apply() || tries > 80) clearInterval(timer);
             }, 25);
           })();`}
-        </Script>
-        <TelegramBootstrap />
-        {children}
-        <SafeAreaBlur />
-        <ToastViewport />
+          </Script>
+          <TelegramBootstrap />
+          {children}
+          <SafeAreaBlur />
+          <ToastViewport />
+        </I18nProvider>
       </body>
     </html>
   );

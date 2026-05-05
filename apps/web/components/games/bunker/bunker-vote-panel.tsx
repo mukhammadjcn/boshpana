@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Timer } from "@/components/timer";
+import { useI18n } from "@/lib/i18n";
 
 const cardLabels: Record<string, string> = {
   PROFESSION: "Kasb",
@@ -37,6 +38,7 @@ export function VotePanel({
   secondsLeft,
   onVote
 }: VotePanelProps) {
+  const { t } = useI18n();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   // Optimistic flag: flipped on click so the button immediately reflects
   // "Ovoz yuborildi" without waiting for the server broadcast (~150–400ms
@@ -116,24 +118,28 @@ export function VotePanel({
 
   const helper = tiebreakActive
     ? meIsCandidate && !allAliveAreTied
-      ? `Siz tenglikdasiz${
-          otherTiedNames.length ? ` — ${otherTiedNames.join(", ")} bilan` : ""
-        } teng ovoz to‘pladingiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.`
+      ? otherTiedNames.length > 0
+        ? t("Siz tenglikdasiz — {names} bilan teng ovoz to‘pladingiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.", {
+            names: otherTiedNames.join(", ")
+          })
+        : t("Siz tenglikdasiz. Qolgan o‘yinchilar bunkerda kim qolishini hal qiladi.")
       : allAliveAreTied
-        ? "Barchaning ovozi teng bo‘ldi — endi aniq bir odamni chiqarishga harakat qiling, bo‘lmasa tizim random odamni chiqarib yuboradi."
+        ? t("Barchaning ovozi teng bo‘ldi — endi aniq bir odamni chiqarishga harakat qiling, bo‘lmasa tizim random odamni chiqarib yuboradi.")
       : effectiveHasVoted
-        ? "Siz ovoz berdingiz. Qolgan o‘yinchilarni kuting."
-        : `${tiedNames.join(", ")} teng ovoz to‘pladi — faqat bir kishini bunkerda qoldiring.`
+        ? t("Siz ovoz berdingiz. Qolgan o‘yinchilarni kuting.")
+        : t("{names} teng ovoz to‘pladi — faqat bir kishini bunkerda qoldiring.", {
+            names: tiedNames.join(", ")
+          })
     : effectiveHasVoted
-      ? "Siz ovoz berdingiz. Qolgan o‘yinchilarni kuting."
+      ? t("Siz ovoz berdingiz. Qolgan o‘yinchilarni kuting.")
       : canVote
-        ? "Kim bunkerda qolmasligi kerak, uni tanlang!"
-        : "Ovoz natijasini kuting — bu bosqichda siz faqat kuzatasiz.";
+        ? t("Kim bunkerda qolmasligi kerak, uni tanlang!")
+        : t("Ovoz natijasini kuting — bu bosqichda siz faqat kuzatasiz.");
 
   const effectiveCanVote = canVote && (!meIsCandidate || allAliveAreTied);
 
   const accent = tiebreakActive ? "text-warn" : "text-bad";
-  const sectionLabel = tiebreakActive ? "Qayta ovoz" : "Ovoz berish";
+  const sectionLabel = tiebreakActive ? t("Qayta ovoz") : t("Ovoz berish");
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg-base">
@@ -152,7 +158,7 @@ export function VotePanel({
           ) : null}
           {!meIsCandidate ? (
             <span className="inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-sm font-semibold text-ink-secondary">
-              {options.length} ta nomzod
+              {t("{count} ta nomzod", { count: options.length })}
             </span>
           ) : null}
         </div>
@@ -169,14 +175,14 @@ export function VotePanel({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
-                Teng ovoz
+                {t("Teng ovoz")}
               </p>
               <p className="mt-1 text-sm leading-6 text-ink-primary">
                 <span className="font-semibold">{tiedNames.join(", ")}</span>{" "}
-                bir xil ovoz to‘pladi.{" "}
+                {t("bir xil ovoz to‘pladi.")}{" "}
                 {allAliveAreTied
-                  ? "Hamma tenglikda qolgani uchun qayta ovoz barcha tiriklar uchun ochildi. Bu safar bitta aniq odamni chiqarishga kelishing, aks holda random odam chiqib ketadi."
-                  : "Iltimos, faqat bir kishini bunkerda qoldiring."}
+                  ? t("Hamma tenglikda qolgani uchun qayta ovoz barcha tiriklar uchun ochildi. Bu safar bitta aniq odamni chiqarishga kelishing, aks holda random odam chiqib ketadi.")
+                  : t("Iltimos, faqat bir kishini bunkerda qoldiring.")}
               </p>
             </div>
           </div>
@@ -190,28 +196,27 @@ export function VotePanel({
               </div>
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
-                  Tenglik
+                  {t("Tenglik")}
                 </p>
                 <p className="text-base font-semibold">
-                  Siz teng ovoz to‘pladingiz
+                  {t("Siz teng ovoz to‘pladingiz")}
                 </p>
               </div>
             </div>
             {otherTiedNames.length > 0 ? (
               <p className="mt-3 text-ink-secondary">
-                Boshqa tenglikdagilar:{" "}
+                {t("Boshqa tenglikdagilar:")}{" "}
                 <span className="font-semibold text-ink-primary">
                   {otherTiedNames.join(", ")}
                 </span>
               </p>
             ) : null}
             <p className="mt-3 text-ink-secondary">
-              Bu bosqichda ovoz bera olmaysiz. Qolgan o‘yinchilar siz va boshqa
-              tenglikdagilardan kim bunkerda qolishini hal qiladi.
+              {t("Bu bosqichda ovoz bera olmaysiz. Qolgan o‘yinchilar siz va boshqa tenglikdagilardan kim bunkerda qolishini hal qiladi.")}
             </p>
             <div className="mt-4 flex items-center gap-2 rounded-xl border border-line-subtle bg-bg-base/60 px-3 py-2 text-xs text-ink-muted">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-              Natijani kutmoqdasiz
+              {t("Natijani kutmoqdasiz")}
             </div>
           </div>
         ) : null}
@@ -263,7 +268,7 @@ export function VotePanel({
                           className="flex items-baseline gap-2 text-sm"
                         >
                           <span className="w-16 shrink-0 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                            {cardLabels[key] ?? key}
+                            {cardLabels[key] ? t(cardLabels[key]) : key}
                           </span>
                           <span className="flex-1 text-ink-secondary">
                             {value}
@@ -273,7 +278,7 @@ export function VotePanel({
                     </div>
                   ) : (
                     <p className="mt-3 text-sm text-ink-muted">
-                      Faqat kasb ochiq.
+                      {t("Faqat kasb ochiq.")}
                     </p>
                   )}
                 </button>
@@ -295,10 +300,10 @@ export function VotePanel({
             className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
           >
             {effectiveHasVoted
-              ? "Ovoz yuborildi"
+              ? t("Ovoz yuborildi")
               : selectedPlayer
-                ? `${selectedPlayer.name} — tasdiqlash`
-                : "Avval birini tanlang"}
+                ? t("{name} — tasdiqlash", { name: selectedPlayer.name })
+                : t("Avval birini tanlang")}
           </button>
         </div>
       )}

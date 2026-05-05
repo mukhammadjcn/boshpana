@@ -8,6 +8,7 @@ import { RoomExpiredState } from "@/components/room-expired-state";
 
 import { BunkerExperience } from "./bunker/bunker-experience";
 import { MafiaExperience } from "./mafia/mafia-experience";
+import { useI18n } from "@/lib/i18n";
 
 type RoomInfo = {
   code: string;
@@ -25,6 +26,7 @@ type Props = {
 // state, sockets, and visuals end-to-end. This router fetches the
 // minimal `{ gameType }` metadata first, then hands off control.
 export function GameRouter({ roomCode, view }: Props) {
+  const { t } = useI18n();
   const [info, setInfo] = useState<RoomInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +51,7 @@ export function GameRouter({ roomCode, view }: Props) {
   if (!info) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-zinc-400">
-        Yuklanmoqda…
+        {t("Yuklanmoqda…")}
       </div>
     );
   }

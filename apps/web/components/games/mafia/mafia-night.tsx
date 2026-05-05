@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { JoinRoomModal } from "@/components/join-room-modal";
+import { useI18n } from "@/lib/i18n";
 import { MafiaSituationArt } from "./mafia-situation-art";
 import type {
   MafiaNightActionType,
@@ -19,40 +20,44 @@ type Props = {
   ) => void;
 };
 
-const roleHeader: Record<
+function getRoleHeader(t: (text: string, vars?: Record<string, string | number>) => string): Record<
   MafiaRole,
   { title: string; subtitle: string; accent: string }
-> = {
-  CITIZEN: {
-    title: "Aholi",
-    subtitle: "Tunda fikringiz so'raladi",
-    accent: "text-ok"
-  },
-  MAFIA: {
-    title: "Mafia",
-    subtitle: "Sheriklaringiz bilan birga nishon tanlang",
-    accent: "text-bad"
-  },
-  SHERIFF: {
-    title: "Komisar",
-    subtitle: "Tekshiring yoki o'q uzing",
-    accent: "text-brand"
-  },
-  DOCTOR: {
-    title: "Doktor",
-    subtitle: "Birovni davolab, mafia/komisar nishonidan saqlang",
-    accent: "text-ok"
-  }
-};
+> {
+  return {
+    CITIZEN: {
+      title: t("Aholi"),
+      subtitle: t("Tunda fikringiz so'raladi"),
+      accent: "text-ok"
+    },
+    MAFIA: {
+      title: "Mafia",
+      subtitle: t("Sheriklaringiz bilan birga nishon tanlang"),
+      accent: "text-bad"
+    },
+    SHERIFF: {
+      title: t("Komisar"),
+      subtitle: t("Tekshiring yoki o'q uzing"),
+      accent: "text-brand"
+    },
+    DOCTOR: {
+      title: t("Doktor"),
+      subtitle: t("Birovni davolab, mafia/komisar nishonidan saqlang"),
+      accent: "text-ok"
+    }
+  };
+}
 
 // Tun ekrani — har bir o'yinchi 20 soniyada bittasini tanlaydi. Vaqt
 // strict 20s — server resolveNight'da yakunlaydi. UI mafia/komisar/
 // doktorlarga real tanlov beradi, aholiga esa pufak savol (anti-cheat).
 export function MafiaNight({ state, onSubmit }: Props) {
   const router = useRouter();
+  const { t } = useI18n();
   const [joinOpen, setJoinOpen] = useState(false);
   const { game, me, players } = state;
   const role = me?.role ?? null;
+  const roleHeader = getRoleHeader(t);
 
   const aliveTargets = useMemo(
     () =>
@@ -64,11 +69,11 @@ export function MafiaNight({ state, onSubmit }: Props) {
 
   if (!me || !role) {
     const title = !me
-      ? "Siz bu o'yinda topilmadingiz"
-      : "Sizning rolingiz yuklanmadi";
+      ? t("Siz bu o'yinda topilmadingiz")
+      : t("Sizning rolingiz yuklanmadi");
     const description = !me
-      ? "Bu sessiya hozirgi o'yinchi bilan bog'lanmagan. Bosh sahifaga qaytishingiz yoki boshqa xona kodiga qo'shilishingiz mumkin."
-      : "O'yin davom etyapti, lekin siz uchun kerakli tungi ma'lumot to'liq kelmadi. Bosh sahifaga qaytishingiz yoki boshqa xonaga qo'shilishingiz mumkin.";
+      ? t("Bu sessiya hozirgi o'yinchi bilan bog'lanmagan. Bosh sahifaga qaytishingiz yoki boshqa xona kodiga qo'shilishingiz mumkin.")
+      : t("O'yin davom etyapti, lekin siz uchun kerakli tungi ma'lumot to'liq kelmadi. Bosh sahifaga qaytishingiz yoki boshqa xonaga qo'shilishingiz mumkin.");
 
     return (
       <NightShell remaining={game.remainingSeconds} night={game.nightNumber}>
@@ -93,14 +98,14 @@ export function MafiaNight({ state, onSubmit }: Props) {
 
           <div className="grid gap-2">
             <p className="text-xs font-medium uppercase tracking-[0.25em] text-warn">
-              Tungi holat ochilmadi
+              {t("Tungi holat ochilmadi")}
             </p>
             <h1 className="text-xl font-bold sm:text-2xl">{title}</h1>
             <p className="text-sm leading-7 text-ink-muted">{description}</p>
           </div>
 
           <div className="rounded-2xl border border-line-subtle bg-bg-base px-4 py-3 text-left">
-            <p className="text-xs text-ink-muted">Room code</p>
+            <p className="text-xs text-ink-muted">{t("Room code")}</p>
             <p className="mt-1 font-mono text-xl font-semibold tracking-[0.28em] text-ink-primary">
               {state.room.code}
             </p>
@@ -112,14 +117,14 @@ export function MafiaNight({ state, onSubmit }: Props) {
               onClick={() => setJoinOpen(true)}
               className="flex h-12 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
             >
-              Yangi xonaga qo'shilish
+              {t("Yangi xonaga qo'shilish")}
             </button>
             <button
               type="button"
               onClick={() => router.push("/dashboard")}
               className="flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
             >
-              Bosh sahifaga qaytish
+              {t("Bosh sahifaga qaytish")}
             </button>
           </div>
         </div>
@@ -134,8 +139,8 @@ export function MafiaNight({ state, onSubmit }: Props) {
       <NightShell remaining={game.remainingSeconds} night={game.nightNumber}>
         <SpectatorPanel
           players={players}
-          title="Siz o'lgansiz"
-          subtitle="Tomoshabin sifatida tunni kuzating, kimlar tirik qolganini ko'rib turing."
+          title={t("Siz o'lgansiz")}
+          subtitle={t("Tomoshabin sifatida tunni kuzating, kimlar tirik qolganini ko'rib turing.")}
         />
       </NightShell>
     );
@@ -199,13 +204,14 @@ function NightShell({
   night: number;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const fraction = Math.max(0, Math.min(1, remaining / 20));
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe pb-safe sm:px-6 lg:px-8">
         <header className="flex items-center justify-between pt-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-ink-muted">
-            Tun · #{night}
+            {t("Tun · #{night}", { night })}
           </p>
           <span
             className={`rounded-full border px-3 py-1 font-mono text-sm font-semibold ${
@@ -214,7 +220,7 @@ function NightShell({
                 : "border-line-strong bg-bg-surface text-brand"
             }`}
           >
-            {String(remaining).padStart(2, "0")}s
+            {t("{seconds}s", { seconds: String(remaining).padStart(2, "0") })}
           </span>
         </header>
 
@@ -246,6 +252,7 @@ function MafiaView({
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
 }) {
+  const { t } = useI18n();
   const me = state.me!;
   const teammates = state.players.filter(
     (p) => me.mafiaTeammates.includes(p.id) && p.isAlive
@@ -261,17 +268,17 @@ function MafiaView({
       {teammates.length > 0 ? (
         <section className="rounded-2xl border border-bad/30 bg-bad/10 p-3 text-xs">
           <p className="text-[11px] font-medium uppercase tracking-wider text-bad">
-            Sheriklaringizning tanlovi
+            {t("Sheriklaringizning tanlovi")}
           </p>
           <ul className="mt-2 grid gap-1">
-            {teammates.map((t) => {
-              const targetId = picksByActor.get(t.id);
+            {teammates.map((teammate) => {
+              const targetId = picksByActor.get(teammate.id);
               const target = state.players.find((p) => p.id === targetId);
               return (
-                <li key={t.id} className="flex items-center justify-between">
-                  <span className="font-medium">{t.name}</span>
+                <li key={teammate.id} className="flex items-center justify-between">
+                  <span className="font-medium">{teammate.name}</span>
                   <span className="text-ink-secondary">
-                    {target ? `→ ${target.name}` : "tanlamagan"}
+                    {target ? `→ ${target.name}` : t("tanlamagan")}
                   </span>
                 </li>
               );
@@ -281,7 +288,7 @@ function MafiaView({
       ) : null}
 
       <TargetGrid
-        title="Kimni o'ldirmoqchisiz?"
+        title={t("Kimni o'ldirmoqchisiz?")}
         targets={aliveTargets}
         selectedId={myTarget}
         onPick={(id) => onSubmit("MAFIA_KILL", id)}
@@ -304,6 +311,7 @@ function SheriffView({
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
 }) {
+  const { t } = useI18n();
   const me = state.me!;
   const shotsLeft = state.game.sheriffShotsRemaining;
   const locked = !!me.pendingNightTargetId;
@@ -315,15 +323,15 @@ function SheriffView({
       <section className="grid grid-cols-2 gap-2 rounded-2xl border border-line-subtle bg-bg-surface p-2">
         <ModeButton
           active={mode === "CHECK"}
-          label="Tekshirish"
-          subtitle="Cheksiz"
+          label={t("Tekshirish")}
+          subtitle={t("Cheksiz")}
           disabled={locked}
           onClick={() => onSubmit("SHERIFF_CHECK", me.pendingNightTargetId)}
         />
         <ModeButton
           active={mode === "SHOOT"}
-          label="O'q uzish"
-          subtitle={`${shotsLeft} o'q qoldi`}
+          label={t("O'q uzish")}
+          subtitle={t("{count} o'q qoldi", { count: shotsLeft })}
           disabled={shotsLeft === 0 || locked}
           onClick={() => onSubmit("SHERIFF_SHOOT", me.pendingNightTargetId)}
         />
@@ -332,7 +340,7 @@ function SheriffView({
       {me.sheriffChecks.length > 0 ? (
         <section className="rounded-2xl border border-line-subtle bg-bg-surface p-3 text-xs">
           <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-            Tekshirilganlar tarixi
+            {t("Tekshirilganlar tarixi")}
           </p>
           <ul className="mt-2 grid gap-1">
             {me.sheriffChecks.map((c) => {
@@ -348,7 +356,7 @@ function SheriffView({
                   <span
                     className={c.isMafia ? "text-bad" : "text-ok"}
                   >
-                    {c.isMafia ? "Mafia" : "Begunoh"}
+                    {c.isMafia ? "Mafia" : t("Begunoh")}
                   </span>
                 </li>
               );
@@ -358,7 +366,7 @@ function SheriffView({
       ) : null}
 
       <TargetGrid
-        title={mode === "CHECK" ? "Kimni tekshirasiz?" : "Kimga o'q uzasiz?"}
+        title={mode === "CHECK" ? t("Kimni tekshirasiz?") : t("Kimga o'q uzasiz?")}
         targets={aliveTargets}
         selectedId={me.pendingNightTargetId}
         onPick={(id) =>
@@ -384,6 +392,7 @@ function DoctorView({
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
 }) {
+  const { t } = useI18n();
   const me = state.me!;
   const selfHealsLeft = state.game.doctorSelfHealsRemaining;
   // Self-heal is allowed only if the doctor still has self-heal credit.
@@ -392,11 +401,12 @@ function DoctorView({
   return (
     <>
       <p className="rounded-2xl border border-line-subtle bg-bg-surface px-3 py-2 text-xs text-ink-muted">
-        O'zingizni: {selfHealsLeft} marta davolashingiz mumkin · Boshqalarni
-        cheksiz
+        {t("O'zingizni: {count} marta davolashingiz mumkin · Boshqalarni cheksiz", {
+          count: selfHealsLeft
+        })}
       </p>
       <TargetGrid
-        title="Kimni davolaysiz?"
+        title={t("Kimni davolaysiz?")}
         targets={aliveTargets}
         selectedId={me.pendingNightTargetId}
         onPick={(id) => onSubmit("DOCTOR_HEAL", id)}
@@ -419,6 +429,7 @@ function CitizenView({
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
 }) {
+  const { t } = useI18n();
   const me = state.me!;
   const question = me.citizenQuestion;
   const action: MafiaNightActionType =
@@ -427,8 +438,8 @@ function CitizenView({
       : "CITIZEN_GUESS_KILL";
   const prompt =
     question === "GUESS_DOCTOR_HEAL"
-      ? "Sizningcha doktor bu tunda kimni davolaydi?"
-      : "Sizningcha mafia bu tunda kimni o'ldiradi?";
+      ? t("Sizningcha doktor bu tunda kimni davolaydi?")
+      : t("Sizningcha mafia bu tunda kimni o'ldiradi?");
 
   return (
     <TargetGrid
@@ -460,6 +471,7 @@ function TargetGrid({
   excludeIds: string[];
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const filtered = targets.filter((t) => !excludeIds.includes(t.id));
   return (
     <section className="grid gap-2">
@@ -506,10 +518,11 @@ function SpectatorPanel({
   title: string;
   subtitle: string;
 }) {
+  const { t } = useI18n();
   return (
     <div className="grid gap-4 rounded-3xl border border-line-strong bg-bg-surface p-5">
       <div className="grid gap-3 text-center">
-        <MafiaSituationArt src="/ghostimg.webp" alt="O'lgan o'yinchi" />
+        <MafiaSituationArt src="/ghostimg.webp" alt={t("O'lgan o'yinchi")} />
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm text-ink-muted">{subtitle}</p>
       </div>
@@ -526,7 +539,7 @@ function SpectatorPanel({
                 player.isAlive ? "text-ok" : "text-bad"
               }`}
             >
-              {player.isAlive ? "Tirik" : "O'lgan"}
+              {player.isAlive ? t("Tirik") : t("O'lgan")}
             </span>
           </div>
         ))}

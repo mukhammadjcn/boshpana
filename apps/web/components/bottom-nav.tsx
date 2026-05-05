@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { getAuthToken } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 
 type Tab = {
   href: Route;
@@ -81,6 +82,7 @@ const TABS: Tab[] = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { t } = useI18n();
   const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
@@ -111,7 +113,7 @@ export function BottomNav() {
                   }`}
                 >
                   {tab.icon(active)}
-                  <span>{tab.label}</span>
+                  <span>{t(tab.label)}</span>
                 </Link>
               </li>
             );

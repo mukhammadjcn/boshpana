@@ -9,6 +9,7 @@ import {
   setAuthToken,
   setAuthUser
 } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import {
   bootstrapTelegramWebApp,
   getTelegramStartParam,
@@ -73,9 +74,10 @@ type Stage =
   | { kind: "submitting-phone" };
 
 export function TelegramAuthGate() {
+  const { t } = useI18n();
   const [stage, setStage] = useState<Stage>({
     kind: "loading",
-    message: "Yuklanmoqda..."
+    message: t("Yuklanmoqda...")
   });
   const initDataRef = useRef<string>("");
   const ranRef = useRef(false);
@@ -105,7 +107,10 @@ export function TelegramAuthGate() {
         return;
       }
 
-      setStage({ kind: "loading", message: "Hisobingiz tekshirilmoqda..." });
+      setStage({
+        kind: "loading",
+        message: t("Hisobingiz tekshirilmoqda...")
+      });
       initDataRef.current = wa.initData;
 
       try {
@@ -171,7 +176,7 @@ export function TelegramAuthGate() {
         <div className="mt-3 flex items-center gap-2 text-sm text-ink-secondary">
           <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
           {stage.kind === "outside"
-            ? "Telegram aniqlanmadi, sayt sahifasiga yo'naltirilmoqda..."
+            ? t("Telegram aniqlanmadi, sayt sahifasiga yo'naltirilmoqda...")
             : stage.message}
         </div>
       </main>
@@ -187,12 +192,12 @@ export function TelegramAuthGate() {
         {stage.kind === "needs-phone" || stage.kind === "submitting-phone" ? (
           <>
             <h2 className="mt-1 text-2xl font-bold">
-              Telefon raqamingizni ulashing
+              {t("Telefon raqamingizni ulashing")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              Davom etish uchun Telegram orqali telefon raqamingizni
-              ulashishingiz kerak. Bu bir martalik amal — keyingi safar
-              avtomatik kirib turasiz.
+              {t(
+                "Davom etish uchun Telegram orqali telefon raqamingizni ulashishingiz kerak. Bu bir martalik amal — keyingi safar avtomatik kirib turasiz."
+              )}
             </p>
             <button
               disabled={stage.kind === "submitting-phone"}
@@ -200,26 +205,31 @@ export function TelegramAuthGate() {
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
             >
               {stage.kind === "submitting-phone"
-                ? "Yuklanmoqda..."
-                : "Telefon raqamni ulashish"}
+                ? t("Yuklanmoqda...")
+                : t("Telefon raqamni ulashish")}
             </button>
           </>
         ) : null}
         {stage.kind === "error" ? (
           <>
-            <h2 className="mt-1 text-2xl font-bold">Avtorizatsiya xatosi</h2>
+            <h2 className="mt-1 text-2xl font-bold">
+              {t("Avtorizatsiya xatosi")}
+            </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
               {stage.message}
             </p>
             <button
               onClick={() => {
                 ranRef.current = false;
-                setStage({ kind: "loading", message: "Qayta urinilmoqda..." });
+                setStage({
+                  kind: "loading",
+                  message: t("Qayta urinilmoqda...")
+                });
                 window.location.reload();
               }}
               className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold"
             >
-              Qayta urinish
+              {t("Qayta urinish")}
             </button>
           </>
         ) : null}

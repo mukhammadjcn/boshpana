@@ -18,6 +18,7 @@ import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import { pushToast } from "@/store/useToastStore";
@@ -46,6 +47,7 @@ type MafiaExperienceProps = {
 // land while the rest of the screens are built.
 export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<MafiaPublicState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -371,14 +373,13 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             </svg>
           </div>
           <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-bad">
-            Eliminatsiya
+            {t("Eliminatsiya")}
           </p>
           <h2 className="mt-2 text-2xl font-bold text-ink-primary">
-            Siz o'yindan chiqdingiz
+            {t("Siz o'yindan chiqdingiz")}
           </h2>
           <p className="mt-3 text-sm leading-7 text-ink-secondary">
-            Siz endi bu raundda qatnasha olmaysiz, lekin o'yin tugaguncha
-            kuzatishda davom etishingiz mumkin.
+            {t("Siz endi bu raundda qatnasha olmaysiz, lekin o'yin tugaguncha kuzatishda davom etishingiz mumkin.")}
           </p>
         </div>
 
@@ -387,7 +388,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             onClick={() => setEliminatedModalOpen(false)}
             className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98]"
           >
-            Kuzatishda davom etish
+            {t("Kuzatishda davom etish")}
           </button>
         </div>
       </div>
@@ -410,7 +411,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           onClick={() => setRoleModalOpen(true)}
           className="flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98]"
         >
-          Mening kartam
+          {t("Mening kartam")}
         </button>
       </div>
     </div>
@@ -433,13 +434,13 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           >
             <div className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
               <p className="text-sm font-semibold text-ink-primary">
-                Mening kartam
+                {t("Mening kartam")}
               </p>
               <button
                 type="button"
                 onClick={() => setRoleModalOpen(false)}
                 className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-base/60 text-ink-secondary transition active:scale-95"
-                aria-label="Yopish"
+                aria-label={t("Yopish")}
               >
                 ×
               </button>
@@ -452,9 +453,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const playingEndGameModal = (
     <ConfirmModal
       open={endGameConfirmOpen}
-      title="O'yinni tugatishni tasdiqlang"
-      description="O'yin to'xtatiladi va barcha o'yinchilar bosh sahifaga qaytadi."
-      confirmLabel="Ha, tugatish"
+      title={t("O'yinni tugatishni tasdiqlang")}
+      description={t("O'yin to'xtatiladi va barcha o'yinchilar bosh sahifaga qaytadi.")}
+      confirmLabel={t("Ha, tugatish")}
       tone="danger"
       onConfirm={() => {
         setEndGameConfirmOpen(false);
@@ -468,7 +469,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     return (
       <main className="flex min-h-screen items-center justify-center text-sm text-ink-muted">
         <TelegramChrome backHref="/dashboard" />
-        Yuklanmoqda…
+        {t("Yuklanmoqda…")}
       </main>
     );
   }
@@ -495,20 +496,20 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
                 finished ? "text-bad" : "text-warn"
               }`}
             >
-              {finished ? "Yopiq" : "Boshlangan"}
+              {finished ? t("Yopiq") : t("Boshlangan")}
             </p>
             <h1 className="mt-1 text-2xl font-bold">
               {finished
-                ? "Bu o'yin yakunlangan"
-                : "Bu o'yin allaqachon boshlangan"}
+                ? t("Bu o'yin yakunlangan")
+                : t("Bu o'yin allaqachon boshlangan")}
             </h1>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
               {finished
-                ? "Yangi o'yin yarating yoki ochiq xona kodini so'rang."
-                : "O'yin boshlanganidan keyin yangi o'yinchi qo'shila olmaydi."}
+                ? t("Yangi o'yin yarating yoki ochiq xona kodini so'rang.")
+                : t("O'yin boshlanganidan keyin yangi o'yinchi qo'shila olmaydi.")}
             </p>
             <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-              <p className="text-xs text-ink-muted">Room code</p>
+              <p className="text-xs text-ink-muted">{t("Room code")}</p>
               <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
                 {roomCode}
               </p>
@@ -517,7 +518,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
               onClick={() => router.push("/dashboard" as Route)}
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
-              Bosh sahifa
+              {t("Bosh sahifa")}
             </button>
           </div>
         </main>
@@ -531,17 +532,16 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           <TelegramChrome backHref="/dashboard" />
           <div className="mx-auto max-w-md pt-6">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              Taklif · Mafia
+              {t("Taklif · Mafia")}
             </p>
             <h1 className="mt-1 text-2xl font-bold">
-              Roomga kirish uchun tizimga kiring
+              {t("Roomga kirish uchun tizimga kiring")}
             </h1>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              Roomga qo'shilish uchun bot orqali bir martalik avtorizatsiya
-              kerak. Tasdiqlangach to'g'ridan-to'g'ri shu xonaga tushasiz.
+              {t("Roomga qo'shilish uchun bot orqali bir martalik avtorizatsiya kerak. Tasdiqlangach to'g'ridan-to'g'ri shu xonaga tushasiz.")}
             </p>
             <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-              <p className="text-xs text-ink-muted">Room code</p>
+              <p className="text-xs text-ink-muted">{t("Room code")}</p>
               <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
                 {roomCode}
               </p>
@@ -551,7 +551,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
               className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
               <span aria-hidden>✈</span>
-              Telegramda kirish
+              {t("Telegramda kirish")}
             </a>
           </div>
         </main>
@@ -562,13 +562,13 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
         <div className="mx-auto max-w-md pt-6">
           <p className="text-xs font-medium uppercase tracking-wider text-brand">
-            Taklif · Mafia
+            {t("Taklif · Mafia")}
           </p>
           <h1 className="mt-1 text-2xl font-bold">
-            Roomga kirish uchun nickname yozing
+            {t("Roomga kirish uchun nickname yozing")}
           </h1>
           <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-            <p className="text-xs text-ink-muted">Room code</p>
+            <p className="text-xs text-ink-muted">{t("Room code")}</p>
             <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
               {roomCode}
             </p>
@@ -580,10 +580,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
               required
               maxLength={20}
               className="h-14 rounded-2xl border border-line-strong bg-bg-surface px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-              placeholder="Nickname"
+              placeholder={t("Nickname")}
             />
             <button className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]">
-              Roomga kirish
+              {t("Roomga kirish")}
             </button>
           </form>
           {error ? (
@@ -617,9 +617,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <ConfirmModal
           open={endGameConfirmOpen}
-          title="Roomni o'chirishni tasdiqlang"
-          description="Lobby bekor qilinadi va barcha o'yinchilar chiqib ketadi."
-          confirmLabel="Roomni o'chirish"
+          title={t("Roomni o'chirishni tasdiqlang")}
+          description={t("Lobby bekor qilinadi va barcha o'yinchilar chiqib ketadi.")}
+          confirmLabel={t("Roomni o'chirish")}
           tone="danger"
           onConfirm={() => {
             setEndGameConfirmOpen(false);
@@ -629,10 +629,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <ConfirmModal
           open={!!kickTarget}
-          title={kickTarget ? `${kickTarget.name}ni chiqarish?` : ""}
-          description="Bu o'yinchi roomdan chiqarib yuboriladi. Xohlasa, qayta link orqali kirishi mumkin."
-          confirmLabel="Chiqarish"
-          cancelLabel="Bekor qilish"
+          title={kickTarget ? t("{name}ni chiqarish?", { name: kickTarget.name }) : ""}
+          description={t("Bu o'yinchi roomdan chiqarib yuboriladi. Xohlasa, qayta link orqali kirishi mumkin.")}
+          confirmLabel={t("Chiqarish")}
+          cancelLabel={t("Bekor qilish")}
           tone="danger"
           onConfirm={() => {
             if (kickTarget) {
@@ -806,7 +806,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             <p className="text-2xl">🚧</p>
             <p className="text-base font-semibold">Noma'lum holat</p>
             <p className="text-sm text-ink-muted">
-              Hozirgi faza: {game.phase}.
+              {t("Hozirgi faza: {phase}.", { phase: game.phase })}
             </p>
           </section>
 
@@ -816,7 +816,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
               onClick={() => router.push("/dashboard" as Route)}
               className="flex h-12 items-center justify-center rounded-xl bg-ok text-sm font-semibold text-bg-base"
             >
-              Bosh sahifaga qaytish
+              {t("Bosh sahifaga qaytish")}
             </button>
             {me?.isHost ? (
               <button
@@ -824,7 +824,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
                 onClick={() => setEndGameConfirmOpen(true)}
                 className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad"
               >
-                O'yinni tugatish
+                {t("O'yinni tugatish")}
               </button>
             ) : null}
           </div>
@@ -832,9 +832,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       </main>
       <ConfirmModal
         open={endGameConfirmOpen}
-        title="O'yinni tugatishni tasdiqlang"
-        description="O'yin to'xtatiladi va barcha o'yinchilar bosh sahifaga qaytadi."
-        confirmLabel="Ha, tugatish"
+        title={t("O'yinni tugatishni tasdiqlang")}
+        description={t("O'yin to'xtatiladi va barcha o'yinchilar bosh sahifaga qaytadi.")}
+        confirmLabel={t("Ha, tugatish")}
         tone="danger"
         onConfirm={() => {
           setEndGameConfirmOpen(false);
@@ -847,7 +847,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-            Qayta ulanmoqda…
+            {t("Qayta ulanmoqda…")}
           </div>
         </div>
       ) : null}
@@ -864,6 +864,7 @@ function MafiaHostDock({
   onAdvancePhase: () => void;
   onEndGame: () => void;
 }) {
+  const { t } = useI18n();
   const me = state.me;
   if (!me?.isHost || state.room.status !== "PLAYING") return null;
   if (state.game.phase === "ASSIGN_ROLES" && !me.roleConfirmed) return null;
@@ -882,7 +883,7 @@ function MafiaHostDock({
             onClick={onEndGame}
             className="pointer-events-auto flex h-11 items-center justify-center rounded-full border border-bad/40 bg-bg-surface/95 px-4 text-sm font-semibold text-bad shadow-pop backdrop-blur transition active:scale-[0.98]"
           >
-            O'yinni tugatish
+            {t("O'yinni tugatish")}
           </button>
         </div>
       </div>
@@ -899,7 +900,7 @@ function MafiaHostDock({
             disabled={primaryDisabled}
             className="flex h-12 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
           >
-            {primaryLabel}
+            {t(primaryLabel)}
           </button>
         ) : null}
         <button
@@ -907,7 +908,7 @@ function MafiaHostDock({
           onClick={onEndGame}
           className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
         >
-          O'yinni tugatish
+          {t("O'yinni tugatish")}
         </button>
       </div>
     </div>
@@ -956,6 +957,7 @@ function Lobby({
   onRequestEndGame: () => void;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const config = game.config;
   const specialRoles =
     config.mafiaCount + (config.hasSheriff ? 1 : 0) + (config.hasDoctor ? 1 : 0);
@@ -974,23 +976,26 @@ function Lobby({
             onClick={() => router.push("/dashboard" as Route)}
             className="flex items-center gap-1 text-sm font-medium text-ink-secondary"
           >
-            ← Bosh sahifa
+            ← {t("Bosh sahifa")}
           </button>
           <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 text-xs">
-            Lobby · Mafia
+            {t("Lobby · Mafia")}
           </span>
         </header>
 
         {/* Room code card */}
         <section className="mt-2 rounded-3xl border border-line-subtle bg-bg-surface p-5">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            Room code
+            {t("Room code")}
           </p>
           <p className="mt-1 font-mono text-3xl font-bold tracking-[0.4em]">
             {room.code}
           </p>
           <p className="mt-2 text-xs text-ink-muted">
-            {players.length} / {room.maxPlayers} o'yinchi
+            {t("{players} / {maxPlayers} o'yinchi", {
+              players: players.length,
+              maxPlayers: room.maxPlayers
+            })}
           </p>
 
           <LobbyShareActions
@@ -1003,20 +1008,20 @@ function Lobby({
         {/* Composition preview */}
         <section className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Tarkib
+            {t("Tarkib")}
           </p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
             <CompositionChip label="Mafia" value={config.mafiaCount} />
             <CompositionChip
-              label="Komisar"
+              label={t("Komisar")}
               value={config.hasSheriff ? 1 : 0}
             />
             <CompositionChip
-              label="Doktor"
+              label={t("Doktor")}
               value={config.hasDoctor ? 1 : 0}
             />
             <CompositionChip
-              label="Aholi"
+              label={t("Aholi")}
               value={Math.max(0, room.maxPlayers - specialRoles)}
             />
           </div>
@@ -1025,9 +1030,12 @@ function Lobby({
         {/* Players list */}
         <section className="mt-4">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-base font-semibold">O'yinchilar</h2>
+            <h2 className="text-base font-semibold">{t("O'yinchilar")}</h2>
             <p className="text-xs text-ink-muted">
-              Kamida {minPlayers} kishi · {Math.min(players.length, minPlayers)} ta tayyor
+              {t("Kamida {minPlayers} kishi · {readyCount} ta tayyor", {
+                minPlayers,
+                readyCount: Math.min(players.length, minPlayers)
+              })}
             </p>
           </div>
           <ul className="mt-2 grid gap-2">
@@ -1043,10 +1051,10 @@ function Lobby({
                   <p className="text-sm font-semibold">{p.name}</p>
                   <p className="text-[11px] text-ink-muted">
                     {me?.id === p.id
-                      ? "Siz"
+                      ? t("Siz")
                       : p.online
-                        ? "O'yinchi"
-                        : "Tarmoqda emas"}
+                        ? t("O'yinchi")
+                        : t("Tarmoqda emas")}
                   </p>
                 </div>
                 <span
@@ -1056,7 +1064,7 @@ function Lobby({
                       : "bg-bg-elevated text-ink-muted"
                   }`}
                 >
-                  ● {p.online ? "Onlayn" : "Offlayn"}
+                  ● {p.online ? t("Onlayn") : t("Offlayn")}
                 </span>
                 {me?.isHost && p.id !== me.id && room.status === "LOBBY" ? (
                   <button
@@ -1064,7 +1072,7 @@ function Lobby({
                     onClick={() =>
                       onRequestKickPlayer({ id: p.id, name: p.name })
                     }
-                    aria-label={`${p.name}ni chiqarish`}
+                    aria-label={t("{name}ni chiqarish", { name: p.name })}
                     className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
                   >
                     <svg
@@ -1090,7 +1098,7 @@ function Lobby({
 
         {!me?.isHost ? (
           <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center text-sm text-ink-secondary">
-            Host o'yinni boshlashini kuting…
+            {t("Host o'yinni boshlashini kuting…")}
           </p>
         ) : null}
       </div>
@@ -1107,15 +1115,15 @@ function Lobby({
                 className="flex h-12 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
               >
                 {canStart
-                  ? "O'yinni boshlash"
-                  : `${minPlayers} ta o'yinchi kerak`}
+                  ? t("O'yinni boshlash")
+                  : t("{count} ta o'yinchi kerak", { count: minPlayers })}
               </button>
               <button
                 type="button"
                 onClick={onRequestEndGame}
                 className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
               >
-                Roomni o'chirish
+                {t("Roomni o'chirish")}
               </button>
             </div>
           ) : (
@@ -1124,7 +1132,7 @@ function Lobby({
               onClick={onLeaveRoom}
               className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad"
             >
-              Roomdan chiqish
+              {t("Roomdan chiqish")}
             </button>
           )}
         </div>
@@ -1134,7 +1142,7 @@ function Lobby({
         <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
           <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-            Qayta ulanmoqda…
+            {t("Qayta ulanmoqda…")}
           </div>
         </div>
       ) : null}
@@ -1152,11 +1160,12 @@ function CompositionChip({ label, value }: { label: string; value: number }) {
 }
 
 function ReconnectingBanner() {
+  const { t } = useI18n();
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
       <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-        Qayta ulanmoqda…
+        {t("Qayta ulanmoqda…")}
       </div>
     </div>
   );

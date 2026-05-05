@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { getOrCreateSessionId } from "@/lib/storage";
 
 type ActiveGameItem = {
@@ -25,6 +26,7 @@ type ActiveGameItem = {
 
 export function ActiveGames() {
   const router = useRouter();
+  const { t } = useI18n();
   const [items, setItems] = useState<ActiveGameItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [resuming, setResuming] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export function ActiveGames() {
   return (
     <section>
       <p className="text-xs font-medium uppercase tracking-wider text-brand">
-        Davom ettirish
+        {t("Davom ettirish")}
       </p>
       <ul className="mt-2 grid gap-2">
         {items.map((it) => (
@@ -112,16 +114,16 @@ export function ActiveGames() {
               <p className="truncate text-sm font-semibold">
                 {it.room.disasterName ??
                   (it.room.gameType === "MAFIA"
-                    ? "Mafia o'yini"
-                    : "Bunker o'yini")}{" "}
+                    ? t("Mafia o'yini")
+                    : t("Bunker o'yini"))}{" "}
                 <span className="text-ink-muted">· {it.room.code}</span>
               </p>
               <p className="text-xs text-ink-secondary">
                 {it.room.status === "LOBBY"
-                  ? "Lobbi — kuting"
-                  : `Bosqich: ${it.room.phase}`}
-                {it.isHost ? " · siz host" : ""}
-                {!it.isAlive ? " · chiqib ketgansiz" : ""}
+                  ? t("Lobbi — kuting")
+                  : t("Bosqich: {phase}", { phase: it.room.phase })}
+                {it.isHost ? t(" · siz host") : ""}
+                {!it.isAlive ? t(" · chiqib ketgansiz") : ""}
               </p>
             </div>
             <button
@@ -129,7 +131,7 @@ export function ActiveGames() {
               disabled={resuming === it.playerId}
               className="shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-bg-base disabled:opacity-50"
             >
-              {resuming === it.playerId ? "..." : "Davom"}
+              {resuming === it.playerId ? t("Yuklanmoqda...") : t("Davom")}
             </button>
           </li>
         ))}
