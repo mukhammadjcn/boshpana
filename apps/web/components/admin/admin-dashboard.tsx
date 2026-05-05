@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 const STATS_TAB = "__stats__";
 
+
 type AdminSchemaResponse = {
   models: string[];
 };
@@ -45,214 +46,248 @@ type ModelDefinition = {
 
 type FormState = Record<string, string | number | boolean>;
 
-const cardTypeOptions = [
-  { label: "Kasb", value: "PROFESSION" },
-  { label: "Sog‘liq", value: "HEALTH" },
-  { label: "Xarakter", value: "CHARACTER" },
-  { label: "Skill", value: "SKILL" },
-  { label: "Bagaj", value: "BAGGAGE" },
-  { label: "Fakt", value: "FACT" }
-];
-
-const difficultyOptions = [
-  { label: "Easy", value: "EASY" },
-  { label: "Medium", value: "MEDIUM" },
-  { label: "Hard", value: "HARD" }
-];
-
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-const modelDefinitions: Record<string, ModelDefinition> = {
-  cards: {
-    label: "Kartalar",
-    description: "Kasb, sog‘liq, xarakter va boshqa o‘yin kartalari.",
-    searchKeys: ["text", "type"],
-    createFields: [
-      { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
-      { key: "text", label: "Matn", type: "textarea", required: true },
-      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
-    ],
-    editFields: [
-      { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
-      { key: "text", label: "Matn", type: "textarea", required: true },
-      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
-    ],
-    allowDelete: true,
-    columns: [
-      { key: "type", label: "Turi", width: "w-32", render: (i) => formatCardType(i.type) },
-      { key: "isAdult", label: "Reyting", width: "w-20", render: (i) => (i.isAdult ? "18+" : "Normal") },
-      { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
-    ]
-  },
-  disasters: {
-    label: "Falokatlar",
-    description: "O‘yin boshidagi global disaster ssenariylari.",
-    searchKeys: ["name", "description"],
-    createFields: [
-      { key: "name", label: "Nomi", type: "text", required: true },
-      { key: "description", label: "Tavsif", type: "textarea", required: true },
-      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
-    ],
-    editFields: [
-      { key: "name", label: "Nomi", type: "text", required: true },
-      { key: "description", label: "Tavsif", type: "textarea", required: true },
-      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
-    ],
-    allowDelete: true,
-    columns: [
-      { key: "name", label: "Nomi", width: "w-48", render: (i) => String(i.name ?? "") },
-      { key: "isAdult", label: "Reyting", width: "w-20", render: (i) => (i.isAdult ? "18+" : "Normal") },
-      { key: "description", label: "Tavsif", render: (i) => String(i.description ?? "") }
-    ]
-  },
-  situations: {
-    label: "Situation’lar",
-    description: "Round boshida chiqadigan vaziyat kartalari.",
-    searchKeys: ["text", "difficulty"],
-    createFields: [
-      { key: "text", label: "Matn", type: "textarea", required: true },
-      { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions },
-      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
-    ],
-    editFields: [
-      { key: "text", label: "Matn", type: "textarea", required: true },
-      { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions },
-      { key: "isAdult", label: "18+ kontent", type: "checkbox" }
-    ],
-    allowDelete: true,
-    columns: [
-      { key: "difficulty", label: "Daraja", width: "w-24", render: (i) => String(i.difficulty ?? "") },
-      { key: "isAdult", label: "Reyting", width: "w-20", render: (i) => (i.isAdult ? "18+" : "Normal") },
-      { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
-    ]
-  },
-  users: {
-    label: "Foydalanuvchilar",
-    description: "Telegram orqali ro‘yxatdan o‘tgan foydalanuvchilar.",
-    searchKeys: ["telegramUsername", "firstName", "nickname", "phone"],
-    columns: [
-      {
-        key: "user",
-        label: "Foydalanuvchi",
-        width: "w-56",
-        render: (i) => {
-          const fullName = [i.firstName, i.lastName].filter(Boolean).join(" ");
-          return (
-            i.nickname || fullName || i.telegramUsername || i.telegramId || "—"
-          );
+
+function buildCardTypeOptions() {
+  return [
+    { label: "Kasb", value: "PROFESSION" },
+    { label: "Sog'liq", value: "HEALTH" },
+    { label: "Xarakter", value: "CHARACTER" },
+    { label: "Skill", value: "SKILL" },
+    { label: "Bagaj", value: "BAGGAGE" },
+    { label: "Fakt", value: "FACT" }
+  ];
+}
+
+function buildDifficultyOptions() {
+  return [
+    { label: "Oson", value: "EASY" },
+    { label: "O'rta", value: "MEDIUM" },
+    { label: "Qiyin", value: "HARD" }
+  ];
+}
+
+const cardTypeOptions = buildCardTypeOptions();
+const difficultyOptions = buildDifficultyOptions();
+
+function buildModelDefinitions(): Record<string, ModelDefinition> {
+  return {
+    cards: {
+      label: "Kartalar",
+      description: "Bunker o'yinidagi barcha kartalar",
+      searchKeys: ["text", "type"],
+      createFields: [
+        { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
+        { key: "text", label: "Matn", type: "textarea", required: true },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+      ],
+      editFields: [
+        { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
+        { key: "text", label: "Matn", type: "textarea", required: true },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+      ],
+      allowDelete: true,
+      columns: [
+        { key: "type", label: "Turi", width: "w-32", render: (i) => formatCardType(i.type) },
+        {
+          key: "isAdult",
+          label: "Reyting",
+          width: "w-20",
+          render: (i) => (i.isAdult ? "18+" : "Normal")
+        },
+        { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
+      ]
+    },
+    disasters: {
+      label: "Falokatlar",
+      description: "Bunker o'yinidagi falokat stsenariylari",
+      searchKeys: ["name", "description"],
+      createFields: [
+        { key: "name", label: "Nomi", type: "text", required: true },
+        { key: "description", label: "Tavsif", type: "textarea", required: true },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+      ],
+      editFields: [
+        { key: "name", label: "Nomi", type: "text", required: true },
+        { key: "description", label: "Tavsif", type: "textarea", required: true },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+      ],
+      allowDelete: true,
+      columns: [
+        { key: "name", label: "Nomi", width: "w-48", render: (i) => String(i.name ?? "") },
+        {
+          key: "isAdult",
+          label: "Reyting",
+          width: "w-20",
+          render: (i) => (i.isAdult ? "18+" : "Normal")
+        },
+        { key: "description", label: "Tavsif", render: (i) => String(i.description ?? "") }
+      ]
+    },
+    situations: {
+      label: "Vaziyatlar",
+      description: "Bunker o'yinidagi vaziyat kartalari",
+      searchKeys: ["text", "difficulty"],
+      createFields: [
+        { key: "text", label: "Matn", type: "textarea", required: true },
+        { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+      ],
+      editFields: [
+        { key: "text", label: "Matn", type: "textarea", required: true },
+        { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+      ],
+      allowDelete: true,
+      columns: [
+        {
+          key: "difficulty",
+          label: "Daraja",
+          width: "w-24",
+          render: (i) => formatDifficulty(i.difficulty)
+        },
+        {
+          key: "isAdult",
+          label: "Reyting",
+          width: "w-20",
+          render: (i) => (i.isAdult ? "18+" : "Normal")
+        },
+        { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
+      ]
+    },
+    users: {
+      label: "Foydalanuvchilar",
+      description: "Tizimga kirgan barcha foydalanuvchilar",
+      searchKeys: ["telegramUsername", "firstName", "nickname", "phone"],
+      columns: [
+        {
+          key: "user",
+          label: "Foydalanuvchi",
+          width: "w-56",
+          render: (i) => {
+            const fullName = [i.firstName, i.lastName].filter(Boolean).join(" ");
+            return i.nickname || fullName || i.telegramUsername || i.telegramId || "—";
+          }
+        },
+        {
+          key: "telegramUsername",
+          label: "Telegram",
+          width: "w-40",
+          render: (i) =>
+            i.telegramUsername ? `@${i.telegramUsername}` : String(i.telegramId ?? "—")
+        },
+        {
+          key: "phone",
+          label: "Telefon",
+          width: "w-36",
+          render: (i) => String(i.phone ?? "—")
+        },
+        {
+          key: "createdAt",
+          label: "Ro'yxatdan o'tgan",
+          width: "w-40",
+          render: (i) => formatDate(i.createdAt)
         }
-      },
-      {
-        key: "telegramUsername",
-        label: "Telegram",
-        width: "w-40",
-        render: (i) =>
-          i.telegramUsername ? `@${i.telegramUsername}` : String(i.telegramId ?? "—")
-      },
-      {
-        key: "phone",
-        label: "Telefon",
-        width: "w-36",
-        render: (i) => String(i.phone ?? "—")
-      },
-      {
-        key: "createdAt",
-        label: "Ro‘yxatdan o‘tgan",
-        width: "w-40",
-        render: (i) => formatDate(i.createdAt)
-      }
-    ]
-  },
-  rooms: {
-    label: "Room’lar",
-    description: "Aktiv va tugagan xonalar holati.",
-    searchKeys: ["code", "status"],
-    columns: [
-      { key: "code", label: "Code", width: "w-28", render: (i) => String(i.code ?? "") },
-      { key: "status", label: "Status", width: "w-28", render: (i) => String(i.status ?? "") },
-      {
-        key: "playerCount",
-        label: "Playerlar",
-        width: "w-24",
-        render: (i) => String(Array.isArray(i.players) ? i.players.length : 0)
-      },
-      { key: "winnerTarget", label: "Finish", width: "w-24", render: (i) => `${String(i.winnerTarget ?? "-")} kishi` },
-      {
-        key: "createdAt",
-        label: "Yaratilgan",
-        width: "w-40",
-        render: (i) => formatDate(i.createdAt)
-      }
-    ]
-  },
-  gameHistory: {
-    label: "O‘yinlar tarixi",
-    description:
-      "Tugagan har bir o‘yinning durable yozuvi (room va player'lar o‘chirilgandan keyin ham qoladi).",
-    searchKeys: ["roomCode", "disasterName", "outcome"],
-    columns: [
-      {
-        key: "playedAt",
-        label: "Sana",
-        width: "w-40",
-        render: (i) => formatDate(i.playedAt)
-      },
-      {
-        key: "user",
-        label: "Host",
-        width: "w-44",
-        render: (i) => {
-          const u = i.user as
-            | {
-                nickname?: string;
-                firstName?: string;
-                lastName?: string;
-                telegramUsername?: string;
-              }
-            | undefined;
-          if (!u) return "—";
-          const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ");
-          return u.nickname || fullName || u.telegramUsername || "—";
+      ]
+    },
+    rooms: {
+      label: "Roomlar",
+      description: "Barcha yaratilgan o'yin xonalari",
+      searchKeys: ["code", "status"],
+      columns: [
+        { key: "code", label: "Kod", width: "w-28", render: (i) => String(i.code ?? "") },
+        { key: "status", label: "Status", width: "w-28", render: (i) => String(i.status ?? "") },
+        {
+          key: "playerCount",
+          label: "O'yinchilar",
+          width: "w-24",
+          render: (i) => String(Array.isArray(i.players) ? i.players.length : 0)
+        },
+        {
+          key: "winnerTarget",
+          label: "Finish",
+          width: "w-24",
+          render: (i) => `${String(i.winnerTarget ?? "-")} kishi`
+        },
+        {
+          key: "createdAt",
+          label: "Yaratilgan",
+          width: "w-40",
+          render: (i) => formatDate(i.createdAt)
         }
-      },
-      {
-        key: "roomCode",
-        label: "Room",
-        width: "w-24",
-        render: (i) => String(i.roomCode ?? "—")
-      },
-      {
-        key: "disasterName",
-        label: "Falokat",
-        width: "w-40",
-        render: (i) => String(i.disasterName ?? "—")
-      },
-      {
-        key: "playerCount",
-        label: "O‘yinchi",
-        width: "w-20",
-        render: (i) => String(i.playerCount ?? "—")
-      },
-      {
-        key: "outcome",
-        label: "Outcome",
-        width: "w-28",
-        render: (i) => String(i.outcome ?? "—")
-      },
-      {
-        key: "duration",
-        label: "Davomiyligi",
-        width: "w-28",
-        render: (i) => {
-          const s = Number(i.durationSeconds ?? 0);
-          if (!s) return "—";
-          const m = Math.round((s / 60) * 10) / 10;
-          return `${m} daq`;
+      ]
+    },
+    gameHistory: {
+      label: "O'yinlar tarixi",
+      description: "Yakunlangan barcha o'yinlar",
+      searchKeys: ["roomCode", "disasterName", "outcome"],
+      columns: [
+        {
+          key: "playedAt",
+          label: "Sana",
+          width: "w-40",
+          render: (i) => formatDate(i.playedAt)
+        },
+        {
+          key: "user",
+          label: "Host",
+          width: "w-44",
+          render: (i) => {
+            const u = i.user as
+              | {
+                  nickname?: string;
+                  firstName?: string;
+                  lastName?: string;
+                  telegramUsername?: string;
+                }
+              | undefined;
+            if (!u) return "—";
+            const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ");
+            return u.nickname || fullName || u.telegramUsername || "—";
+          }
+        },
+        {
+          key: "roomCode",
+          label: "Room",
+          width: "w-24",
+          render: (i) => String(i.roomCode ?? "—")
+        },
+        {
+          key: "disasterName",
+          label: "Falokat",
+          width: "w-40",
+          render: (i) => String(i.disasterName ?? "—")
+        },
+        {
+          key: "playerCount",
+          label: "O'yinchi",
+          width: "w-20",
+          render: (i) => String(i.playerCount ?? "—")
+        },
+        {
+          key: "outcome",
+          label: "Natija",
+          width: "w-28",
+          render: (i) => String(i.outcome ?? "—")
+        },
+        {
+          key: "duration",
+          label: "Davomiyligi",
+          width: "w-28",
+          render: (i) => {
+            const s = Number(i.durationSeconds ?? 0);
+            if (!s) return "—";
+            const m = Math.round((s / 60) * 10) / 10;
+            return `${m} daq`;
+          }
         }
-      }
-    ]
-  }
-};
+      ]
+    }
+  };
+}
+
+const modelDefinitions = buildModelDefinitions();
 
 export function AdminDashboard() {
   const router = useRouter();
@@ -1222,6 +1257,19 @@ function formatCardType(type: unknown) {
       return "Fakt";
     default:
       return String(type ?? "");
+  }
+}
+
+function formatDifficulty(difficulty: unknown) {
+  switch (difficulty) {
+    case "EASY":
+      return "Oson";
+    case "MEDIUM":
+      return "O'rta";
+    case "HARD":
+      return "Qiyin";
+    default:
+      return String(difficulty ?? "");
   }
 }
 

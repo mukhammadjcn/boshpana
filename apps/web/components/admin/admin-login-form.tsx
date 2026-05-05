@@ -24,7 +24,7 @@ export function AdminLoginForm() {
 
       if (!response.ok) {
         const payload = await response.json();
-        throw new Error(payload.message ?? "Login amalga oshmadi.");
+        throw new Error(payload.message ?? "Login amalga oshmadi");
       }
 
       router.replace("/admin/dashboard");
@@ -44,7 +44,9 @@ export function AdminLoginForm() {
       <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
         Admin
       </p>
-      <h1 className="mt-1 text-xl font-semibold text-ink-primary">Kirish</h1>
+      <h1 className="mt-1 text-xl font-semibold text-ink-primary">
+        Tizimga kirish
+      </h1>
 
       <div className="mt-4 grid gap-2.5">
         <label className="grid gap-1 text-xs">
@@ -55,7 +57,7 @@ export function AdminLoginForm() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="h-10 rounded-lg border border-line-strong bg-bg-base px-3 text-sm text-ink-primary outline-none focus:border-brand"
-            placeholder="admin@bunker.local"
+            placeholder="admin@example.com"
             autoComplete="email"
           />
         </label>
@@ -77,7 +79,7 @@ export function AdminLoginForm() {
         disabled={loading}
         className="mt-4 flex h-10 w-full items-center justify-center rounded-lg bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
       >
-        {loading ? "Tekshirilmoqda..." : "Kirish"}
+        {loading ? "Tekshirilmoqda..." : "Tizimga kirish"}
       </button>
 
       {error ? (

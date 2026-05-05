@@ -195,9 +195,7 @@ export function TelegramAuthGate() {
               {t("telefon_raqamingizni_ulashing")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              {t(
-                "Davom etish uchun Telegram orqali telefon raqamingizni ulashishingiz kerak. Bu bir martalik amal — keyingi safar avtomatik kirib turasiz."
-              )}
+              {t("davom_etish_uchun_telegram_orqali_d688")}
             </p>
             <button
               disabled={stage.kind === "submitting-phone"}

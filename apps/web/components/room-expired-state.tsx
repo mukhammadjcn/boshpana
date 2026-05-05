@@ -40,9 +40,7 @@ export function RoomExpiredState({
             {t("bu_xonada_oyin_tugagan")}
           </h1>
           <p className="mt-3 text-sm leading-7 text-ink-secondary">
-            {t(
-              "Xona allaqachon yakunlangan yoki tizimdan o'chirilgan. Bosh sahifaga qaytishingiz yoki yangi xona kodini kiritib boshqa o'yinga qo'shilishingiz mumkin."
-            )}
+            {t("xona_allaqachon_yakunlangan_yoki_ochirilgan")}
           </p>
 
           <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-base p-4">

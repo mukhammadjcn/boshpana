@@ -13,7 +13,7 @@ type Props = {
 function getRoleLabel(t: (text: string, vars?: Record<string, string | number>) => string): Record<MafiaRole, string> {
   return {
     CITIZEN: t("oddiy_aholi"),
-    MAFIA: "Mafia",
+    MAFIA: t("mafia_2"),
     SHERIFF: t("komisar_2"),
     DOCTOR: t("doktor_2")
   };

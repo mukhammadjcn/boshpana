@@ -128,7 +128,7 @@ export function PublicGamePage({
                   className="rounded-2xl border border-line-subtle bg-bg-surface p-4"
                 >
                   <p className="text-lg font-bold text-ink-primary">
-                    {item.value}
+                    {t(item.value)}
                   </p>
                   <p className="mt-1 text-[11px] uppercase tracking-wider text-ink-muted sm:text-xs">
                     {t(item.label)}
@@ -155,9 +155,7 @@ export function PublicGamePage({
                 {t("nima_uchun_bu_sahifa_bor")}
               </p>
               <p className="text-sm leading-7 text-ink-secondary">
-                {t(
-                  "Bu yerda o'yinning mantig'i, kimlar uchun mosligi va yaratish paytida chiqadigan barcha asosiy configlar oldindan tushuntirib beriladi. Shu sabab login qilmasdan turib ham jamoangiz uchun qaysi rejim to'g'ri kelishini tanlashingiz mumkin."
-                )}
+                {t("bu_yerda_oyinning_mantigi_kimlar_aa3f")}
               </p>
             </div>
           </div>
@@ -174,9 +172,7 @@ export function PublicGamePage({
               {t("oyin_nimaga_qurilganini_oldindan_bilib_e22e")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-              {t(
-                "Har bir blok bir savolga javob beradi: o'yin nimaligi, qanday ketishi, configlar nima uchun kerakligi va qaysi davra uchun mos ekani."
-              )}
+              {t("har_bir_blok_bir_savolga_a698")}
             </p>
           </div>
 
@@ -206,9 +202,7 @@ export function PublicGamePage({
               {t("raundlar_qanday_ishlashini_bilish_uchun")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-              {t(
-                "Bu bo'lim host va o'yinchilar uchun jarayonni soddalashtiradi: qachon gapiriladi, qachon qaror beriladi va qayerda dramatik burilishlar bo'lishini ko'rsatadi."
-              )}
+              {t("bu_bolim_host_va_oyinchilar_0bd5")}
             </p>
           </div>
 
@@ -241,9 +235,7 @@ export function PublicGamePage({
               {t("har_bir_sozlama_nimani_boshqaradi")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-              {t(
-                "Login qilgandan keyin aynan shu configlar bilan room ochiladi. Pastdagi izohlar har bir parametr nima uchun borligini va qachon qaysi variant foydaliroq bo'lishini ko'rsatadi."
-              )}
+              {t("login_qilgandan_keyin_aynan_shu_bf72")}
             </p>
           </div>
 
@@ -285,9 +277,7 @@ export function PublicGamePage({
               {t("togri_davrani_tanlash_uchun_qisqa_073c")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-              {t(
-                "Bu bo'lim o'yinni qaysi jamoa bilan tezroq ishga tushirish mumkinligini ko'rsatadi: kayfiyat, tajriba va davra kattaligiga qarab."
-              )}
+              {t("bu_bolim_oyinni_qaysi_jamoa_4677")}
             </p>
           </div>
 
@@ -319,9 +309,7 @@ export function PublicGamePage({
                   {t("jamoani_yiging_va_room_ochishni_aa08")}
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-                  {t(
-                    "Yaratish tugmasi sizni login sahifasiga olib boradi, login tugashi bilan esa shu o'yinning create sahifasiga avtomatik o'tasiz."
-                  )}
+                  {t("yaratish_tugmasi_login_sahifasiga_olib_boradi")}
                 </p>
               </div>
               <div className="grid gap-3">

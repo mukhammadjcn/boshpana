@@ -31,7 +31,7 @@ function getRoleHeader(t: (text: string, vars?: Record<string, string | number>)
       accent: "text-ok"
     },
     MAFIA: {
-      title: "Mafia",
+      title: t("mafia_2"),
       subtitle: t("sheriklaringiz_bilan_birga_nishon_tanlang"),
       accent: "text-bad"
     },

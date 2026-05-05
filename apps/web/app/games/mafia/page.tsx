@@ -43,93 +43,93 @@ export default function MafiaPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PublicGamePage
-        eyebrow="Mafia · Kun va tun strategiyasi"
-        title="Mafia — kim xiyonatkor?"
-        description="Mafia yashirin rollar, kuzatuv va jamoaviy shubha ustiga qurilgan klassik ijtimoiy o'yin. Kunduzi hamma gapiradi, tunda esa roli borlar maxfiy qaror qiladi. Kimga ishonish va qaysi configni tanlash butun tempni o'zgartiradi."
+        eyebrow="mafia_kun_va_tun_strategiyasi"
+        title="mafia_kim_xiyonatkor"
+        description="mafia_yashirin_rollar_kuzatuv_va_2f21"
         image="/mafiabanner.webp"
-        imageAlt="Mafia o'yini banneri"
+        imageAlt="mafia_oyini_banneri"
         heroStats={[
-          { label: "o'yinchi", value: "4-16" },
-          { label: "davomiylik", value: "30-45 daq" },
-          { label: "format", value: "Night + day" },
-          { label: "platforma", value: "Telegram" }
+          { label: "oyinchi", value: "4-16" },
+          { label: "davomiylik", value: "30_45_daq" },
+          { label: "format", value: "night_day" },
+          { label: "platforma", value: "telegram" }
         ]}
         story={[
           {
-            title: "Nega o'ynaladi",
-            body: "Mafia kuzatish, yolg'onni ushlash va odamlarning gapirish uslubini tahlil qilishni sevuvchi jamoalar uchun juda kuchli format."
+            title: "nega_oynaladi",
+            body: "mafia_kuzatish_yolgonni_ushlash_va_b10f"
           },
           {
-            title: "Asosiy drama",
-            body: "Bir xil gapni ikki xil rol butunlay boshqacha maqsadda aytishi mumkin. Tunda bo'lgan voqealarni kunduzi kim qanday talqin qilishi g'olibni belgilaydi."
+            title: "asosiy_drama",
+            body: "bir_xil_gapni_ikki_xil_e631"
           },
           {
-            title: "Host uchun foyda",
-            body: "Role composition oldindan ko'rinadi: mafia soni, komisar va doktor bor-yo'qligi aniq. Shu sabab siz davraga mos balansni room ochishdan oldin tuzasiz."
+            title: "host_uchun_foyda",
+            body: "role_composition_oldindan_korinadi_mafia_00a7"
           }
         ]}
         flow={[
           {
-            title: "Role taqsimoti",
-            body: "Room ichidagi har bir o'yinchi yashirin rol oladi. Bu bosqich o'yinning balansini belgilaydi va jamoa kim ekanini bilmagan holda start beradi."
+            title: "role_taqsimoti",
+            body: "room_ichidagi_har_bir_oyinchi_1b50"
           },
           {
-            title: "Tun fazasi",
-            body: "Mafia nishon tanlaydi, komisar tekshiradi yoki zarba beradi, doktor esa qutqarishga urinadi. Bu bo'lim maxfiy ma'lumot va keskinlik yaratish uchun kerak."
+            title: "tun_fazasi",
+            body: "mafia_nishon_tanlaydi_komisar_tekshiradi_365e"
           },
           {
-            title: "Kun muhokamasi",
-            body: "Tun natijasidan keyin hamma o'z versiyasini aytadi. Kuzatuv, psixologiya va noto'g'ri yo'naltirish aynan shu yerda ishlaydi."
+            title: "kun_muhokamasi",
+            body: "tun_natijasidan_keyin_hamma_versiya"
           },
           {
-            title: "Ovoz bilan chetlatish",
-            body: "Jamoa shubhali odamni chiqaradi. Mafia tirik aholi soniga yetib olsa g'alaba qiladi, aks holda shahar taraf yutadi."
+            title: "ovoz_bilan_chetlatish",
+            body: "jamoa_shubhali_odamni_chiqaradi_mafia_955f"
           }
         ]}
         configs={[
           {
-            label: "Nickname",
-            value: "Host nomi",
-            reason: "Bu room egasini ko'rsatadi va lobbida jamoa kimga ergashishini aniq qiladi. Ayniqsa katta guruhda muhim."
+            label: "nickname",
+            value: "host_nomi",
+            reason: "room_egasini_korsatadi_va_lobbida_kimga_ergashish"
           },
           {
-            label: "Maks o'yinchi",
-            value: "4 dan 16 gacha",
-            reason: "Davra kattaligi role balansiga va o'yin davomiyligiga ta'sir qiladi. Odam ko'paygan sari muhokama kengayadi, lekin partiya cho'zilishi ham mumkin."
+            label: "maks_oyinchi",
+            value: "4_dan_16_gacha",
+            reason: "davra_kattaligi_role_balansiga_va_7e63"
           },
           {
-            label: "Mafia soni",
-            value: "Balanslangan yashirin jamoa",
-            reason: "Bu parametr o'yinning keskinligini belgilaydi. Kam mafia ehtiyotkor deduksiya beradi, ko'proq mafia esa shahar tomoni uchun xavfni oshiradi."
+            label: "mafia_soni",
+            value: "balanslangan_yashirin_jamoa",
+            reason: "bu_parametr_oyinning_keskinligini_belgilaydi_9130"
           },
           {
-            label: "Komisar",
-            value: "Bor / yo'q",
-            reason: "Komisar o'yinga tekshiruv va yo'naltirilgan shubha qo'shadi. Yangi davralarda bu rol muhokamani tartibga solishga yordam beradi."
+            label: "komisar_2",
+            value: "bor_yoq",
+            reason: "komisar_oyinga_tekshiruv_va_yonaltirilgan_7648"
           },
           {
-            label: "Doktor",
-            value: "Bor / yo'q",
-            reason: "Doktor tun fazasiga qarshi balans beradi. Agar partiya juda keskin bo'lib ketmasin desangiz, doktorni yoqib qo'yish foydali."
+            label: "doktor_2",
+            value: "bor_yoq",
+            reason: "doktor_tun_fazasiga_qarshi_balans_1fb8"
           },
           {
-            label: "Tarkib preview",
-            value: "Fuqaro + maxsus rollar",
-            reason: "Create sahifada qolgan oddiy fuqarolar soni avtomatik hisoblanadi. Bu noto'g'ri tarkib tuzib qo'ymaslik uchun ko'rsatib turiladi."
+            label: "tarkib_preview",
+            value: "fuqaro_maxsus_rollar",
+            reason: "create_sahifada_qolgan_oddiy_fuqarolar_f3a7"
           }
         ]}
         audience={[
           {
-            title: "Kuzatuvchan davralar",
-            body: "Agar jamoa mimika, gap uslubi va nozik tafsilotlardan shubha chiqarishni yoqtirsa, Mafia juda yaxshi ishlaydi."
+            title: "kuzatuvchan_davralar",
+            body: "agar_jamoa_mimika_gap_uslubi_dec1"
           },
           {
-            title: "Kechki uzunroq sessiyalar",
-            body: "Bunkerga qaraganda ko'proq raund hissi beradi. Shu sabab bir o'yinga chuqurroq kirishni xohlaydigan guruhlarga mos."
+            title: "kechki_uzunroq_sessiyalar",
+            body: "bunkerga_qaraganda_koproq_raund_hissi_ec3b"
           },
           {
-            title: "Balans bilan o'ynashni xohlovchilar",
-            body: "Mafia soni, komisar va doktor kabi configlar tufayli host davra tajribasiga qarab o'yinni nozik sozlashi mumkin."
+            title: "balans_bilan_oynashni_xohlovchilar",
+            body: "mafia_soni_komisar_va_doktor_621d"
           }
         ]}
         createHref="/dashboard/create/mafia"

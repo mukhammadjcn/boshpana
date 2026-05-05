@@ -124,7 +124,7 @@ export function JoinRoomModal({
             autoCapitalize="characters"
             spellCheck={false}
             className="h-14 rounded-2xl border border-line-strong bg-bg-base px-4 font-mono text-base uppercase tracking-[0.3em] text-ink-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-            placeholder="ROOM CODE"
+            placeholder={t("room_code_placeholder")}
           />
           <input
             value={joinName}

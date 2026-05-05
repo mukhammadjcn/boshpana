@@ -13,58 +13,58 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 
 const GAMES = [
   {
-    title: "Bunker",
-    body: "Apokalipsisdan keyin bunkerga kim qolishini pitch va ovoz bilan hal qiladigan ijtimoiy o'yin.",
-    meta: "3-16 o'yinchi · 30-60 daqiqa",
+    title: "bunker_2",
+    body: "apokalipsisdan_keyin_bunkerga_kim_qolishini_bd05",
+    meta: "3_16_oyinchi_30_60_d1dc",
     href: "/games/bunker" as Route,
     image: "/bunkerbanner.webp",
-    cta: "Bunker sahifasini ochish"
+    cta: "bunker_sahifasini_ochish"
   },
   {
-    title: "Mafia",
-    body: "Kun va tun rejimida yashirin rollar bilan xiyonatkorlarni topishga qurilgan klassik strategik davra o'yini.",
-    meta: "4-16 o'yinchi · 30-45 daqiqa",
+    title: "mafia_2",
+    body: "kun_va_tun_rejimida_yashirin_585d",
+    meta: "4_16_oyinchi_30_45_74ed",
     href: "/games/mafia" as Route,
     image: "/mafiabanner.webp",
-    cta: "Mafia sahifasini ochish"
+    cta: "mafia_sahifasini_ochish"
   },
 ];
 
 const STEPS = [
   {
     n: 1,
-    title: "O'yinni tanlaysiz",
-    body: "Landing ichida qaysi format sizning davrangizga mosligini ko'rasiz va alohida route ichida batafsil ma'lumotni ochasiz.",
+    title: "oyinni_tanlaysiz",
+    body: "landing_ichida_qaysi_format_sizning_54d7",
   },
   {
     n: 2,
-    title: "Configlarni oldindan ko'rasiz",
-    body: "Har bir game page ichida create vaqtida chiqadigan asosiy sozlamalar va ularning nima uchun kerakligi yozilgan bo'ladi.",
+    title: "configlarni_oldindan_korasiz",
+    body: "har_bir_game_page_ichida_b13e",
   },
   {
     n: 3,
-    title: "Telegram orqali kirasiz",
-    body: "Yaratish tugmasi login sahifasiga olib boradi. Avtorizatsiyadan keyin siz o'sha o'yinning create sahifasiga redirect bo'lasiz.",
+    title: "telegram_orqali_kiring",
+    body: "yaratish_tugmasi_login_sahifasiga_olib_boradi",
   },
   {
     n: 4,
-    title: "Roomni ishga tushirasiz",
-    body: "Host room yaratadi, jamoaga havolani yuboradi va barcha o'yinchilar bir joydan jonli o'yinga kiradi.",
+    title: "roomni_ishga_tushirasiz",
+    body: "host_room_yaratadi_jamoaga_havolani_b1ce",
   },
 ];
 
 const BRAND_POINTS = [
   {
-    title: "Platforma nima uchun bor",
-    body: "Jamoaviy.uz birgalikda o'ynaladigan o'yinlarni bitta qulay kirish nuqtasiga yig'adi, shunda har safar alohida bot yoki alohida sayt qidirmaysiz.",
+    title: "platforma_nima_uchun_bor",
+    body: "jamoaviy_uz_birgalikda_oynaladigan_oyinlarni_1459",
   },
   {
-    title: "Game route nima uchun bor",
-    body: "Har bir o'yin uchun alohida route userni chalg'itmaydi: qoidalar, kimlar uchunligi va create configlari bir joyda turadi.",
+    title: "game_route_nima_uchun_bor",
+    body: "har_bir_oyin_uchun_alohida_3e60",
   },
   {
-    title: "Login redirect nima uchun kerak",
-    body: "Public landing hamma uchun ochiq, lekin room yaratish host identifikatsiyasi bilan bog'liq. Shu sabab create bosilganda login qilinadi va keyin kerakli create page ochiladi.",
+    title: "login_redirect_nima_uchun_kerak",
+    body: "public_landing_hamma_uchun_ochiq_abf0",
   },
 ];
 
@@ -131,23 +131,19 @@ export function HomePage() {
               {t("ichida_dostlar_bilan_oynaladigan_oyinlar_27f9")}
             </h1>
             <p className="mt-4 text-base leading-7 text-ink-secondary sm:text-lg sm:leading-8">
-              {t(
-                "Bu yerda Bunker va Mafia kabi jamoaviy o'yinlar alohida routelar bilan taqdim etiladi. Har bir route ichida o'yin haqida kengaytirilgan ma'lumot, create configlari va ularning nima uchun kerakligi yozilgan bo'ladi."
-              )}
+              {t("bu_yerda_bunker_va_mafia_66a1")}
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <p className="text-xs text-ink-muted sm:text-sm">
-                {t(
-                  "O'yin yaratish uchun Telegram orqali kirasiz, tanlash esa public landing ichida ham ochiq"
-                )}
+                {t("oyin_yaratish_uchun_telegram_orqali_bfda")}
               </p>
             </div>
 
             <ul className="mt-8 grid grid-cols-3 gap-3 text-center text-xs sm:text-sm">
               <Stat value="2+" label={t("oyin")} />
-              <Stat value="Telegram" label={t("login")} />
-              <Stat value="Mobile" label={t("first")} />
+              <Stat value={t("telegram")} label={t("login")} />
+              <Stat value={t("mobile")} label={t("first")} />
             </ul>
           </div>
 
@@ -156,7 +152,7 @@ export function HomePage() {
               <div className="relative aspect-[16/8.5] w-full">
                 <Image
                   src="/banner.png"
-                  alt="Jamoaviy.uz banneri"
+                  alt={t("jamoaviy_uz_banneri")}
                   fill
                   sizes="(max-width: 1024px) 100vw, 560px"
                   className="object-cover"
@@ -199,9 +195,7 @@ export function HomePage() {
               {t("landing_ichidan_ikki_yangi_public_06da")}
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
-              {t(
-                "Har bir karta alohida game page'ga olib boradi. Ichkarida qoidalar, maqsad, configlar va login redirect bilan create tugmasi bor."
-              )}
+              {t("har_bir_karta_alohida_game_34d7")}
             </p>
           </div>
 
@@ -226,7 +220,7 @@ export function HomePage() {
                 <div className="p-5 sm:p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xl font-semibold">{game.title}</p>
+                      <p className="text-xl font-semibold">{t(game.title)}</p>
                       <p className="mt-2 text-sm leading-7 text-ink-secondary">
                         {t(game.body)}
                       </p>
@@ -282,9 +276,7 @@ export function HomePage() {
               {t("user_flow_4_qadamda_aniq_4471")}
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
-              {t(
-                "Bu bo'lim yangi mehmon uchun saytdagi harakat yo'lini soddalashtiradi: tanlash, tushunish, login qilish va room yaratish."
-              )}
+              {t("bu_bolim_yangi_mehmon_uchun_099a")}
             </p>
           </div>
           <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -318,9 +310,7 @@ export function HomePage() {
                   <span className="text-brand">{t("qaysi_oyindan_boshlaysiz")}</span>
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
-                  {t(
-                    "Public landing ichidan o'yinni tanlang, route ichida configlarni ko'ring va create tugmasi orqali login qilib to'g'ridan-to'g'ri room yaratishga o'ting."
-                  )}
+                  {t("public_landing_ichidan_oyinni_tanlang_4e61")}
                 </p>
               </div>
               <div className="grid gap-3">

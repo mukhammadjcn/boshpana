@@ -17,7 +17,7 @@ function getRoleMeta(t: (text: string, vars?: Record<string, string | number>) =
 > {
   return {
     CITIZEN: { label: t("oddiy_aholi"), tone: "ok" },
-    MAFIA: { label: "Mafia", tone: "bad" },
+    MAFIA: { label: t("mafia_2"), tone: "bad" },
     SHERIFF: { label: t("komisar_2"), tone: "brand" },
     DOCTOR: { label: t("doktor_2"), tone: "ok" }
   };
