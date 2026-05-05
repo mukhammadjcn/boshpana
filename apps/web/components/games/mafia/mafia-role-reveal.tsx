@@ -12,6 +12,7 @@ import type { MafiaPublicState } from "./mafia-types";
 type Props = {
   state: MafiaPublicState;
   onConfirm: () => void;
+  confirmPending?: boolean;
 };
 
 const HIDE_AFTER_MS = 3000;
@@ -21,7 +22,11 @@ const HIDE_AFTER_MS = 3000;
 // qilsa 3 soniya ko'rinadi, keyin yana yopiladi. Hohlagancha qayta
 // ochishi mumkin. Mafia o'z sheriklarining ismini ham shu vaqt
 // oralig'ida ko'radi.
-export function MafiaRoleReveal({ state, onConfirm }: Props) {
+export function MafiaRoleReveal({
+  state,
+  onConfirm,
+  confirmPending = false
+}: Props) {
   const { t } = useI18n();
   const me = state.me;
   const role = me?.role ?? null;
@@ -50,7 +55,10 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
-      <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
+      <div
+        className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
+      >
         <header className="flex items-center justify-between py-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
             {t("rol_tarqatildi")}
@@ -129,14 +137,26 @@ export function MafiaRoleReveal({ state, onConfirm }: Props) {
           <button
             type="button"
             onClick={onConfirm}
-            disabled={confirmed || !role}
+            disabled={confirmed || !role || confirmPending}
             className={`flex h-14 w-full items-center justify-center rounded-2xl text-base font-semibold transition active:scale-[0.98] disabled:opacity-60 ${
               confirmed
                 ? "bg-bg-elevated text-ink-muted"
                 : "bg-brand text-bg-base"
             }`}
           >
-            {confirmed ? t("tasdiqlandi_kuting") : t("tasdiqlash")}
+            {confirmed
+              ? t("tasdiqlandi_kuting")
+              : confirmPending
+                ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent opacity-80"
+                      />
+                      {t("yuborilmoqda")}
+                    </span>
+                  )
+                : t("tasdiqlash")}
           </button>
         </div>
       </div>

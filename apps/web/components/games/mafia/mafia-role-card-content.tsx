@@ -70,7 +70,8 @@ export function MafiaRoleCardContent({
         },
         MAFIA: {
           ...mafiaRoleMeta.MAFIA,
-          team: "Mafia",
+          title: t("mafia_2"),
+          team: t("mafia_2"),
           blurb: t("tunda_nishon_tanlab_kunduzi_yashirinib_8b6c")
         },
         SHERIFF: {
@@ -100,7 +101,7 @@ export function MafiaRoleCardContent({
       <p
         className={`text-xs font-medium uppercase tracking-[0.25em] ${meta.accent}`}
       >
-        {meta.team} jamoasi
+        {t("team_jamoasi", { team: meta.team })}
       </p>
       <h2 className="text-3xl font-bold">{meta.title}</h2>
       <p className="max-w-xs text-sm leading-7 text-ink-secondary">

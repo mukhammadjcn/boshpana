@@ -62,11 +62,19 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
   const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
   const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [roleModalVisible, setRoleModalVisible] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [phaseIntro, setPhaseIntro] = useState<{
+    kind: "night" | "day" | "tiebreak";
+    key: string;
+  } | null>(null);
   const connectedRef = useRef(false);
   // Tracks which (roomCode, playerId) pairs already saw the cancelled
   // modal so reconnects / state refetches don't keep popping it back.
   const seenCancelledModalRef = useRef<Set<string>>(new Set());
   const seenSelfEliminationRef = useRef<Set<string>>(new Set());
+  const seenPhaseIntroRef = useRef<Set<string>>(new Set());
   const closingConfirmation =
     !!roomState?.room &&
     roomState.room.status !== "FINISHED" &&
@@ -85,9 +93,29 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     );
   }, []);
 
+  const refreshState = useCallback(() => {
+    if (!sessionId) return;
+    void apiRequest<MafiaPublicState>(
+      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`,
+    )
+      .then((s) => {
+        setRoomState(s);
+        setLoading(false);
+      })
+      .catch(() => undefined);
+  }, [roomCode, sessionId]);
+
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
   }, []);
+
+  useEffect(() => {
+    if (!pendingAction) return;
+    const timer = window.setTimeout(() => {
+      setPendingAction(null);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [pendingAction]);
 
   // Lobby vaqtida host xonani tugatib yuborsa room CANCELLED bo'ladi
   // va o'yin umuman boshlanmaydi. Har bir ishtirokchiga "o'yin
@@ -217,6 +245,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     const onErr = ({ message }: { message: string }) => {
       pushToast({ kind: "error", text: message });
       setError(message);
+      setPendingAction(null);
     };
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
@@ -257,6 +286,17 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     socket.emit(event, { roomCode, sessionId, ...(payload ?? {}) });
   }
 
+  function emitWithPending(
+    actionKey: string,
+    event: string,
+    payload?: Record<string, unknown>
+  ) {
+    setPendingAction(actionKey);
+    emit(event, payload);
+    window.setTimeout(() => refreshState(), 350);
+    window.setTimeout(() => refreshState(), 1200);
+  }
+
   // Join handler — mirrors Bunker. Hits the HTTP endpoint, then
   // re-emits join_room over the socket so the room state broadcast
   // reflects the new player immediately for everyone in the lobby.
@@ -292,6 +332,14 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const dayNumber = roomState?.game.dayNumber ?? 0;
   const lastNightVictims = roomState?.game.lastNightVictims ?? [];
   const lastEliminatedPlayerId = roomState?.game.lastEliminatedPlayerId ?? null;
+  const alivePlayers = roomState?.players.filter((player) => player.isAlive) ?? [];
+  const tiebreakCandidateIds = roomState?.game.tiebreakCandidateIds ?? [];
+  const meIsTiebreakCandidate =
+    !!meId && tiebreakCandidateIds.includes(meId);
+  const allAliveAreTied =
+    tiebreakCandidateIds.length > 0 &&
+    alivePlayers.length > 0 &&
+    alivePlayers.every((player) => tiebreakCandidateIds.includes(player.id));
   const votingActive =
     phase === "DAY_VOTE" || phase === "DAY_TIEBREAK";
   const selfEliminationModalKey = useMemo(() => {
@@ -329,6 +377,79 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     if (!eliminatedModalOpen) return;
     setRoleModalOpen(false);
   }, [eliminatedModalOpen]);
+
+  useEffect(() => {
+    if (roleModalOpen) {
+      setRoleModalVisible(true);
+      return;
+    }
+    if (!roleModalVisible) return;
+    const timer = window.setTimeout(() => {
+      setRoleModalVisible(false);
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [roleModalOpen, roleModalVisible]);
+
+  useEffect(() => {
+    setPendingAction(null);
+  }, [
+    roomState?.room.status,
+    roomState?.game.phase,
+    roomState?.me?.roleConfirmed,
+    roomState?.me?.pendingNightTargetId,
+    roomState?.votes.myTargetPlayerId,
+    roomState?.votes.confirmedByMe,
+    roomState?.night?.confirmedByMe
+  ]);
+
+  useEffect(() => {
+    if (!roleModalOpen) return;
+    if (roomState?.room.status !== "PLAYING") return;
+    if (roomState?.game.phase === "ASSIGN_ROLES") return;
+    const timer = window.setTimeout(() => {
+      setRoleModalOpen(false);
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [roleModalOpen, roomState?.game.phase, roomState?.room.status]);
+
+  useEffect(() => {
+    if (roomState?.room.status !== "PLAYING") return;
+    if (
+      phase !== "NIGHT" &&
+      phase !== "DAY_DISCUSSION" &&
+      phase !== "DAY_TIEBREAK"
+    ) {
+      return;
+    }
+
+    const key =
+      phase === "NIGHT"
+        ? `night-${roomState.game.nightNumber}`
+        : phase === "DAY_TIEBREAK"
+          ? `tiebreak-${roomState.game.dayNumber}`
+          : `day-${roomState.game.dayNumber}`;
+    if (seenPhaseIntroRef.current.has(key)) return;
+    seenPhaseIntroRef.current.add(key);
+
+    setPhaseIntro({
+      kind:
+        phase === "NIGHT"
+          ? "night"
+          : phase === "DAY_TIEBREAK"
+            ? "tiebreak"
+            : "day",
+      key
+    });
+    const timer = window.setTimeout(() => {
+      setPhaseIntro((current) => (current?.key === key ? null : current));
+    }, phase === "DAY_TIEBREAK" ? 2000 : 5000);
+    return () => window.clearTimeout(timer);
+  }, [
+    phase,
+    roomState?.game.dayNumber,
+    roomState?.game.nightNumber,
+    roomState?.room.status
+  ]);
 
   useMafiaAudio({
     votingActive,
@@ -395,61 +516,150 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     </div>
   ) : null;
   const myRoleMeta = getMafiaRoleMeta(roomState?.me?.role ?? null);
-  const hostPrimaryLabel = getMafiaHostPrimaryLabel(roomState);
   const showRoleReminder =
     roomState?.room.status === "PLAYING" &&
     roomState?.game.phase !== "ASSIGN_ROLES" &&
     !!roomState?.me?.role &&
-    !roomState?.me?.isHost &&
-    !hostPrimaryLabel &&
     !eliminatedModalOpen;
-  const roleReminderButton = showRoleReminder ? (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-      <div className="mx-auto w-full max-w-xl">
-        <button
-          type="button"
-          onClick={() => setRoleModalOpen(true)}
-          className="flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98]"
-        >
-          {t("mening_kartam")}
-        </button>
-      </div>
-    </div>
-  ) : null;
+  const showVoteConfirmAction =
+    !!roomState?.me?.role &&
+    !!roomState?.me?.isAlive &&
+    (phase !== "DAY_TIEBREAK" || !meIsTiebreakCandidate || allAliveAreTied) &&
+    (roomState?.game.phase === "DAY_VOTE" ||
+      roomState?.game.phase === "DAY_TIEBREAK");
+  const showNightSelectionStatus =
+    roomState?.game.phase === "NIGHT" &&
+    !!roomState?.me?.role &&
+    !!roomState?.me?.isAlive;
+  const isPending = (actionKey: string) => pendingAction === actionKey;
   const roleReminderModal =
-    roleModalOpen && roomState?.me?.role && myRoleMeta ? (
+    roleModalVisible && roomState?.me?.role && myRoleMeta ? (
       <div
         role="dialog"
         aria-modal="true"
-        className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-md sm:items-center"
+        className={`fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay/90 backdrop-blur-md transition duration-200 sm:items-center ${
+          roleModalOpen ? "opacity-100" : "opacity-0"
+        }`}
       >
         <div
           className="absolute inset-0"
           onClick={() => setRoleModalOpen(false)}
         />
-        <div className="relative z-10 w-full max-w-xl px-5 sm:px-0">
+        <div
+          className={`relative z-10 w-full max-w-xl px-5 transition duration-200 sm:px-0 ${
+            roleModalOpen
+              ? "translate-y-0 scale-100 opacity-100"
+              : "translate-y-3 scale-[0.98] opacity-0"
+          }`}
+        >
           <div
             className="overflow-hidden rounded-3xl border border-line-strong bg-bg-surface shadow-pop"
             style={{ backgroundImage: myRoleMeta.bgGradient }}
           >
-            <div className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
-              <p className="text-sm font-semibold text-ink-primary">
-                {t("mening_kartam")}
-              </p>
-              <button
-                type="button"
-                onClick={() => setRoleModalOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-base/60 text-ink-secondary transition active:scale-95"
-                aria-label={t("yopish")}
-              >
-                ×
-              </button>
-            </div>
-            <MafiaRoleCardContent state={roomState} className="py-8" />
+            <MafiaRoleCardContent state={roomState} className="py-10" />
           </div>
         </div>
       </div>
     ) : null;
+  const phaseIntroModal = phaseIntro ? (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-bg-overlay/90 px-5 backdrop-blur-md"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(247,181,79,0.16),transparent_40%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.06),transparent_35%)]" />
+      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-line-strong bg-bg-surface px-6 py-7 text-center shadow-pop">
+        <div
+          className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full border ${
+            phaseIntro.kind === "night" || phaseIntro.kind === "tiebreak"
+              ? "border-brand/35 bg-brand/12 text-brand"
+              : "border-ok/35 bg-ok/12 text-ok"
+          }`}
+        >
+          {phaseIntro.kind === "night" ? (
+            <svg
+              width="34"
+              height="34"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+            </svg>
+          ) : phaseIntro.kind === "tiebreak" ? (
+            <svg
+              width="34"
+              height="34"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M12 3v18" />
+              <path d="M7 8h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8" />
+            </svg>
+          ) : (
+            <svg
+              width="34"
+              height="34"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2" />
+              <path d="M12 20v2" />
+              <path d="m4.93 4.93 1.41 1.41" />
+              <path d="m17.66 17.66 1.41 1.41" />
+              <path d="M2 12h2" />
+              <path d="M20 12h2" />
+              <path d="m6.34 17.66-1.41 1.41" />
+              <path d="m19.07 4.93-1.41 1.41" />
+            </svg>
+          )}
+        </div>
+        <p className="mt-5 text-xs font-medium uppercase tracking-[0.28em] text-brand">
+          {phaseIntro.kind === "night"
+            ? t("tun_boshlanmoqda")
+            : phaseIntro.kind === "tiebreak"
+              ? t("qayta_ovoz_boshlanmoqda")
+              : t("kun_boshlanmoqda")}
+        </p>
+        <h2 className="mt-3 text-3xl font-bold text-ink-primary">
+          {phaseIntro.kind === "night"
+            ? t("tun_yaqin")
+            : phaseIntro.kind === "tiebreak"
+              ? t("ovozlar_teng_boldi")
+              : t("kun_yorishdi")}
+        </h2>
+        <p className="mt-3 text-sm leading-7 text-ink-secondary">
+          {phaseIntro.kind === "night"
+            ? t("tun_yaqin_tavsifi")
+            : phaseIntro.kind === "tiebreak"
+              ? meIsTiebreakCandidate && !allAliveAreTied
+                ? t("siz_qayta_ovoz_nomzodisiz")
+                : t("ovozlar_teng_boldi_qayta_ovoz_bering")
+              : t("kun_yorishdi_tavsifi")}
+        </p>
+        <p className="mt-5 text-xs text-ink-muted">
+          {phaseIntro.kind === "tiebreak"
+            ? t("jarayon_2_soniyadan_keyin_davom_etadi")
+            : t("jarayon_5_soniyadan_keyin_davom_etadi")}
+        </p>
+      </div>
+    </div>
+  ) : null;
   const playingEndGameModal = (
     <ConfirmModal
       open={endGameConfirmOpen}
@@ -610,8 +820,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           players={players}
           me={me}
           socketConnected={socketConnected}
-          onStartGame={() => emit("start_game")}
-          onLeaveRoom={() => emit("leave_room")}
+          startGamePending={isPending("lobby:start_game")}
+          onStartGame={() => emitWithPending("lobby:start_game", "start_game")}
+          onLeaveRoom={() => setLeaveConfirmOpen(true)}
           onRequestKickPlayer={(player) => setKickTarget(player)}
           onRequestEndGame={() => setEndGameConfirmOpen(true)}
         />
@@ -624,6 +835,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           onConfirm={() => {
             setEndGameConfirmOpen(false);
             emit("end_game");
+            router.push("/dashboard" as Route);
           }}
           onClose={() => setEndGameConfirmOpen(false)}
         />
@@ -642,12 +854,26 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           }}
           onClose={() => setKickTarget(null)}
         />
+        <ConfirmModal
+          open={leaveConfirmOpen}
+          title={t("roomdan_chiqasizmi")}
+          description={t("siz_xonadan_chiqasiz_va_oyin_a97d")}
+          confirmLabel={t("ha_chiqish")}
+          cancelLabel={t("bekor_qilish")}
+          tone="danger"
+          onConfirm={() => {
+            emit("leave_room");
+            setLeaveConfirmOpen(false);
+            router.push("/dashboard" as Route);
+          }}
+          onClose={() => setLeaveConfirmOpen(false)}
+        />
       </>
     );
   }
 
   // ASSIGN_ROLES — har o'yinchi rolini ko'radi va tasdiqlaydi. Hamma
-  // tasdiqlasa, server o'zi NIGHT fazasiga o'tkazadi.
+  // tasdiqlagach, host birinchi tunni boshlaydi.
   if (game.phase === "ASSIGN_ROLES" && room.status === "PLAYING") {
     return (
       <>
@@ -657,15 +883,61 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <MafiaRoleReveal
           state={roomState}
-          onConfirm={() => emit("mafia:confirm_role")}
+          confirmPending={isPending("mafia:confirm_role")}
+          onConfirm={() =>
+            emitWithPending("mafia:confirm_role", "mafia:confirm_role")
+          }
         />
         <MafiaHostDock
           state={roomState}
-          onAdvancePhase={() => emit("mafia:advance_phase")}
+          showRoleReminder={showRoleReminder}
+          showVoteConfirmAction={showVoteConfirmAction}
+          showNightSelectionStatus={showNightSelectionStatus}
+          primaryPending={isPending("mafia:advance_phase")}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onAdvancePhase={() =>
+            emitWithPending("mafia:advance_phase", "mafia:advance_phase")
+          }
           onEndGame={() => setEndGameConfirmOpen(true)}
+          onOpenRole={() => setRoleModalOpen(true)}
+          onConfirmVote={() =>
+            emitWithPending(
+              "mafia:confirm_day_vote",
+              "mafia:confirm_day_vote"
+            )
+          }
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action"
+            )
+          }
+        />
+        <MafiaPlayerDock
+          state={roomState}
+          showRoleReminder={showRoleReminder}
+          showVoteConfirmAction={showVoteConfirmAction}
+          showNightSelectionStatus={showNightSelectionStatus}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onOpenRole={() => setRoleModalOpen(true)}
+          onConfirmVote={() =>
+            emitWithPending(
+              "mafia:confirm_day_vote",
+              "mafia:confirm_day_vote"
+            )
+          }
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action"
+            )
+          }
         />
         {playingEndGameModal}
         {selfEliminationModal}
+        {phaseIntroModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );
@@ -683,18 +955,64 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         <MafiaNight
           state={roomState}
           onSubmit={(action, targetPlayerId) =>
-            emit("mafia:submit_night_action", { action, targetPlayerId })
+            emitWithPending(
+              "mafia:submit_night_action",
+              "mafia:submit_night_action",
+              { action, targetPlayerId }
+            )
           }
         />
         <MafiaHostDock
           state={roomState}
-          onAdvancePhase={() => emit("mafia:advance_phase")}
+          showRoleReminder={showRoleReminder}
+          showVoteConfirmAction={showVoteConfirmAction}
+          showNightSelectionStatus={showNightSelectionStatus}
+          primaryPending={isPending("mafia:advance_phase")}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onAdvancePhase={() =>
+            emitWithPending("mafia:advance_phase", "mafia:advance_phase")
+          }
           onEndGame={() => setEndGameConfirmOpen(true)}
+          onOpenRole={() => setRoleModalOpen(true)}
+          onConfirmVote={() =>
+            emitWithPending(
+              "mafia:confirm_day_vote",
+              "mafia:confirm_day_vote"
+            )
+          }
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action"
+            )
+          }
         />
         {playingEndGameModal}
         {selfEliminationModal}
-        {roleReminderButton}
+        <MafiaPlayerDock
+          state={roomState}
+          showRoleReminder={showRoleReminder}
+          showVoteConfirmAction={showVoteConfirmAction}
+          showNightSelectionStatus={showNightSelectionStatus}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onOpenRole={() => setRoleModalOpen(true)}
+          onConfirmVote={() =>
+            emitWithPending(
+              "mafia:confirm_day_vote",
+              "mafia:confirm_day_vote"
+            )
+          }
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action"
+            )
+          }
+        />
         {roleReminderModal}
+        {phaseIntroModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );
@@ -711,13 +1029,55 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         <MafiaNightResult state={roomState} />
         <MafiaHostDock
           state={roomState}
-          onAdvancePhase={() => emit("mafia:advance_phase")}
+          showRoleReminder={showRoleReminder}
+          showVoteConfirmAction={showVoteConfirmAction}
+          showNightSelectionStatus={showNightSelectionStatus}
+          primaryPending={isPending("mafia:advance_phase")}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onAdvancePhase={() =>
+            emitWithPending("mafia:advance_phase", "mafia:advance_phase")
+          }
           onEndGame={() => setEndGameConfirmOpen(true)}
+          onOpenRole={() => setRoleModalOpen(true)}
+          onConfirmVote={() =>
+            emitWithPending(
+              "mafia:confirm_day_vote",
+              "mafia:confirm_day_vote"
+            )
+          }
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action"
+            )
+          }
         />
         {playingEndGameModal}
         {selfEliminationModal}
-        {roleReminderButton}
+        <MafiaPlayerDock
+          state={roomState}
+          showRoleReminder={showRoleReminder}
+          showVoteConfirmAction={showVoteConfirmAction}
+          showNightSelectionStatus={showNightSelectionStatus}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onOpenRole={() => setRoleModalOpen(true)}
+          onConfirmVote={() =>
+            emitWithPending(
+              "mafia:confirm_day_vote",
+              "mafia:confirm_day_vote"
+            )
+          }
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action"
+            )
+          }
+        />
         {roleReminderModal}
+        {phaseIntroModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );
@@ -740,20 +1100,66 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <MafiaDay
           state={roomState}
+          voteSubmitPending={isPending("mafia:submit_day_vote")}
           onSubmitVote={(targetPlayerId) =>
-            emit("mafia:submit_day_vote", { targetPlayerId })
+            emitWithPending(
+              "mafia:submit_day_vote",
+              "mafia:submit_day_vote",
+              { targetPlayerId }
+            )
           }
-          onConfirmVote={() => emit("mafia:confirm_day_vote")}
         />
         <MafiaHostDock
           state={roomState}
-          onAdvancePhase={() => emit("mafia:advance_phase")}
+          showRoleReminder={showRoleReminder}
+          showVoteConfirmAction={showVoteConfirmAction}
+          showNightSelectionStatus={showNightSelectionStatus}
+          primaryPending={isPending("mafia:advance_phase")}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onAdvancePhase={() =>
+            emitWithPending("mafia:advance_phase", "mafia:advance_phase")
+          }
           onEndGame={() => setEndGameConfirmOpen(true)}
+          onOpenRole={() => setRoleModalOpen(true)}
+          onConfirmVote={() =>
+            emitWithPending(
+              "mafia:confirm_day_vote",
+              "mafia:confirm_day_vote"
+            )
+          }
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action"
+            )
+          }
         />
         {playingEndGameModal}
         {selfEliminationModal}
-        {roleReminderButton}
+        <MafiaPlayerDock
+          state={roomState}
+          showRoleReminder={showRoleReminder}
+          showVoteConfirmAction={showVoteConfirmAction}
+          showNightSelectionStatus={showNightSelectionStatus}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onOpenRole={() => setRoleModalOpen(true)}
+          onConfirmVote={() =>
+            emitWithPending(
+              "mafia:confirm_day_vote",
+              "mafia:confirm_day_vote"
+            )
+          }
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action"
+            )
+          }
+        />
         {roleReminderModal}
+        {phaseIntroModal}
         {!socketConnected ? <ReconnectingBanner /> : null}
       </>
     );
@@ -857,12 +1263,30 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
 
 function MafiaHostDock({
   state,
+  showRoleReminder,
+  showVoteConfirmAction,
+  showNightSelectionStatus,
+  primaryPending,
+  confirmVotePending,
+  confirmNightPending,
   onAdvancePhase,
-  onEndGame
+  onEndGame,
+  onOpenRole,
+  onConfirmVote,
+  onConfirmNight
 }: {
   state: MafiaPublicState;
+  showRoleReminder: boolean;
+  showVoteConfirmAction: boolean;
+  showNightSelectionStatus: boolean;
+  primaryPending: boolean;
+  confirmVotePending: boolean;
+  confirmNightPending: boolean;
   onAdvancePhase: () => void;
   onEndGame: () => void;
+  onOpenRole: () => void;
+  onConfirmVote: () => void;
+  onConfirmNight: () => void;
 }) {
   const { t } = useI18n();
   const me = state.me;
@@ -873,42 +1297,213 @@ function MafiaHostDock({
   const primaryDisabled =
     state.game.phase === "ASSIGN_ROLES" &&
     state.game.roleConfirmations.confirmed < state.game.roleConfirmations.total;
+  const confirmDisabled =
+    !state.votes.myTargetPlayerId || state.votes.confirmedByMe;
+  const nightConfirmDisabled =
+    !state.me?.pendingNightTargetId || state.night.confirmedByMe;
 
-  if (!primaryLabel) {
-    return (
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-5 pb-4 pb-safe sm:px-6 lg:px-8">
-        <div className="mx-auto flex w-full max-w-2xl justify-end">
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
+      <div className="mx-auto max-w-xl rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-medium text-ink-muted">{t("host_paneli")}</p>
           <button
             type="button"
             onClick={onEndGame}
-            className="pointer-events-auto flex h-11 items-center justify-center rounded-full border border-bad/40 bg-bg-surface/95 px-4 text-sm font-semibold text-bad shadow-pop backdrop-blur transition active:scale-[0.98]"
+            className="text-xs font-medium text-bad transition active:scale-[0.98]"
           >
             {t("oyinni_tugatish")}
           </button>
         </div>
+        {primaryLabel ? (
+          <div
+            className={`grid gap-2 ${
+              showRoleReminder ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-1"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={onAdvancePhase}
+              disabled={primaryDisabled || primaryPending}
+              className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+            >
+              {primaryPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner />
+                  {t("yuborilmoqda")}
+                </span>
+              ) : (
+                t(primaryLabel)
+              )}
+            </button>
+            {showRoleReminder ? (
+              <button
+                type="button"
+                onClick={onOpenRole}
+                className="flex h-12 min-w-[132px] items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+              >
+                {t("mening_kartam")}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {!primaryLabel &&
+        (showVoteConfirmAction || showNightSelectionStatus || showRoleReminder) ? (
+          <div
+            className={`mt-2 grid gap-2 ${
+              (showVoteConfirmAction || showNightSelectionStatus) &&
+              showRoleReminder
+                ? "grid-cols-[minmax(0,1fr)_auto]"
+                : "grid-cols-1"
+            }`}
+          >
+            {showVoteConfirmAction ? (
+              <button
+                type="button"
+                onClick={onConfirmVote}
+                disabled={confirmDisabled || confirmVotePending}
+                className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {confirmVotePending
+                  ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Spinner />
+                        {t("yuborilmoqda")}
+                      </span>
+                    )
+                  : state.votes.confirmedByMe
+                  ? t("tasdiqlandi")
+                  : t("ovozni_tasdiqlash")}
+              </button>
+            ) : showNightSelectionStatus ? (
+              <button
+                type="button"
+                onClick={onConfirmNight}
+                disabled={nightConfirmDisabled || confirmNightPending}
+                className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {confirmNightPending ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Spinner />
+                    {t("yuborilmoqda")}
+                  </span>
+                ) : state.night.confirmedByMe ? (
+                  t("tasdiqlandi")
+                ) : state.me?.pendingNightTargetId ? (
+                  t("tungi_qarorni_tasdiqlash")
+                ) : (
+                  t("nishonni_tanlang")
+                )}
+              </button>
+            ) : null}
+            {showRoleReminder ? (
+              <button
+                type="button"
+                onClick={onOpenRole}
+                className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98] ${
+                  showVoteConfirmAction || showNightSelectionStatus
+                    ? "min-w-[132px]"
+                    : "w-full"
+                }`}
+              >
+                {t("mening_kartam")}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+function MafiaPlayerDock({
+  state,
+  showRoleReminder,
+  showVoteConfirmAction,
+  showNightSelectionStatus,
+  confirmVotePending,
+  confirmNightPending,
+  onOpenRole,
+  onConfirmVote,
+  onConfirmNight
+}: {
+  state: MafiaPublicState;
+  showRoleReminder: boolean;
+  showVoteConfirmAction: boolean;
+  showNightSelectionStatus: boolean;
+  confirmVotePending: boolean;
+  confirmNightPending: boolean;
+  onOpenRole: () => void;
+  onConfirmVote: () => void;
+  onConfirmNight: () => void;
+}) {
+  const { t } = useI18n();
+  const me = state.me;
+  if (!me || me.isHost || !showRoleReminder) return null;
+
+  const confirmDisabled =
+    !state.votes.myTargetPlayerId || state.votes.confirmedByMe;
+  const nightConfirmDisabled =
+    !state.me?.pendingNightTargetId || state.night.confirmedByMe;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-      <div className="mx-auto grid max-w-xl gap-2 sm:grid-cols-2">
-        {primaryLabel ? (
+      <div
+        className={`mx-auto grid max-w-xl gap-2 ${
+          (showVoteConfirmAction || showNightSelectionStatus)
+            ? "grid-cols-[minmax(0,1fr)_auto]"
+            : "grid-cols-1"
+        }`}
+      >
+        {showVoteConfirmAction ? (
           <button
             type="button"
-            onClick={onAdvancePhase}
-            disabled={primaryDisabled}
-            className="flex h-12 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+            onClick={onConfirmVote}
+            disabled={confirmDisabled || confirmVotePending}
+            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
           >
-            {t(primaryLabel)}
+            {confirmVotePending
+              ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Spinner />
+                    {t("yuborilmoqda")}
+                  </span>
+                )
+              : state.votes.confirmedByMe
+                ? t("tasdiqlandi")
+                : t("ovozni_tasdiqlash")}
+          </button>
+        ) : showNightSelectionStatus ? (
+          <button
+            type="button"
+            onClick={onConfirmNight}
+            disabled={nightConfirmDisabled || confirmNightPending}
+            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+          >
+            {confirmNightPending ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner />
+                {t("yuborilmoqda")}
+              </span>
+            ) : state.night.confirmedByMe ? (
+              t("tasdiqlandi")
+            ) : state.me?.pendingNightTargetId ? (
+              t("tungi_qarorni_tasdiqlash")
+            ) : (
+              t("nishonni_tanlang")
+            )}
           </button>
         ) : null}
         <button
           type="button"
-          onClick={onEndGame}
-          className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
+          onClick={onOpenRole}
+          className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98] ${
+            showVoteConfirmAction || showNightSelectionStatus
+              ? "min-w-[132px]"
+              : "w-full"
+          }`}
         >
-          {t("oyinni_tugatish")}
+          {t("mening_kartam")}
         </button>
       </div>
     </div>
@@ -919,13 +1514,13 @@ function getMafiaHostPrimaryLabel(state: MafiaPublicState | null): string | null
   if (!state?.me?.isHost || state.room.status !== "PLAYING") return null;
   switch (state.game.phase) {
     case "ASSIGN_ROLES":
-      return "Tunni boshlash";
+      return "tunni_boshlash";
     case "NIGHT_RESULT":
-      return "Kunni boshlash";
+      return "kunni_boshlash";
     case "DAY_DISCUSSION":
-      return "Ovoz berishni boshlash";
+      return "ovoz_berishni_boshlash";
     case "DAY_RESULT":
-      return "Keyingi tunni boshlash";
+      return "keyingi_tunni_boshlash";
     default:
       return null;
   }
@@ -941,6 +1536,7 @@ function Lobby({
   players,
   me,
   socketConnected,
+  startGamePending,
   onStartGame,
   onLeaveRoom,
   onRequestKickPlayer,
@@ -951,6 +1547,7 @@ function Lobby({
   players: MafiaPublicState["players"];
   me: MafiaPublicState["me"];
   socketConnected: boolean;
+  startGamePending: boolean;
   onStartGame: () => void;
   onLeaveRoom: () => void;
   onRequestKickPlayer: (player: { id: string; name: string }) => void;
@@ -979,7 +1576,7 @@ function Lobby({
             ← {t("bosh_sahifa")}
           </button>
           <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 text-xs">
-            {t("lobby_mafia")}
+            {t("lobby")}
           </span>
         </header>
 
@@ -1038,7 +1635,7 @@ function Lobby({
               })}
             </p>
           </div>
-          <ul className="mt-2 grid gap-2">
+          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
             {players.map((p) => (
               <li
                 key={p.id}
@@ -1107,33 +1704,47 @@ function Lobby({
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
         <div className="mx-auto max-w-xl">
           {me?.isHost ? (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={onStartGame}
-                disabled={!canStart}
-                className="flex h-12 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-              >
-                {canStart
-                  ? t("oyinni_boshlash")
-                  : t("count_ta_oyinchi_kerak", { count: minPlayers })}
-              </button>
-              <button
-                type="button"
-                onClick={onRequestEndGame}
-                className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
-              >
-                {t("roomni_ochirish")}
-              </button>
+            <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
+              <p className="mb-2 text-xs font-medium text-ink-muted">
+                {t("host_paneli")}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={onStartGame}
+                  disabled={!canStart || startGamePending}
+                  className="flex h-12 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+                >
+                  {startGamePending
+                    ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Spinner />
+                          {t("yuborilmoqda")}
+                        </span>
+                      )
+                    : canStart
+                    ? t("oyinni_boshlash")
+                    : t("count_ta_oyinchi_kerak", { count: minPlayers })}
+                </button>
+                <button
+                  type="button"
+                  onClick={onRequestEndGame}
+                  className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
+                >
+                  {t("roomni_ochirish")}
+                </button>
+              </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={onLeaveRoom}
-              className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad"
-            >
-              {t("roomdan_chiqish")}
-            </button>
+            <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
+              <button
+                type="button"
+                onClick={onLeaveRoom}
+                className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad"
+              >
+                {t("roomdan_chiqish")}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -1168,5 +1779,14 @@ function ReconnectingBanner() {
         {t("qayta_ulanmoqda")}
       </div>
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent opacity-80"
+    />
   );
 }

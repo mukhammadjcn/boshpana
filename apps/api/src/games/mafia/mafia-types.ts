@@ -7,16 +7,14 @@ import {
   RoomStatus
 } from "@prisma/client";
 
-// Tunda taymerga oid sozlama. Klassik "yashirin tap" stoli uchun
-// 20 soniya — barcha o'yinchi nimadir bosib turishga ulguradi, lekin
-// vaqt fosh qilmaydi (kim qarorini avval qabul qildi degan xulosa
-// chiqarib bo'lmaydi).
-export const MAFIA_NIGHT_DURATION_SECONDS = 20;
-export const MAFIA_DAY_DISCUSSION_DURATION_SECONDS = 180;
+// Tunda taymerga oid sozlama. Har bir rol qarorini xotirjam tanlashi
+// uchun 60 soniya beriladi.
+export const MAFIA_NIGHT_DURATION_SECONDS = 60;
+export const MAFIA_DAY_DISCUSSION_DURATION_SECONDS = 240;
 export const MAFIA_DAY_VOTE_DURATION_SECONDS = 60;
-// Tiebreak — qisqaroq oraliq, faqat tenglashgan nomzodlarga qayta
-// ovoz beriladi.
-export const MAFIA_DAY_TIEBREAK_DURATION_SECONDS = 30;
+// Tiebreak ham oddiy kun ovozi kabi 60 soniya davom etadi — foydalanuvchi
+// qayta qaror qilishga ulgurishi kerak.
+export const MAFIA_DAY_TIEBREAK_DURATION_SECONDS = 60;
 // Reveal animatsiyasi davom etadigan vaqt — natijalar avtomatik
 // keyingi fazaga o'tadi.
 export const MAFIA_NIGHT_RESULT_DURATION_SECONDS = 8;
@@ -110,6 +108,14 @@ export type MafiaPublicState = {
   // Mafia jamoasiga ko'rinadigan qo'shimcha — sheriklarning real-time
   // tanlovlari. Boshqa rollar uchun bo'sh array.
   mafiaPicks: Array<{ actorPlayerId: string; targetPlayerId: string | null }>;
+  night: {
+    submittedByMe: boolean;
+    confirmedByMe: boolean;
+    confirmations: {
+      confirmed: number;
+      total: number;
+    };
+  };
   votes: {
     total: number;
     submittedByMe: boolean;

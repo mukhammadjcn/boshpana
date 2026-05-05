@@ -49,7 +49,10 @@ export function MafiaNightResult({ state }: Props) {
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
-      <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-5 pt-safe pb-safe sm:px-6 lg:px-8">
+      <div
+        className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-5 pt-safe sm:px-6 lg:px-8"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
+      >
         <header className="flex items-center justify-between pt-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
             {t("tong_otdi_number_nightnumber", { nightNumber: game.nightNumber })}

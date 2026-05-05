@@ -271,6 +271,20 @@ export class RealtimeHub {
         }
       );
 
+      socket.on("mafia:confirm_night_action", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service || !("confirmNightAction" in service)) {
+            throw new Error("Bu xona Mafia o'yini emas.");
+          }
+          await service.confirmNightAction({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
       // Day vote (and tiebreak re-vote). The service handles auto-
       // resolution once every alive player has submitted, so the
       // client just needs to fire-and-forget here.

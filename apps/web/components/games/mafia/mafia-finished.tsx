@@ -30,6 +30,7 @@ export function MafiaFinished({ state }: Props) {
   const router = useRouter();
   const { t } = useI18n();
   const winner = state.game.winner;
+  const stoppedByHost = winner == null;
   const players = [...state.players].sort(
     (a, b) => a.seatOrder - b.seatOrder
   );
@@ -48,31 +49,55 @@ export function MafiaFinished({ state }: Props) {
         </header>
 
         <section
-          className={`grid gap-3 rounded-3xl border p-6 text-center ${
-            winner === "MAFIA"
-              ? "border-bad/40 bg-bad/15"
-              : "border-ok/40 bg-ok/15"
+          className={`grid gap-2 rounded-3xl border p-5 text-center ${
+            stoppedByHost
+              ? "border-line-strong bg-bg-surface"
+              : "border-ok/40 bg-ok/10"
           }`}
         >
-          {winner ? (
+          <p
+            className={`text-xs font-medium uppercase tracking-[0.25em] ${
+              stoppedByHost ? "text-brand" : "text-ok"
+            }`}
+          >
+            {stoppedByHost ? t("info") : t("success")}
+          </p>
+          <p className="text-xl font-bold text-ink-primary">
+            {stoppedByHost
+              ? t("oyin_boshqaruvchi_tomonidan_toxtatildi")
+              : t("oyin_tugadi")}
+          </p>
+          <p className="text-sm text-ink-secondary">
+            {stoppedByHost
+              ? t("barcha_rollar_ochildi_kim_kim_ekanini_koring")
+              : t("yakuniy_natijalar_va_rollar_pastda_korsatildi")}
+          </p>
+        </section>
+
+        {winner ? (
+          <section
+            className={`grid gap-3 rounded-3xl border p-6 text-center ${
+              winner === "MAFIA"
+                ? "border-bad/40 bg-bad/15"
+                : "border-ok/40 bg-ok/15"
+            }`}
+          >
             <MafiaSituationArt
               src={winner === "MAFIA" ? "/mafiaimg.webp" : "/cityimg.webp"}
               alt={winner === "MAFIA" ? t("mafia_golib") : t("shahar_golib")}
               size="lg"
             />
-          ) : null}
-          <p
-            className={`text-base font-semibold ${
-              winner === "MAFIA" ? "text-bad" : "text-ok"
-            }`}
-          >
-            {winner === "MAFIA"
-              ? t("mafia_jamoasi_golib")
-              : winner === "CITY"
-                ? t("shahar_golib")
-                : t("oyin_toxtatildi")}
-          </p>
-        </section>
+            <p
+              className={`text-base font-semibold ${
+                winner === "MAFIA" ? "text-bad" : "text-ok"
+              }`}
+            >
+              {winner === "MAFIA"
+                ? t("mafia_jamoasi_golib")
+                : t("shahar_golib")}
+            </p>
+          </section>
+        ) : null}
 
         <section className="grid gap-2">
           <p className="text-sm font-semibold">{t("barcha_rollar")}</p>
@@ -123,7 +148,7 @@ export function MafiaFinished({ state }: Props) {
         <button
           type="button"
           onClick={() => router.push("/dashboard" as Route)}
-          className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+          className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-ok text-sm font-semibold text-bg-base transition active:scale-[0.98]"
         >
           {t("bosh_sahifaga_qaytish")}
         </button>

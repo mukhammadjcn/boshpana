@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
 import { MafiaSituationArt } from "./mafia-situation-art";
@@ -9,7 +9,7 @@ import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 type Props = {
   state: MafiaPublicState;
   onSubmitVote: (targetPlayerId: string) => void;
-  onConfirmVote: () => void;
+  voteSubmitPending?: boolean;
 };
 
 function getRoleLabel(t: (text: string, vars?: Record<string, string | number>) => string): Record<MafiaRole, string> {
@@ -21,13 +21,13 @@ function getRoleLabel(t: (text: string, vars?: Record<string, string | number>) 
   };
 }
 
-// Kun bosqichi — muhokama (3 daq) → ovoz berish (60s) → kerak bo'lsa
+// Kun bosqichi — muhokama (4 daq) → ovoz berish (60s) → kerak bo'lsa
 // tiebreak (30s) → natija (6s reveal). Har bir sub-view alohida shell
 // ichida render qilinadi.
 export function MafiaDay({
   state,
   onSubmitVote,
-  onConfirmVote
+  voteSubmitPending = false
 }: Props) {
   const phase = state.game.phase;
   if (phase === "DAY_DISCUSSION") {
@@ -38,7 +38,7 @@ export function MafiaDay({
       <VoteView
         state={state}
         onSubmitVote={onSubmitVote}
-        onConfirmVote={onConfirmVote}
+        voteSubmitPending={voteSubmitPending}
       />
     );
   }
@@ -76,7 +76,10 @@ function DayShell({
   const secs = remaining % 60;
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
-      <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe pb-safe sm:px-6 lg:px-8">
+      <div
+        className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe sm:px-6 lg:px-8"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
+      >
         <header className="flex items-center justify-between pt-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
             {title}
@@ -118,7 +121,7 @@ function DayShell({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// DAY_DISCUSSION — 3-minute talk window; host can skip to vote
+// DAY_DISCUSSION — 4-minute talk window; host can skip to vote
 // ─────────────────────────────────────────────────────────────────────
 
 function Discussion({ state }: { state: MafiaPublicState }) {
@@ -131,7 +134,7 @@ function Discussion({ state }: { state: MafiaPublicState }) {
       title={t("kun_number_daynumber", { dayNumber: game.dayNumber })}
       subtitle={t("muhokama_vaqti_kim_mafia_ekanligi_508d")}
       remaining={game.remainingSeconds}
-      totalSeconds={180}
+      totalSeconds={240}
       badge={state.room.code}
     >
       <section className="grid gap-3 rounded-3xl border border-line-subtle bg-bg-surface p-5 text-center">
@@ -180,32 +183,56 @@ function Discussion({ state }: { state: MafiaPublicState }) {
 function VoteView({
   state,
   onSubmitVote,
-  onConfirmVote
+  voteSubmitPending = false
 }: {
   state: MafiaPublicState;
   onSubmitVote: (targetPlayerId: string) => void;
-  onConfirmVote: () => void;
+  voteSubmitPending?: boolean;
 }) {
   const { t } = useI18n();
   const { game, players, me, votes } = state;
   const isTiebreak = game.phase === "DAY_TIEBREAK";
-  const totalSeconds = isTiebreak ? 30 : 60;
+  const totalSeconds = 60;
   const myTargetPlayerId = votes.myTargetPlayerId;
-  const myTarget = players.find((p) => p.id === myTargetPlayerId) ?? null;
+  const [optimisticTargetId, setOptimisticTargetId] = useState<string | null>(
+    myTargetPlayerId
+  );
   const selectedLocked = votes.confirmedByMe;
+  const alivePlayers = players.filter((p) => p.isAlive);
+  const meIsCandidate =
+    !!me?.id && game.tiebreakCandidateIds.includes(me.id);
+  const allAliveAreTied =
+    isTiebreak &&
+    alivePlayers.length > 0 &&
+    alivePlayers.every((player) => game.tiebreakCandidateIds.includes(player.id));
+  const canVoteInTiebreak = !meIsCandidate || allAliveAreTied;
+
+  useEffect(() => {
+    setOptimisticTargetId(myTargetPlayerId);
+  }, [myTargetPlayerId]);
 
   // For tiebreak, only the tied candidates are eligible. Otherwise any
   // alive non-self player can be voted.
   const candidates = useMemo(() => {
     if (isTiebreak) {
       return players.filter(
-        (p) => game.tiebreakCandidateIds.includes(p.id) && p.isAlive
+        (p) =>
+          game.tiebreakCandidateIds.includes(p.id) &&
+          p.isAlive &&
+          p.id !== me?.id
       );
     }
     return players.filter((p) => p.isAlive && p.id !== me?.id);
   }, [players, isTiebreak, game.tiebreakCandidateIds, me?.id]);
-
-  const aliveCount = players.filter((p) => p.isAlive).length;
+  const tiedNames = players
+    .filter((player) => game.tiebreakCandidateIds.includes(player.id))
+    .map((player) => player.name);
+  const otherTiedNames = players
+    .filter(
+      (player) =>
+        game.tiebreakCandidateIds.includes(player.id) && player.id !== me?.id
+    )
+    .map((player) => player.name);
 
   return (
     <DayShell
@@ -221,7 +248,7 @@ function VoteView({
       }
       remaining={game.remainingSeconds}
       totalSeconds={totalSeconds}
-      badge={`${votes.total} / ${aliveCount}`}
+      badge={`${votes.confirmations.confirmed} / ${votes.confirmations.total}`}
     >
       {!me?.isAlive ? (
         <SpectatorPanel
@@ -230,50 +257,89 @@ function VoteView({
           subtitle={t("tomoshabin_sifatida_ovoz_natijasini_va_bd94")}
         />
       ) : (
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {candidates.map((p) => {
-            const selected = myTargetPlayerId === p.id;
-            return (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => onSubmitVote(p.id)}
-                  disabled={selectedLocked}
-                  className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition active:scale-[0.98] ${
-                    selected
-                      ? "border-brand bg-brand/15 text-brand"
-                      : "border-line-strong bg-bg-surface text-ink-primary"
-                  } disabled:opacity-55`}
-                >
-                  <span
-                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold uppercase ${
-                      selected
-                        ? "bg-brand text-bg-base"
-                        : "bg-brand-soft text-brand"
-                    }`}
-                  >
-                    {p.name.slice(0, 2)}
+        <>
+          {isTiebreak && meIsCandidate && !allAliveAreTied ? (
+            <div className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm leading-6 text-ink-primary">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
+                {t("tenglik")}
+              </p>
+              <p className="mt-1 text-base font-semibold">
+                {t("siz_teng_ovoz_topladingiz")}
+              </p>
+              {otherTiedNames.length > 0 ? (
+                <p className="mt-2 text-ink-secondary">
+                  {t("boshqa_tenglikdagilar")}{" "}
+                  <span className="font-semibold text-ink-primary">
+                    {otherTiedNames.join(", ")}
                   </span>
-                  <span className="flex-1 truncate font-medium">{p.name}</span>
-                  <span
-                    className={`text-[10px] font-medium uppercase tracking-wider ${
-                      selected ? "text-brand" : "text-ink-muted"
-                    }`}
-                  >
-                    {selected ? t("tanlandi") : t("ovoz")}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                </p>
+              ) : null}
+              <p className="mt-2 text-ink-secondary">
+                {t("bu_bosqichda_ovoz_bera_olmaysiz_67a0")}
+              </p>
+            </div>
+          ) : null}
 
-      {myTarget ? (
-        <p className="rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-center text-sm text-brand">
-          {t("siz_name_ni_tanladingiz", { name: myTarget.name })}
-        </p>
-      ) : null}
+          {isTiebreak && (!meIsCandidate || allAliveAreTied) ? (
+            <div className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm leading-6 text-ink-primary">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
+                {t("teng_ovoz")}
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold">{tiedNames.join(", ")}</span>{" "}
+                {t("bir_xil_ovoz_topladi")}
+              </p>
+            </div>
+          ) : null}
+
+          {(!isTiebreak || canVoteInTiebreak) ? (
+            <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {candidates.map((p) => {
+                const selected = optimisticTargetId === p.id;
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOptimisticTargetId(p.id);
+                        onSubmitVote(p.id);
+                      }}
+                      disabled={selectedLocked || voteSubmitPending}
+                      className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition active:scale-[0.98] ${
+                        selected
+                          ? "border-brand bg-brand/15 text-brand"
+                          : "border-line-strong bg-bg-surface text-ink-primary"
+                      } disabled:opacity-55`}
+                    >
+                      <span
+                        className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold uppercase ${
+                          selected
+                            ? "bg-brand text-bg-base"
+                            : "bg-brand-soft text-brand"
+                        }`}
+                      >
+                        {p.name.slice(0, 2)}
+                      </span>
+                      <span className="flex-1 truncate font-medium">{p.name}</span>
+                      <span
+                        className={`text-[10px] font-medium uppercase tracking-wider ${
+                          selected ? "text-brand" : "text-ink-muted"
+                        }`}
+                      >
+                        {selected && voteSubmitPending
+                          ? t("yuborilmoqda")
+                          : selected
+                            ? t("tanlandi")
+                            : t("ovoz")}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </>
+      )}
 
       <div className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center">
         <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
@@ -286,30 +352,25 @@ function VoteView({
 
       <p
         className={`text-center text-xs ${
-          votes.confirmedByMe
+          isTiebreak && meIsCandidate && !allAliveAreTied
+            ? "text-ink-muted"
+            : votes.confirmedByMe
             ? "text-ok"
             : votes.submittedByMe
               ? "text-brand"
               : "text-ink-muted"
         }`}
       >
-        {votes.confirmedByMe
+        {isTiebreak && meIsCandidate && !allAliveAreTied
+          ? t("natijani_kutmoqdasiz")
+          : votes.confirmedByMe
           ? t("ovozingiz_tasdiqlandi")
           : votes.submittedByMe
             ? t("nomzod_tanlandi_endi_tasdiqlang")
           : t("hali_ovoz_bermadingiz")}
       </p>
 
-      {me?.isAlive ? (
-        <button
-          type="button"
-          onClick={onConfirmVote}
-          disabled={!myTarget || votes.confirmedByMe}
-          className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-        >
-          {votes.confirmedByMe ? t("tasdiqlandi") : t("ovozni_tasdiqlash")}
-        </button>
-      ) : null}
+      {me?.isAlive ? <div className="mt-auto h-2" /> : null}
     </DayShell>
   );
 }

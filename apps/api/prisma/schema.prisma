@@ -362,6 +362,7 @@ model MafiaNightSubmission {
   target          Player?                @relation("MafiaNightTarget", fields: [targetPlayerId], references: [id], onDelete: SetNull)
   // Citizen submissions only — which decoy prompt was assigned.
   citizenQuestion MafiaCitizenQuestion?
+  isConfirmed     Boolean                @default(false)
   submittedAt     DateTime               @default(now())
 
   // One row per actor per night. Re-submissions overwrite via upsert so

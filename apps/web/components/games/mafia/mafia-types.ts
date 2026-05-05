@@ -91,6 +91,14 @@ export type MafiaPublicState = {
     actorPlayerId: string;
     targetPlayerId: string | null;
   }>;
+  night: {
+    submittedByMe: boolean;
+    confirmedByMe: boolean;
+    confirmations: {
+      confirmed: number;
+      total: number;
+    };
+  };
   votes: {
     total: number;
     submittedByMe: boolean;

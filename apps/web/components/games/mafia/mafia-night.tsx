@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { JoinRoomModal } from "@/components/join-room-modal";
 import { useI18n } from "@/lib/i18n";
@@ -48,8 +48,8 @@ function getRoleHeader(t: (text: string, vars?: Record<string, string | number>)
   };
 }
 
-// Tun ekrani — har bir o'yinchi 20 soniyada bittasini tanlaydi. Vaqt
-// strict 20s — server resolveNight'da yakunlaydi. UI mafia/komisar/
+// Tun ekrani — har bir o'yinchi 60 soniyada bittasini tanlaydi. Vaqt
+// strict 60s — server resolveNight'da yakunlaydi. UI mafia/komisar/
 // doktorlarga real tanlov beradi, aholiga esa pufak savol (anti-cheat).
 export function MafiaNight({ state, onSubmit }: Props) {
   const router = useRouter();
@@ -192,7 +192,7 @@ export function MafiaNight({ state, onSubmit }: Props) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Layout shell — shared header + 20s timer
+// Layout shell — shared header + night timer
 // ─────────────────────────────────────────────────────────────────────
 
 function NightShell({
@@ -205,10 +205,13 @@ function NightShell({
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
-  const fraction = Math.max(0, Math.min(1, remaining / 20));
+  const fraction = Math.max(0, Math.min(1, remaining / 60));
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
-      <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe pb-safe sm:px-6 lg:px-8">
+      <div
+        className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe sm:px-6 lg:px-8"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
+      >
         <header className="flex items-center justify-between pt-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-ink-muted">
             {t("tun_number_night", { night })}
@@ -257,6 +260,7 @@ function MafiaView({
   const teammates = state.players.filter(
     (p) => me.mafiaTeammates.includes(p.id) && p.isAlive
   );
+  const locked = state.night.confirmedByMe;
   // Each pick row maps actor → target.
   const picksByActor = new Map(
     state.mafiaPicks.map((p) => [p.actorPlayerId, p.targetPlayerId])
@@ -293,6 +297,7 @@ function MafiaView({
         selectedId={myTarget}
         onPick={(id) => onSubmit("MAFIA_KILL", id)}
         excludeIds={[me.id, ...me.mafiaTeammates]}
+        disabled={locked}
       />
     </>
   );
@@ -314,7 +319,7 @@ function SheriffView({
   const { t } = useI18n();
   const me = state.me!;
   const shotsLeft = state.game.sheriffShotsRemaining;
-  const locked = !!me.pendingNightTargetId;
+  const locked = state.night.confirmedByMe;
   const mode: "CHECK" | "SHOOT" =
     me.pendingNightAction === "SHERIFF_SHOOT" ? "SHOOT" : "CHECK";
 
@@ -395,6 +400,7 @@ function DoctorView({
   const { t } = useI18n();
   const me = state.me!;
   const selfHealsLeft = state.game.doctorSelfHealsRemaining;
+  const locked = state.night.confirmedByMe;
   // Self-heal is allowed only if the doctor still has self-heal credit.
   const excludeIds = selfHealsLeft > 0 ? [] : [me.id];
 
@@ -411,6 +417,7 @@ function DoctorView({
         selectedId={me.pendingNightTargetId}
         onPick={(id) => onSubmit("DOCTOR_HEAL", id)}
         excludeIds={excludeIds}
+        disabled={locked}
       />
     </>
   );
@@ -431,6 +438,7 @@ function CitizenView({
 }) {
   const { t } = useI18n();
   const me = state.me!;
+  const locked = state.night.confirmedByMe;
   const question = me.citizenQuestion;
   const action: MafiaNightActionType =
     question === "GUESS_DOCTOR_HEAL"
@@ -448,6 +456,7 @@ function CitizenView({
       selectedId={me.pendingNightTargetId}
       onPick={(id) => onSubmit(action, id)}
       excludeIds={[me.id]}
+      disabled={locked}
     />
   );
 }
@@ -472,18 +481,29 @@ function TargetGrid({
   disabled?: boolean;
 }) {
   const { t } = useI18n();
+  const [optimisticSelectedId, setOptimisticSelectedId] = useState<string | null>(
+    selectedId
+  );
+
+  useEffect(() => {
+    setOptimisticSelectedId(selectedId);
+  }, [selectedId]);
+
   const filtered = targets.filter((t) => !excludeIds.includes(t.id));
   return (
     <section className="grid gap-2">
       <p className="text-sm font-semibold">{title}</p>
-      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <ul className="grid grid-cols-2 gap-2">
         {filtered.map((p) => {
-          const selected = selectedId === p.id;
+          const selected = optimisticSelectedId === p.id;
           return (
             <li key={p.id}>
               <button
                 type="button"
-                onClick={() => onPick(p.id)}
+                onClick={() => {
+                  setOptimisticSelectedId(p.id);
+                  onPick(p.id);
+                }}
                 disabled={disabled}
                 className={`flex w-full items-center gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition active:scale-[0.98] ${
                   selected
