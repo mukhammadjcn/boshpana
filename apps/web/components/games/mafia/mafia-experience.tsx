@@ -84,12 +84,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     setRoomState((state) =>
       state
         ? {
-          ...state,
-          game: {
-            ...state.game,
-            remainingSeconds,
-          },
-        }
+            ...state,
+            game: {
+              ...state.game,
+              remainingSeconds,
+            },
+          }
         : state,
     );
   }, []);
@@ -539,18 +539,20 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       <div
         role="dialog"
         aria-modal="true"
-        className={`fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay/90 backdrop-blur-md transition duration-200 sm:items-center ${roleModalOpen ? "opacity-100" : "opacity-0"
-          }`}
+        className={`fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay/90 backdrop-blur-md transition duration-200 sm:items-center ${
+          roleModalOpen ? "opacity-100" : "opacity-0"
+        }`}
       >
         <div
           className="absolute inset-0"
           onClick={() => setRoleModalOpen(false)}
         />
         <div
-          className={`relative z-10 w-full max-w-xl px-5 transition duration-200 sm:px-0 ${roleModalOpen
-            ? "translate-y-0 scale-100 opacity-100"
-            : "translate-y-3 scale-[0.98] opacity-0"
-            }`}
+          className={`relative z-10 w-full max-w-xl px-5 transition duration-200 sm:px-0 ${
+            roleModalOpen
+              ? "translate-y-0 scale-100 opacity-100"
+              : "translate-y-3 scale-[0.98] opacity-0"
+          }`}
         >
           <div
             className="overflow-hidden rounded-3xl border border-line-strong bg-bg-surface shadow-pop"
@@ -598,10 +600,11 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         </div>
         <div className="px-6 pb-7 pt-5">
           <div
-            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full border ${phaseIntro.kind === "night" || phaseIntro.kind === "tiebreak"
-              ? "border-brand/35 bg-brand/12 text-brand"
-              : "border-ok/35 bg-ok/12 text-ok"
-              }`}
+            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full border ${
+              phaseIntro.kind === "night" || phaseIntro.kind === "tiebreak"
+                ? "border-brand/35 bg-brand/12 text-brand"
+                : "border-ok/35 bg-ok/12 text-ok"
+            }`}
           >
             {phaseIntro.kind === "tiebreak" && (
               <svg
@@ -694,8 +697,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           <TelegramChrome backHref="/dashboard" />
           <div className="mx-auto max-w-md pt-6">
             <p
-              className={`text-xs font-medium uppercase tracking-wider ${finished ? "text-bad" : "text-warn"
-                }`}
+              className={`text-xs font-medium uppercase tracking-wider ${
+                finished ? "text-bad" : "text-warn"
+              }`}
             >
               {finished ? t("yopiq") : t("boshlangan")}
             </p>
@@ -1288,10 +1292,11 @@ function MafiaHostDock({
         </div>
         {primaryLabel ? (
           <div
-            className={`grid gap-2 ${showRoleReminder
-              ? "grid-cols-[minmax(0,1fr)_auto]"
-              : "grid-cols-1"
-              }`}
+            className={`grid gap-2 ${
+              showRoleReminder
+                ? "grid-cols-[minmax(0,1fr)_auto]"
+                : "grid-cols-1"
+            }`}
           >
             <button
               type="button"
@@ -1320,15 +1325,16 @@ function MafiaHostDock({
           </div>
         ) : null}
         {!primaryLabel &&
-          (showVoteConfirmAction ||
-            showNightSelectionStatus ||
-            showRoleReminder) ? (
+        (showVoteConfirmAction ||
+          showNightSelectionStatus ||
+          showRoleReminder) ? (
           <div
-            className={`mt-2 grid gap-2 ${(showVoteConfirmAction || showNightSelectionStatus) &&
+            className={`mt-2 grid gap-2 ${
+              (showVoteConfirmAction || showNightSelectionStatus) &&
               showRoleReminder
-              ? "grid-cols-[minmax(0,1fr)_auto]"
-              : "grid-cols-1"
-              }`}
+                ? "grid-cols-[minmax(0,1fr)_auto]"
+                : "grid-cols-1"
+            }`}
           >
             {showVoteConfirmAction ? (
               <button
@@ -1373,10 +1379,11 @@ function MafiaHostDock({
               <button
                 type="button"
                 onClick={onOpenRole}
-                className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98] ${showVoteConfirmAction || showNightSelectionStatus
-                  ? "min-w-[132px]"
-                  : "w-full"
-                  }`}
+                className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98] ${
+                  showVoteConfirmAction || showNightSelectionStatus
+                    ? "min-w-[132px]"
+                    : "w-full"
+                }`}
               >
                 {t("mening_kartam")}
               </button>
@@ -1421,10 +1428,11 @@ function MafiaPlayerDock({
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
       <div
-        className={`mx-auto grid max-w-xl gap-2 ${showVoteConfirmAction || showNightSelectionStatus
-          ? "grid-cols-[minmax(0,1fr)_auto]"
-          : "grid-cols-1"
-          }`}
+        className={`mx-auto grid max-w-xl gap-2 ${
+          showVoteConfirmAction || showNightSelectionStatus
+            ? "grid-cols-[minmax(0,1fr)_auto]"
+            : "grid-cols-1"
+        }`}
       >
         {showVoteConfirmAction ? (
           <button
@@ -1468,10 +1476,11 @@ function MafiaPlayerDock({
         <button
           type="button"
           onClick={onOpenRole}
-          className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98] ${showVoteConfirmAction || showNightSelectionStatus
-            ? "min-w-[132px]"
-            : "w-full"
-            }`}
+          className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98] ${
+            showVoteConfirmAction || showNightSelectionStatus
+              ? "min-w-[132px]"
+              : "w-full"
+          }`}
         >
           {t("mening_kartam")}
         </button>
@@ -1630,10 +1639,11 @@ function Lobby({
                   </p>
                 </div>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${p.online
-                    ? "bg-ok/15 text-ok"
-                    : "bg-bg-elevated text-ink-muted"
-                    }`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                    p.online
+                      ? "bg-ok/15 text-ok"
+                      : "bg-bg-elevated text-ink-muted"
+                  }`}
                 >
                   ● {p.online ? t("onlayn") : t("offlayn")}
                 </span>

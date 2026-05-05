@@ -7,14 +7,14 @@ import {
   type AuthUser,
   getAuthToken,
   setAuthToken,
-  setAuthUser
+  setAuthUser,
 } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import {
   bootstrapTelegramWebApp,
   getTelegramStartParam,
   requestContactPhone,
-  waitForTelegramWebApp
+  waitForTelegramWebApp,
 } from "@/lib/telegram";
 
 function resolveStartParamPath(): string | null {
@@ -77,7 +77,7 @@ export function TelegramAuthGate() {
   const { t } = useI18n();
   const [stage, setStage] = useState<Stage>({
     kind: "loading",
-    message: t("yuklanmoqda")
+    message: t("yuklanmoqda"),
   });
   const initDataRef = useRef<string>("");
   const ranRef = useRef(false);
@@ -109,7 +109,7 @@ export function TelegramAuthGate() {
 
       setStage({
         kind: "loading",
-        message: t("hisobingiz_tekshirilmoqda")
+        message: t("hisobingiz_tekshirilmoqda"),
       });
       initDataRef.current = wa.initData;
 
@@ -118,8 +118,8 @@ export function TelegramAuthGate() {
           "/api/auth/telegram-webapp",
           {
             method: "POST",
-            body: JSON.stringify({ initData: wa.initData })
-          }
+            body: JSON.stringify({ initData: wa.initData }),
+          },
         );
         if ("token" in res) {
           setAuthToken(res.token);
@@ -132,7 +132,7 @@ export function TelegramAuthGate() {
       } catch (error) {
         setStage({
           kind: "error",
-          message: (error as Error).message
+          message: (error as Error).message,
         });
       }
     })();
@@ -152,9 +152,9 @@ export function TelegramAuthGate() {
           method: "POST",
           body: JSON.stringify({
             initData: initDataRef.current,
-            phone
-          })
-        }
+            phone,
+          }),
+        },
       );
       setAuthToken(res.token);
       setAuthUser(res.user);
@@ -162,7 +162,7 @@ export function TelegramAuthGate() {
     } catch (error) {
       setStage({
         kind: "error",
-        message: (error as Error).message
+        message: (error as Error).message,
       });
     }
   }
@@ -221,7 +221,7 @@ export function TelegramAuthGate() {
                 ranRef.current = false;
                 setStage({
                   kind: "loading",
-                  message: t("qayta_urinilmoqda")
+                  message: t("qayta_urinilmoqda"),
                 });
                 window.location.reload();
               }}

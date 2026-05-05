@@ -10,12 +10,14 @@ type Props = {
   state: MafiaPublicState;
 };
 
-function getRoleLabel(t: (text: string, vars?: Record<string, string | number>) => string): Record<MafiaRole, string> {
+function getRoleLabel(
+  t: (text: string, vars?: Record<string, string | number>) => string,
+): Record<MafiaRole, string> {
   return {
     CITIZEN: t("oddiy_aholi"),
     MAFIA: t("mafia_2"),
     SHERIFF: t("komisar_2"),
-    DOCTOR: t("doktor_2")
+    DOCTOR: t("doktor_2"),
   };
 }
 
@@ -55,7 +57,9 @@ export function MafiaNightResult({ state }: Props) {
       >
         <header className="flex items-center justify-between pt-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {t("tong_otdi_number_nightnumber", { nightNumber: game.nightNumber })}
+            {t("tong_otdi_number_nightnumber", {
+              nightNumber: game.nightNumber,
+            })}
           </p>
           <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
             {state.room.code}
@@ -63,19 +67,26 @@ export function MafiaNightResult({ state }: Props) {
         </header>
 
         <section className="grid gap-4">
-          <h1 className="text-2xl font-bold sm:text-3xl">{t("tunda_nima_boldi")}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            {t("tunda_nima_boldi")}
+          </h1>
 
           {peaceful ? (
             <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
               <MafiaSituationArt src="/dayimg.webp" alt={t("tun_tinch_otdi")} />
               <p className="text-base font-semibold">{t("tun_tinch_otdi")}</p>
-              <p className="text-sm text-ink-muted">{t("hech_kim_shikastlanmadi")}</p>
+              <p className="text-sm text-ink-muted">
+                {t("hech_kim_shikastlanmadi")}
+              </p>
             </div>
           ) : null}
 
           {game.lastNightDoctorSaved ? (
             <div className="grid gap-3 rounded-3xl border border-ok/30 bg-ok/10 p-5 text-center animate-fade-in">
-              <MafiaSituationArt src="/doctorimg.webp" alt={t("doktor_saqlab_qoldi")} />
+              <MafiaSituationArt
+                src="/doctorimg.webp"
+                alt={t("doktor_saqlab_qoldi")}
+              />
               <p className="text-base font-semibold text-ok">
                 {t("doktor_1_fuqaroni_saqlab_qoldi")}
               </p>

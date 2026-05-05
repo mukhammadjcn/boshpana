@@ -11,15 +11,14 @@ type Props = {
   state: MafiaPublicState;
 };
 
-function getRoleMeta(t: (text: string, vars?: Record<string, string | number>) => string): Record<
-  MafiaRole,
-  { label: string; tone: "ok" | "bad" | "brand" }
-> {
+function getRoleMeta(
+  t: (text: string, vars?: Record<string, string | number>) => string,
+): Record<MafiaRole, { label: string; tone: "ok" | "bad" | "brand" }> {
   return {
     CITIZEN: { label: t("oddiy_aholi"), tone: "ok" },
     MAFIA: { label: t("mafia_2"), tone: "bad" },
     SHERIFF: { label: t("komisar_2"), tone: "brand" },
-    DOCTOR: { label: t("doktor_2"), tone: "ok" }
+    DOCTOR: { label: t("doktor_2"), tone: "ok" },
   };
 }
 
@@ -31,9 +30,7 @@ export function MafiaFinished({ state }: Props) {
   const { t } = useI18n();
   const winner = state.game.winner;
   const stoppedByHost = winner == null;
-  const players = [...state.players].sort(
-    (a, b) => a.seatOrder - b.seatOrder
-  );
+  const players = [...state.players].sort((a, b) => a.seatOrder - b.seatOrder);
   const roleMeta = getRoleMeta(t);
 
   return (

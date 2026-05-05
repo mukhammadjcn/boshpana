@@ -19,7 +19,7 @@ const GENERIC_DETAILS = new Set(["Xona topilmadi.", "Room topilmadi."]);
 export function RoomExpiredState({
   roomCode,
   detail,
-  homeHref = "/dashboard"
+  homeHref = "/dashboard",
 }: RoomExpiredStateProps) {
   const { t } = useI18n();
   const [joinOpen, setJoinOpen] = useState(false);

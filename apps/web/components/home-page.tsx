@@ -18,7 +18,7 @@ const GAMES = [
     meta: "3_16_oyinchi_30_60_d1dc",
     href: "/games/bunker" as Route,
     image: "/bunkerbanner.webp",
-    cta: "bunker_sahifasini_ochish"
+    cta: "bunker_sahifasini_ochish",
   },
   {
     title: "mafia_2",
@@ -26,7 +26,7 @@ const GAMES = [
     meta: "4_16_oyinchi_30_45_74ed",
     href: "/games/mafia" as Route,
     image: "/mafiabanner.webp",
-    cta: "mafia_sahifasini_ochish"
+    cta: "mafia_sahifasini_ochish",
   },
 ];
 
@@ -99,9 +99,7 @@ export function HomePage() {
           <div className="flex items-center gap-3">
             <BrandMark size={40} />
             <div className="leading-tight">
-              <p className="text-sm font-semibold sm:text-base">
-                Jamoaviy.uz
-              </p>
+              <p className="text-sm font-semibold sm:text-base">Jamoaviy.uz</p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
                 {t("jamoaviy_oyinlar")}
               </p>
@@ -231,7 +229,9 @@ export function HomePage() {
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs text-ink-muted sm:text-sm">
                     <span>{t(game.meta)}</span>
-                    <span className="font-semibold text-brand">{t(game.cta)}</span>
+                    <span className="font-semibold text-brand">
+                      {t(game.cta)}
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -307,7 +307,9 @@ export function HomePage() {
               <div>
                 <h2 className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
                   {t("dostlar_bilan_birga")}{" "}
-                  <span className="text-brand">{t("qaysi_oyindan_boshlaysiz")}</span>
+                  <span className="text-brand">
+                    {t("qaysi_oyindan_boshlaysiz")}
+                  </span>
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
                   {t("public_landing_ichidan_oyinni_tanlang_4e61")}

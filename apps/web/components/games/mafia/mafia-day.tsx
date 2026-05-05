@@ -12,12 +12,14 @@ type Props = {
   voteSubmitPending?: boolean;
 };
 
-function getRoleLabel(t: (text: string, vars?: Record<string, string | number>) => string): Record<MafiaRole, string> {
+function getRoleLabel(
+  t: (text: string, vars?: Record<string, string | number>) => string,
+): Record<MafiaRole, string> {
   return {
     CITIZEN: t("oddiy_aholi"),
     MAFIA: t("mafia_2"),
     SHERIFF: t("komisar_2"),
-    DOCTOR: t("doktor_2")
+    DOCTOR: t("doktor_2"),
   };
 }
 
@@ -27,7 +29,7 @@ function getRoleLabel(t: (text: string, vars?: Record<string, string | number>) 
 export function MafiaDay({
   state,
   onSubmitVote,
-  voteSubmitPending = false
+  voteSubmitPending = false,
 }: Props) {
   const phase = state.game.phase;
   if (phase === "DAY_DISCUSSION") {
@@ -58,7 +60,7 @@ function DayShell({
   remaining,
   totalSeconds,
   badge,
-  children
+  children,
 }: {
   title: string;
   subtitle: string;
@@ -70,7 +72,7 @@ function DayShell({
   const { t } = useI18n();
   const fraction = Math.max(
     0,
-    Math.min(1, totalSeconds === 0 ? 0 : remaining / totalSeconds)
+    Math.min(1, totalSeconds === 0 ? 0 : remaining / totalSeconds),
   );
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
@@ -171,7 +173,6 @@ function Discussion({ state }: { state: MafiaPublicState }) {
             </li>
           ))}
       </ul>
-
     </DayShell>
   );
 }
@@ -183,7 +184,7 @@ function Discussion({ state }: { state: MafiaPublicState }) {
 function VoteView({
   state,
   onSubmitVote,
-  voteSubmitPending = false
+  voteSubmitPending = false,
 }: {
   state: MafiaPublicState;
   onSubmitVote: (targetPlayerId: string) => void;
@@ -195,16 +196,17 @@ function VoteView({
   const totalSeconds = 60;
   const myTargetPlayerId = votes.myTargetPlayerId;
   const [optimisticTargetId, setOptimisticTargetId] = useState<string | null>(
-    myTargetPlayerId
+    myTargetPlayerId,
   );
   const selectedLocked = votes.confirmedByMe;
   const alivePlayers = players.filter((p) => p.isAlive);
-  const meIsCandidate =
-    !!me?.id && game.tiebreakCandidateIds.includes(me.id);
+  const meIsCandidate = !!me?.id && game.tiebreakCandidateIds.includes(me.id);
   const allAliveAreTied =
     isTiebreak &&
     alivePlayers.length > 0 &&
-    alivePlayers.every((player) => game.tiebreakCandidateIds.includes(player.id));
+    alivePlayers.every((player) =>
+      game.tiebreakCandidateIds.includes(player.id),
+    );
   const canVoteInTiebreak = !meIsCandidate || allAliveAreTied;
 
   useEffect(() => {
@@ -219,7 +221,7 @@ function VoteView({
         (p) =>
           game.tiebreakCandidateIds.includes(p.id) &&
           p.isAlive &&
-          p.id !== me?.id
+          p.id !== me?.id,
       );
     }
     return players.filter((p) => p.isAlive && p.id !== me?.id);
@@ -230,7 +232,7 @@ function VoteView({
   const otherTiedNames = players
     .filter(
       (player) =>
-        game.tiebreakCandidateIds.includes(player.id) && player.id !== me?.id
+        game.tiebreakCandidateIds.includes(player.id) && player.id !== me?.id,
     )
     .map((player) => player.name);
 
@@ -292,7 +294,7 @@ function VoteView({
             </div>
           ) : null}
 
-          {(!isTiebreak || canVoteInTiebreak) ? (
+          {!isTiebreak || canVoteInTiebreak ? (
             <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {candidates.map((p) => {
                 const selected = optimisticTargetId === p.id;
@@ -320,7 +322,9 @@ function VoteView({
                       >
                         {p.name.slice(0, 2)}
                       </span>
-                      <span className="flex-1 truncate font-medium">{p.name}</span>
+                      <span className="flex-1 truncate font-medium">
+                        {p.name}
+                      </span>
                       <span
                         className={`text-[10px] font-medium uppercase tracking-wider ${
                           selected ? "text-brand" : "text-ink-muted"
@@ -355,19 +359,19 @@ function VoteView({
           isTiebreak && meIsCandidate && !allAliveAreTied
             ? "text-ink-muted"
             : votes.confirmedByMe
-            ? "text-ok"
-            : votes.submittedByMe
-              ? "text-brand"
-              : "text-ink-muted"
+              ? "text-ok"
+              : votes.submittedByMe
+                ? "text-brand"
+                : "text-ink-muted"
         }`}
       >
         {isTiebreak && meIsCandidate && !allAliveAreTied
           ? t("natijani_kutmoqdasiz")
           : votes.confirmedByMe
-          ? t("ovozingiz_tasdiqlandi")
-          : votes.submittedByMe
-            ? t("nomzod_tanlandi_endi_tasdiqlang")
-          : t("hali_ovoz_bermadingiz")}
+            ? t("ovozingiz_tasdiqlandi")
+            : votes.submittedByMe
+              ? t("nomzod_tanlandi_endi_tasdiqlang")
+              : t("hali_ovoz_bermadingiz")}
       </p>
 
       {me?.isAlive ? <div className="mt-auto h-2" /> : null}
@@ -382,15 +386,15 @@ function VoteView({
 function ResultView({ state }: { state: MafiaPublicState }) {
   const { t } = useI18n();
   const { game, players } = state;
-  const eliminated = players.find(
-    (p) => p.id === game.lastEliminatedPlayerId
-  );
+  const eliminated = players.find((p) => p.id === game.lastEliminatedPlayerId);
   const role = game.lastEliminatedRole;
   const roleLabel = getRoleLabel(t);
 
   return (
     <DayShell
-      title={t("kun_yakunlandi_number_daynumber", { dayNumber: game.dayNumber })}
+      title={t("kun_yakunlandi_number_daynumber", {
+        dayNumber: game.dayNumber,
+      })}
       subtitle={t("ovoz_berish_natijasi")}
       remaining={game.remainingSeconds}
       totalSeconds={6}
@@ -398,7 +402,10 @@ function ResultView({ state }: { state: MafiaPublicState }) {
     >
       {eliminated && role ? (
         <div className="grid gap-3 rounded-3xl border border-bad/30 bg-bad/10 p-6 text-center animate-fade-in">
-          <MafiaSituationArt src="/diedimg.webp" alt={t("chetlatilgan_oyinchi")} />
+          <MafiaSituationArt
+            src="/diedimg.webp"
+            alt={t("chetlatilgan_oyinchi")}
+          />
           <p className="text-base font-semibold text-bad">
             {t("name_chetlatildi", { name: eliminated.name })}
           </p>
@@ -408,8 +415,13 @@ function ResultView({ state }: { state: MafiaPublicState }) {
         </div>
       ) : (
         <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-          <MafiaSituationArt src="/novoiceimg.webp" alt={t("hech_kim_chetlatilmadi")} />
-          <p className="text-base font-semibold">{t("hech_kim_chetlatilmadi")}</p>
+          <MafiaSituationArt
+            src="/novoiceimg.webp"
+            alt={t("hech_kim_chetlatilmadi")}
+          />
+          <p className="text-base font-semibold">
+            {t("hech_kim_chetlatilmadi")}
+          </p>
           <p className="text-xs text-ink-muted">
             {t("ovozlar_bolinib_ketdi_yoki_qayta_3993")}
           </p>
@@ -422,7 +434,7 @@ function ResultView({ state }: { state: MafiaPublicState }) {
 function SpectatorPanel({
   players,
   title,
-  subtitle
+  subtitle,
 }: {
   players: MafiaPublicState["players"];
   title: string;

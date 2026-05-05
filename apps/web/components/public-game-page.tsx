@@ -60,10 +60,11 @@ export function PublicGamePage({
   flow,
   configs,
   audience,
-  createHref
+  createHref,
 }: PublicGamePageProps) {
   const { t } = useI18n();
-  const loginHref = `/login?redirect=${encodeURIComponent(createHref)}` as Route;
+  const loginHref =
+    `/login?redirect=${encodeURIComponent(createHref)}` as Route;
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
@@ -73,9 +74,7 @@ export function PublicGamePage({
           <Link href={"/" as Route} className="flex items-center gap-3">
             <BrandMark size={40} />
             <div className="leading-tight">
-              <p className="text-sm font-semibold sm:text-base">
-                Jamoaviy.uz
-              </p>
+              <p className="text-sm font-semibold sm:text-base">Jamoaviy.uz</p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
                 {t("jamoaviy_oyinlar")}
               </p>

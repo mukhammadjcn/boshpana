@@ -9,42 +9,41 @@ import { MafiaSituationArt } from "./mafia-situation-art";
 import type {
   MafiaNightActionType,
   MafiaPublicState,
-  MafiaRole
+  MafiaRole,
 } from "./mafia-types";
 
 type Props = {
   state: MafiaPublicState;
   onSubmit: (
     action: MafiaNightActionType,
-    targetPlayerId: string | null
+    targetPlayerId: string | null,
   ) => void;
 };
 
-function getRoleHeader(t: (text: string, vars?: Record<string, string | number>) => string): Record<
-  MafiaRole,
-  { title: string; subtitle: string; accent: string }
-> {
+function getRoleHeader(
+  t: (text: string, vars?: Record<string, string | number>) => string,
+): Record<MafiaRole, { title: string; subtitle: string; accent: string }> {
   return {
     CITIZEN: {
       title: t("aholi"),
       subtitle: t("tunda_fikringiz_soraladi"),
-      accent: "text-ok"
+      accent: "text-ok",
     },
     MAFIA: {
       title: t("mafia_2"),
       subtitle: t("sheriklaringiz_bilan_birga_nishon_tanlang"),
-      accent: "text-bad"
+      accent: "text-bad",
     },
     SHERIFF: {
       title: t("komisar_2"),
       subtitle: t("tekshiring_yoki_oq_uzing"),
-      accent: "text-brand"
+      accent: "text-brand",
     },
     DOCTOR: {
       title: t("doktor_2"),
       subtitle: t("birovni_davolab_mafia_komisar_nishonidan_b5bd"),
-      accent: "text-ok"
-    }
+      accent: "text-ok",
+    },
   };
 }
 
@@ -62,9 +61,9 @@ export function MafiaNight({ state, onSubmit }: Props) {
   const aliveTargets = useMemo(
     () =>
       players.filter(
-        (p) => p.isAlive && (role === "DOCTOR" ? true : p.id !== me?.id)
+        (p) => p.isAlive && (role === "DOCTOR" ? true : p.id !== me?.id),
       ),
-    [players, role, me?.id]
+    [players, role, me?.id],
   );
 
   if (!me || !role) {
@@ -198,7 +197,7 @@ export function MafiaNight({ state, onSubmit }: Props) {
 function NightShell({
   remaining,
   night,
-  children
+  children,
 }: {
   remaining: number;
   night: number;
@@ -249,7 +248,7 @@ function NightShell({
 function MafiaView({
   state,
   aliveTargets,
-  onSubmit
+  onSubmit,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
@@ -258,12 +257,12 @@ function MafiaView({
   const { t } = useI18n();
   const me = state.me!;
   const teammates = state.players.filter(
-    (p) => me.mafiaTeammates.includes(p.id) && p.isAlive
+    (p) => me.mafiaTeammates.includes(p.id) && p.isAlive,
   );
   const locked = state.night.confirmedByMe;
   // Each pick row maps actor → target.
   const picksByActor = new Map(
-    state.mafiaPicks.map((p) => [p.actorPlayerId, p.targetPlayerId])
+    state.mafiaPicks.map((p) => [p.actorPlayerId, p.targetPlayerId]),
   );
   const myTarget = me.pendingNightTargetId;
 
@@ -279,7 +278,10 @@ function MafiaView({
               const targetId = picksByActor.get(teammate.id);
               const target = state.players.find((p) => p.id === targetId);
               return (
-                <li key={teammate.id} className="flex items-center justify-between">
+                <li
+                  key={teammate.id}
+                  className="flex items-center justify-between"
+                >
                   <span className="font-medium">{teammate.name}</span>
                   <span className="text-ink-secondary">
                     {target ? `→ ${target.name}` : t("tanlamagan")}
@@ -310,7 +312,7 @@ function MafiaView({
 function SheriffView({
   state,
   aliveTargets,
-  onSubmit
+  onSubmit,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
@@ -358,9 +360,7 @@ function SheriffView({
                   <span className="font-medium">
                     #{c.nightNumber} · {target?.name ?? "?"}
                   </span>
-                  <span
-                    className={c.isMafia ? "text-bad" : "text-ok"}
-                  >
+                  <span className={c.isMafia ? "text-bad" : "text-ok"}>
                     {c.isMafia ? "Mafia" : t("begunoh")}
                   </span>
                 </li>
@@ -391,7 +391,7 @@ function SheriffView({
 function DoctorView({
   state,
   aliveTargets,
-  onSubmit
+  onSubmit,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
@@ -408,7 +408,7 @@ function DoctorView({
     <>
       <p className="rounded-2xl border border-line-subtle bg-bg-surface px-3 py-2 text-xs text-ink-muted">
         {t("ozingizni_count_marta_davolashingiz_mumkin_8920", {
-          count: selfHealsLeft
+          count: selfHealsLeft,
         })}
       </p>
       <TargetGrid
@@ -430,7 +430,7 @@ function DoctorView({
 function CitizenView({
   state,
   aliveTargets,
-  onSubmit
+  onSubmit,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
@@ -471,7 +471,7 @@ function TargetGrid({
   selectedId,
   onPick,
   excludeIds,
-  disabled = false
+  disabled = false,
 }: {
   title: string;
   targets: MafiaPublicState["players"];
@@ -481,9 +481,9 @@ function TargetGrid({
   disabled?: boolean;
 }) {
   const { t } = useI18n();
-  const [optimisticSelectedId, setOptimisticSelectedId] = useState<string | null>(
-    selectedId
-  );
+  const [optimisticSelectedId, setOptimisticSelectedId] = useState<
+    string | null
+  >(selectedId);
 
   useEffect(() => {
     setOptimisticSelectedId(selectedId);
@@ -513,7 +513,9 @@ function TargetGrid({
               >
                 <span
                   className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold uppercase ${
-                    selected ? "bg-brand text-bg-base" : "bg-brand-soft text-brand"
+                    selected
+                      ? "bg-brand text-bg-base"
+                      : "bg-brand-soft text-brand"
                   }`}
                 >
                   {p.name.slice(0, 2)}
@@ -532,7 +534,7 @@ function TargetGrid({
 function SpectatorPanel({
   players,
   title,
-  subtitle
+  subtitle,
 }: {
   players: MafiaPublicState["players"];
   title: string;
@@ -573,7 +575,7 @@ function ModeButton({
   label,
   subtitle,
   disabled,
-  onClick
+  onClick,
 }: {
   active: boolean;
   label: string;
@@ -587,9 +589,7 @@ function ModeButton({
       onClick={onClick}
       disabled={disabled}
       className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
-        active
-          ? "bg-brand text-bg-base"
-          : "bg-bg-base text-ink-primary"
+        active ? "bg-brand text-bg-base" : "bg-bg-base text-ink-primary"
       }`}
     >
       <span>{label}</span>

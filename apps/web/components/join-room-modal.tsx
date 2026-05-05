@@ -17,7 +17,7 @@ type JoinRoomModalProps = {
 export function JoinRoomModal({
   open,
   onClose,
-  defaultCode = ""
+  defaultCode = "",
 }: JoinRoomModalProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -32,10 +32,7 @@ export function JoinRoomModal({
       setError(null);
       const cached = getAuthUser();
       const fallback =
-        cached?.nickname ??
-        cached?.firstName ??
-        cached?.telegramUsername ??
-        "";
+        cached?.nickname ?? cached?.firstName ?? cached?.telegramUsername ?? "";
       if (fallback) {
         setJoinName((current) => current || fallback);
       }
@@ -66,8 +63,8 @@ export function JoinRoomModal({
         method: "POST",
         body: JSON.stringify({
           name: joinName,
-          sessionId
-        })
+          sessionId,
+        }),
       });
 
       onClose();
@@ -101,7 +98,9 @@ export function JoinRoomModal({
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
               {t("roomga_qoshilish")}
             </p>
-            <h2 className="mt-1 text-xl font-semibold">{t("kod_va_nickname")}</h2>
+            <h2 className="mt-1 text-xl font-semibold">
+              {t("kod_va_nickname")}
+            </h2>
           </div>
           <button
             type="button"

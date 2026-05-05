@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 const STATS_TAB = "__stats__";
 
-
 type AdminSchemaResponse = {
   models: string[];
 };
@@ -48,7 +47,6 @@ type FormState = Record<string, string | number | boolean>;
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-
 function buildCardTypeOptions() {
   return [
     { label: "Kasb", value: "PROFESSION" },
@@ -56,7 +54,7 @@ function buildCardTypeOptions() {
     { label: "Xarakter", value: "CHARACTER" },
     { label: "Skill", value: "SKILL" },
     { label: "Bagaj", value: "BAGGAGE" },
-    { label: "Fakt", value: "FACT" }
+    { label: "Fakt", value: "FACT" },
   ];
 }
 
@@ -64,7 +62,7 @@ function buildDifficultyOptions() {
   return [
     { label: "Oson", value: "EASY" },
     { label: "O'rta", value: "MEDIUM" },
-    { label: "Qiyin", value: "HARD" }
+    { label: "Qiyin", value: "HARD" },
   ];
 }
 
@@ -78,26 +76,43 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
       description: "Bunker o'yinidagi barcha kartalar",
       searchKeys: ["text", "type"],
       createFields: [
-        { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
+        {
+          key: "type",
+          label: "Turi",
+          type: "select",
+          required: true,
+          options: cardTypeOptions,
+        },
         { key: "text", label: "Matn", type: "textarea", required: true },
-        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       editFields: [
-        { key: "type", label: "Turi", type: "select", required: true, options: cardTypeOptions },
+        {
+          key: "type",
+          label: "Turi",
+          type: "select",
+          required: true,
+          options: cardTypeOptions,
+        },
         { key: "text", label: "Matn", type: "textarea", required: true },
-        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       allowDelete: true,
       columns: [
-        { key: "type", label: "Turi", width: "w-32", render: (i) => formatCardType(i.type) },
+        {
+          key: "type",
+          label: "Turi",
+          width: "w-32",
+          render: (i) => formatCardType(i.type),
+        },
         {
           key: "isAdult",
           label: "Reyting",
           width: "w-20",
-          render: (i) => (i.isAdult ? "18+" : "Normal")
+          render: (i) => (i.isAdult ? "18+" : "Normal"),
         },
-        { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
-      ]
+        { key: "text", label: "Matn", render: (i) => String(i.text ?? "") },
+      ],
     },
     disasters: {
       label: "Falokatlar",
@@ -105,25 +120,44 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
       searchKeys: ["name", "description"],
       createFields: [
         { key: "name", label: "Nomi", type: "text", required: true },
-        { key: "description", label: "Tavsif", type: "textarea", required: true },
-        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+        {
+          key: "description",
+          label: "Tavsif",
+          type: "textarea",
+          required: true,
+        },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       editFields: [
         { key: "name", label: "Nomi", type: "text", required: true },
-        { key: "description", label: "Tavsif", type: "textarea", required: true },
-        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+        {
+          key: "description",
+          label: "Tavsif",
+          type: "textarea",
+          required: true,
+        },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       allowDelete: true,
       columns: [
-        { key: "name", label: "Nomi", width: "w-48", render: (i) => String(i.name ?? "") },
+        {
+          key: "name",
+          label: "Nomi",
+          width: "w-48",
+          render: (i) => String(i.name ?? ""),
+        },
         {
           key: "isAdult",
           label: "Reyting",
           width: "w-20",
-          render: (i) => (i.isAdult ? "18+" : "Normal")
+          render: (i) => (i.isAdult ? "18+" : "Normal"),
         },
-        { key: "description", label: "Tavsif", render: (i) => String(i.description ?? "") }
-      ]
+        {
+          key: "description",
+          label: "Tavsif",
+          render: (i) => String(i.description ?? ""),
+        },
+      ],
     },
     situations: {
       label: "Vaziyatlar",
@@ -131,13 +165,25 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
       searchKeys: ["text", "difficulty"],
       createFields: [
         { key: "text", label: "Matn", type: "textarea", required: true },
-        { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions },
-        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+        {
+          key: "difficulty",
+          label: "Daraja",
+          type: "select",
+          required: true,
+          options: difficultyOptions,
+        },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       editFields: [
         { key: "text", label: "Matn", type: "textarea", required: true },
-        { key: "difficulty", label: "Daraja", type: "select", required: true, options: difficultyOptions },
-        { key: "isAdult", label: "18+ kontent", type: "checkbox" }
+        {
+          key: "difficulty",
+          label: "Daraja",
+          type: "select",
+          required: true,
+          options: difficultyOptions,
+        },
+        { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       allowDelete: true,
       columns: [
@@ -145,16 +191,16 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
           key: "difficulty",
           label: "Daraja",
           width: "w-24",
-          render: (i) => formatDifficulty(i.difficulty)
+          render: (i) => formatDifficulty(i.difficulty),
         },
         {
           key: "isAdult",
           label: "Reyting",
           width: "w-20",
-          render: (i) => (i.isAdult ? "18+" : "Normal")
+          render: (i) => (i.isAdult ? "18+" : "Normal"),
         },
-        { key: "text", label: "Matn", render: (i) => String(i.text ?? "") }
-      ]
+        { key: "text", label: "Matn", render: (i) => String(i.text ?? "") },
+      ],
     },
     users: {
       label: "Foydalanuvchilar",
@@ -166,57 +212,78 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
           label: "Foydalanuvchi",
           width: "w-56",
           render: (i) => {
-            const fullName = [i.firstName, i.lastName].filter(Boolean).join(" ");
-            return i.nickname || fullName || i.telegramUsername || i.telegramId || "—";
-          }
+            const fullName = [i.firstName, i.lastName]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              i.nickname ||
+              fullName ||
+              i.telegramUsername ||
+              i.telegramId ||
+              "—"
+            );
+          },
         },
         {
           key: "telegramUsername",
           label: "Telegram",
           width: "w-40",
           render: (i) =>
-            i.telegramUsername ? `@${i.telegramUsername}` : String(i.telegramId ?? "—")
+            i.telegramUsername
+              ? `@${i.telegramUsername}`
+              : String(i.telegramId ?? "—"),
         },
         {
           key: "phone",
           label: "Telefon",
           width: "w-36",
-          render: (i) => String(i.phone ?? "—")
+          render: (i) => String(i.phone ?? "—"),
         },
         {
           key: "createdAt",
           label: "Ro'yxatdan o'tgan",
           width: "w-40",
-          render: (i) => formatDate(i.createdAt)
-        }
-      ]
+          render: (i) => formatDate(i.createdAt),
+        },
+      ],
     },
     rooms: {
       label: "Roomlar",
       description: "Barcha yaratilgan o'yin xonalari",
       searchKeys: ["code", "status"],
       columns: [
-        { key: "code", label: "Kod", width: "w-28", render: (i) => String(i.code ?? "") },
-        { key: "status", label: "Status", width: "w-28", render: (i) => String(i.status ?? "") },
+        {
+          key: "code",
+          label: "Kod",
+          width: "w-28",
+          render: (i) => String(i.code ?? ""),
+        },
+        {
+          key: "status",
+          label: "Status",
+          width: "w-28",
+          render: (i) => String(i.status ?? ""),
+        },
         {
           key: "playerCount",
           label: "O'yinchilar",
           width: "w-24",
-          render: (i) => String(Array.isArray(i.players) ? i.players.length : 0)
+          render: (i) =>
+            String(Array.isArray(i.players) ? i.players.length : 0),
         },
         {
           key: "winnerTarget",
           label: "Finish",
           width: "w-24",
-          render: (i) => `${String(i.winnerTarget ?? "-")} kishi`
+          render: (i) => `${String(i.winnerTarget ?? "-")} kishi`,
         },
         {
           key: "createdAt",
           label: "Yaratilgan",
           width: "w-40",
-          render: (i) => formatDate(i.createdAt)
-        }
-      ]
+          render: (i) => formatDate(i.createdAt),
+        },
+      ],
     },
     gameHistory: {
       label: "O'yinlar tarixi",
@@ -227,7 +294,7 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
           key: "playedAt",
           label: "Sana",
           width: "w-40",
-          render: (i) => formatDate(i.playedAt)
+          render: (i) => formatDate(i.playedAt),
         },
         {
           key: "user",
@@ -243,33 +310,35 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
                 }
               | undefined;
             if (!u) return "—";
-            const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ");
+            const fullName = [u.firstName, u.lastName]
+              .filter(Boolean)
+              .join(" ");
             return u.nickname || fullName || u.telegramUsername || "—";
-          }
+          },
         },
         {
           key: "roomCode",
           label: "Room",
           width: "w-24",
-          render: (i) => String(i.roomCode ?? "—")
+          render: (i) => String(i.roomCode ?? "—"),
         },
         {
           key: "disasterName",
           label: "Falokat",
           width: "w-40",
-          render: (i) => String(i.disasterName ?? "—")
+          render: (i) => String(i.disasterName ?? "—"),
         },
         {
           key: "playerCount",
           label: "O'yinchi",
           width: "w-20",
-          render: (i) => String(i.playerCount ?? "—")
+          render: (i) => String(i.playerCount ?? "—"),
         },
         {
           key: "outcome",
           label: "Natija",
           width: "w-28",
-          render: (i) => String(i.outcome ?? "—")
+          render: (i) => String(i.outcome ?? "—"),
         },
         {
           key: "duration",
@@ -280,10 +349,10 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
             if (!s) return "—";
             const m = Math.round((s / 60) * 10) / 10;
             return `${m} daq`;
-          }
-        }
-      ]
-    }
+          },
+        },
+      ],
+    },
   };
 }
 
@@ -312,10 +381,10 @@ export function AdminDashboard() {
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   // Cards-only quick filters: limit table by card type and/or 18+ flag.
   const [typeFilter, setTypeFilter] = useState<string>(
-    searchParams.get("type") ?? ""
+    searchParams.get("type") ?? "",
   );
   const [adultFilter, setAdultFilter] = useState<"all" | "normal" | "adult">(
-    ["all", "normal", "adult"].includes(initialAdult) ? initialAdult : "all"
+    ["all", "normal", "adult"].includes(initialAdult) ? initialAdult : "all",
   );
   const [page, setPage] = useState(Number(searchParams.get("page") ?? 1) || 1);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -349,7 +418,9 @@ export function AdminDashboard() {
   useEffect(() => {
     void (async () => {
       try {
-        const response = await fetch("/api/admin/schema", { cache: "no-store" });
+        const response = await fetch("/api/admin/schema", {
+          cache: "no-store",
+        });
         const data = (await response.json()) as AdminSchemaResponse;
         setModels(data.models);
         setSelectedModel((current) => current || STATS_TAB);
@@ -405,7 +476,7 @@ export function AdminDashboard() {
     page,
     pageSize,
     pathname,
-    router
+    router,
   ]);
 
   // User-initiated tab switch: reset every transient param so the new tab
@@ -432,7 +503,9 @@ export function AdminDashboard() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/admin/${model}`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/${model}`, {
+        cache: "no-store",
+      });
       const data = (await response.json()) as AdminListResponse;
       setItems(data.items);
     } catch (e) {
@@ -450,7 +523,7 @@ export function AdminDashboard() {
       const res = await fetch(`/api/admin/${selectedModel}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(serializeState(createFields, createState))
+        body: JSON.stringify(serializeState(createFields, createState)),
       });
       await assertOk(res);
       setMessage("Yangi yozuv qo‘shildi.");
@@ -472,7 +545,7 @@ export function AdminDashboard() {
       const res = await fetch(`/api/admin/${selectedModel}/${editingItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(serializeState(editFields, editState))
+        body: JSON.stringify(serializeState(editFields, editState)),
       });
       await assertOk(res);
       setMessage("Yozuv saqlandi.");
@@ -491,7 +564,7 @@ export function AdminDashboard() {
       setDeleting(true);
       setError(null);
       const res = await fetch(`/api/admin/${selectedModel}/${item.id}`, {
-        method: "DELETE"
+        method: "DELETE",
       });
       await assertOk(res);
       setMessage("Yozuv o‘chirildi.");
@@ -526,11 +599,15 @@ export function AdminDashboard() {
       if (!q) return true;
       if (keys.length) {
         return keys.some((k) =>
-          String(item[k] ?? "").toLowerCase().includes(q)
+          String(item[k] ?? "")
+            .toLowerCase()
+            .includes(q),
         );
       }
       return Object.values(item).some((v) =>
-        String(v ?? "").toLowerCase().includes(q)
+        String(v ?? "")
+          .toLowerCase()
+          .includes(q),
       );
     });
   }, [items, search, typeFilter, adultFilter, definition?.searchKeys]);
@@ -538,9 +615,8 @@ export function AdminDashboard() {
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const pageItems = useMemo(
-    () =>
-      filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filteredItems, safePage, pageSize]
+    () => filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredItems, safePage, pageSize],
   );
 
   useEffect(() => {
@@ -580,330 +656,333 @@ export function AdminDashboard() {
         })}
       </nav>
 
-      {selectedModel === STATS_TAB ? <AdminStats /> : (<>
+      {selectedModel === STATS_TAB ? (
+        <AdminStats />
+      ) : (
+        <>
+          {/* Header bar */}
+          <div className="flex flex-col gap-2 rounded-xl border border-line-subtle bg-bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold text-ink-primary">
+                {definition?.label ?? selectedModel}
+                <span className="ml-2 text-xs font-normal text-ink-muted">
+                  {filteredItems.length} ta
+                </span>
+              </h2>
+              {definition?.description ? (
+                <p className="mt-0.5 truncate text-xs text-ink-muted">
+                  {definition.description}
+                </p>
+              ) : null}
+            </div>
 
-      {/* Header bar */}
-      <div className="flex flex-col gap-2 rounded-xl border border-line-subtle bg-bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-ink-primary">
-            {definition?.label ?? selectedModel}
-            <span className="ml-2 text-xs font-normal text-ink-muted">
-              {filteredItems.length} ta
-            </span>
-          </h2>
-          {definition?.description ? (
-            <p className="mt-0.5 truncate text-xs text-ink-muted">
-              {definition.description}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {selectedModel === "cards" ? (
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="h-8 rounded-lg border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none focus:border-brand"
-              title="Turi bo'yicha filter"
-            >
-              <option value="">Barcha turlar</option>
-              {cardTypeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          ) : null}
-          {selectedModel === "cards" ||
-          selectedModel === "disasters" ||
-          selectedModel === "situations" ? (
-            <select
-              value={adultFilter}
-              onChange={(e) =>
-                setAdultFilter(e.target.value as "all" | "normal" | "adult")
-              }
-              className="h-8 rounded-lg border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none focus:border-brand"
-              title="Reyting bo'yicha filter"
-            >
-              <option value="all">Barcha reyting</option>
-              <option value="normal">Normal</option>
-              <option value="adult">18+</option>
-            </select>
-          ) : null}
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Qidirish..."
-            className="h-8 flex-1 rounded-lg border border-line-strong bg-bg-base px-3 text-xs text-ink-primary outline-none focus:border-brand sm:w-48 sm:flex-none"
-          />
-          <button
-            onClick={() => void loadItems(selectedModel)}
-            disabled={loading}
-            className="grid h-8 w-8 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium text-ink-secondary disabled:opacity-50"
-            title="Refresh"
-            aria-label="Refresh"
-          >
-            {loading ? (
-              <span
-                className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
-                aria-hidden
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedModel === "cards" ? (
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="h-8 rounded-lg border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none focus:border-brand"
+                  title="Turi bo'yicha filter"
+                >
+                  <option value="">Barcha turlar</option>
+                  {cardTypeOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {selectedModel === "cards" ||
+              selectedModel === "disasters" ||
+              selectedModel === "situations" ? (
+                <select
+                  value={adultFilter}
+                  onChange={(e) =>
+                    setAdultFilter(e.target.value as "all" | "normal" | "adult")
+                  }
+                  className="h-8 rounded-lg border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none focus:border-brand"
+                  title="Reyting bo'yicha filter"
+                >
+                  <option value="all">Barcha reyting</option>
+                  <option value="normal">Normal</option>
+                  <option value="adult">18+</option>
+                </select>
+              ) : null}
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Qidirish..."
+                className="h-8 flex-1 rounded-lg border border-line-strong bg-bg-base px-3 text-xs text-ink-primary outline-none focus:border-brand sm:w-48 sm:flex-none"
               />
-            ) : (
-              "↻"
-            )}
-          </button>
-          {createFields.length ? (
-            <button
-              onClick={openCreate}
-              className="h-8 rounded-lg bg-brand px-3 text-xs font-semibold text-bg-base"
-            >
-              + Qo‘shish
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Notifications */}
-      {message ? (
-        <p className="rounded-lg border border-ok/40 bg-ok/10 px-3 py-1.5 text-xs text-ok">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-lg border border-bad/40 bg-bad/10 px-3 py-1.5 text-xs text-bad">
-          {error}
-        </p>
-      ) : null}
-
-      {/* Table */}
-      <div className="relative overflow-hidden rounded-xl border border-line-subtle bg-bg-surface">
-        {loading ? (
-          <div className="absolute left-0 right-0 top-0 z-10 h-0.5 overflow-hidden bg-line-subtle">
-            <div className="h-full w-1/3 animate-[loading_1.2s_ease-in-out_infinite] bg-brand" />
-          </div>
-        ) : null}
-        <div
-          className={`overflow-x-auto transition-opacity ${loading && pageItems.length ? "opacity-60" : ""}`}
-        >
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-line-subtle bg-bg-elevated/60">
-                {definition?.columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-ink-muted ${col.width ?? ""}`}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-                {(editFields.length || definition?.allowDelete) && (
-                  <th className="w-20 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                    {""}
-                  </th>
+              <button
+                onClick={() => void loadItems(selectedModel)}
+                disabled={loading}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium text-ink-secondary disabled:opacity-50"
+                title="Refresh"
+                aria-label="Refresh"
+              >
+                {loading ? (
+                  <span
+                    className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
+                    aria-hidden
+                  />
+                ) : (
+                  "↻"
                 )}
-              </tr>
-            </thead>
-            <tbody>
-              {pageItems.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={
-                      (definition?.columns.length ?? 0) +
-                      (editFields.length || definition?.allowDelete ? 1 : 0)
-                    }
-                    className="px-3 py-8 text-center text-xs text-ink-muted"
-                  >
-                    {loading ? (
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
-                          aria-hidden
-                        />
-                        Yuklanmoqda...
-                      </span>
-                    ) : search ? (
-                      "Hech narsa topilmadi."
-                    ) : (
-                      "Bo‘sh."
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                pageItems.map((item, index) => (
-                  <tr
-                    key={String(item.id ?? index)}
-                    className="border-b border-line-subtle/50 last:border-0 hover:bg-bg-elevated/30"
-                  >
-                    {definition?.columns.map((col) => {
-                      const value = col.render(item) || "—";
-                      return (
-                        <td
-                          key={col.key}
-                          className={`px-3 py-2 align-top text-ink-primary ${col.width ?? ""}`}
-                        >
-                          <div
-                            className="line-clamp-2 leading-5"
-                            title={value}
-                          >
-                            {value}
-                          </div>
-                        </td>
-                      );
-                    })}
-                    {(editFields.length || definition?.allowDelete) && (
-                      <td className="w-20 px-3 py-2 text-right">
-                        <div className="flex justify-end gap-1">
-                          {editFields.length && item.id ? (
-                            <button
-                              onClick={() => openEdit(item)}
-                              className="rounded-md border border-line-strong bg-bg-elevated px-2 py-1 text-[11px] font-medium text-ink-secondary hover:text-ink-primary"
-                            >
-                              Edit
-                            </button>
-                          ) : null}
-                          {definition?.allowDelete && item.id ? (
-                            <button
-                              onClick={() => setConfirmDelete(item)}
-                              className="rounded-md border border-bad/30 bg-bad/10 px-2 py-1 text-[11px] font-medium text-bad"
-                            >
-                              ×
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination footer */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-subtle bg-bg-elevated/40 px-3 py-2 text-xs">
-          <div className="flex items-center gap-2 text-ink-muted">
-            <span>Sahifada</span>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none"
-            >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            <span>
-              {filteredItems.length === 0
-                ? "0"
-                : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filteredItems.length)}`}
-              {" / "}
-              {filteredItems.length}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={safePage <= 1}
-              className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-ink-secondary disabled:opacity-40"
-            >
-              ←
-            </button>
-            <span className="px-2 text-ink-secondary">
-              {safePage} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={safePage >= totalPages}
-              className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-ink-secondary disabled:opacity-40"
-            >
-              →
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Create modal */}
-      {createOpen ? (
-        <FormModal
-          title={`${definition?.label ?? selectedModel} — yangi`}
-          onClose={() => !creating && setCreateOpen(false)}
-          onSubmit={createItem}
-          submitLabel="Qo‘shish"
-          loading={creating}
-        >
-          {createFields.map((field) => (
-            <FieldInput
-              key={field.key}
-              field={field}
-              value={createState[field.key]}
-              onChange={(value) =>
-                setCreateState((c) => ({ ...c, [field.key]: value }))
-              }
-              disabled={creating}
-            />
-          ))}
-        </FormModal>
-      ) : null}
-
-      {/* Edit modal */}
-      {editingItem ? (
-        <FormModal
-          title={`Tahrirlash`}
-          subtitle={`ID: ${String(editingItem.id ?? "")}`}
-          onClose={() => !updating && setEditingItem(null)}
-          onSubmit={updateItem}
-          submitLabel="Saqlash"
-          loading={updating}
-        >
-          {editFields.map((field) => (
-            <FieldInput
-              key={field.key}
-              field={field}
-              value={editState[field.key]}
-              onChange={(value) =>
-                setEditState((c) => ({ ...c, [field.key]: value }))
-              }
-              disabled={updating}
-            />
-          ))}
-        </FormModal>
-      ) : null}
-
-      {/* Delete confirm */}
-      {confirmDelete ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay backdrop-blur-sm px-4">
-          <div className="absolute inset-0" />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line-subtle bg-bg-surface p-5">
-            <h3 className="text-sm font-semibold text-ink-primary">
-              O‘chirish tasdiqlansinmi?
-            </h3>
-            <p className="mt-1 text-xs text-ink-muted">
-              ID: {String(confirmDelete.id)}
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => !deleting && setConfirmDelete(null)}
-                disabled={deleting}
-                className="h-9 flex-1 rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium disabled:opacity-50"
-              >
-                Bekor
               </button>
-              <button
-                onClick={() => void deleteItem(confirmDelete)}
-                disabled={deleting}
-                className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-bad text-xs font-semibold text-white disabled:opacity-60"
-              >
-                {deleting ? <Spinner /> : null}
-                {deleting ? "O‘chirilmoqda..." : "O‘chirish"}
-              </button>
+              {createFields.length ? (
+                <button
+                  onClick={openCreate}
+                  className="h-8 rounded-lg bg-brand px-3 text-xs font-semibold text-bg-base"
+                >
+                  + Qo‘shish
+                </button>
+              ) : null}
             </div>
           </div>
-        </div>
-      ) : null}
-      </>)}
+
+          {/* Notifications */}
+          {message ? (
+            <p className="rounded-lg border border-ok/40 bg-ok/10 px-3 py-1.5 text-xs text-ok">
+              {message}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="rounded-lg border border-bad/40 bg-bad/10 px-3 py-1.5 text-xs text-bad">
+              {error}
+            </p>
+          ) : null}
+
+          {/* Table */}
+          <div className="relative overflow-hidden rounded-xl border border-line-subtle bg-bg-surface">
+            {loading ? (
+              <div className="absolute left-0 right-0 top-0 z-10 h-0.5 overflow-hidden bg-line-subtle">
+                <div className="h-full w-1/3 animate-[loading_1.2s_ease-in-out_infinite] bg-brand" />
+              </div>
+            ) : null}
+            <div
+              className={`overflow-x-auto transition-opacity ${loading && pageItems.length ? "opacity-60" : ""}`}
+            >
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-line-subtle bg-bg-elevated/60">
+                    {definition?.columns.map((col) => (
+                      <th
+                        key={col.key}
+                        className={`px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-ink-muted ${col.width ?? ""}`}
+                      >
+                        {col.label}
+                      </th>
+                    ))}
+                    {(editFields.length || definition?.allowDelete) && (
+                      <th className="w-20 px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                        {""}
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageItems.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={
+                          (definition?.columns.length ?? 0) +
+                          (editFields.length || definition?.allowDelete ? 1 : 0)
+                        }
+                        className="px-3 py-8 text-center text-xs text-ink-muted"
+                      >
+                        {loading ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span
+                              className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent"
+                              aria-hidden
+                            />
+                            Yuklanmoqda...
+                          </span>
+                        ) : search ? (
+                          "Hech narsa topilmadi."
+                        ) : (
+                          "Bo‘sh."
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    pageItems.map((item, index) => (
+                      <tr
+                        key={String(item.id ?? index)}
+                        className="border-b border-line-subtle/50 last:border-0 hover:bg-bg-elevated/30"
+                      >
+                        {definition?.columns.map((col) => {
+                          const value = col.render(item) || "—";
+                          return (
+                            <td
+                              key={col.key}
+                              className={`px-3 py-2 align-top text-ink-primary ${col.width ?? ""}`}
+                            >
+                              <div
+                                className="line-clamp-2 leading-5"
+                                title={value}
+                              >
+                                {value}
+                              </div>
+                            </td>
+                          );
+                        })}
+                        {(editFields.length || definition?.allowDelete) && (
+                          <td className="w-20 px-3 py-2 text-right">
+                            <div className="flex justify-end gap-1">
+                              {editFields.length && item.id ? (
+                                <button
+                                  onClick={() => openEdit(item)}
+                                  className="rounded-md border border-line-strong bg-bg-elevated px-2 py-1 text-[11px] font-medium text-ink-secondary hover:text-ink-primary"
+                                >
+                                  Edit
+                                </button>
+                              ) : null}
+                              {definition?.allowDelete && item.id ? (
+                                <button
+                                  onClick={() => setConfirmDelete(item)}
+                                  className="rounded-md border border-bad/30 bg-bad/10 px-2 py-1 text-[11px] font-medium text-bad"
+                                >
+                                  ×
+                                </button>
+                              ) : null}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination footer */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-subtle bg-bg-elevated/40 px-3 py-2 text-xs">
+              <div className="flex items-center gap-2 text-ink-muted">
+                <span>Sahifada</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-xs text-ink-primary outline-none"
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <span>
+                  {filteredItems.length === 0
+                    ? "0"
+                    : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filteredItems.length)}`}
+                  {" / "}
+                  {filteredItems.length}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-ink-secondary disabled:opacity-40"
+                >
+                  ←
+                </button>
+                <span className="px-2 text-ink-secondary">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="h-7 rounded-md border border-line-strong bg-bg-base px-2 text-ink-secondary disabled:opacity-40"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Create modal */}
+          {createOpen ? (
+            <FormModal
+              title={`${definition?.label ?? selectedModel} — yangi`}
+              onClose={() => !creating && setCreateOpen(false)}
+              onSubmit={createItem}
+              submitLabel="Qo‘shish"
+              loading={creating}
+            >
+              {createFields.map((field) => (
+                <FieldInput
+                  key={field.key}
+                  field={field}
+                  value={createState[field.key]}
+                  onChange={(value) =>
+                    setCreateState((c) => ({ ...c, [field.key]: value }))
+                  }
+                  disabled={creating}
+                />
+              ))}
+            </FormModal>
+          ) : null}
+
+          {/* Edit modal */}
+          {editingItem ? (
+            <FormModal
+              title={`Tahrirlash`}
+              subtitle={`ID: ${String(editingItem.id ?? "")}`}
+              onClose={() => !updating && setEditingItem(null)}
+              onSubmit={updateItem}
+              submitLabel="Saqlash"
+              loading={updating}
+            >
+              {editFields.map((field) => (
+                <FieldInput
+                  key={field.key}
+                  field={field}
+                  value={editState[field.key]}
+                  onChange={(value) =>
+                    setEditState((c) => ({ ...c, [field.key]: value }))
+                  }
+                  disabled={updating}
+                />
+              ))}
+            </FormModal>
+          ) : null}
+
+          {/* Delete confirm */}
+          {confirmDelete ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay backdrop-blur-sm px-4">
+              <div className="absolute inset-0" />
+              <div className="relative z-10 w-full max-w-sm rounded-2xl border border-line-subtle bg-bg-surface p-5">
+                <h3 className="text-sm font-semibold text-ink-primary">
+                  O‘chirish tasdiqlansinmi?
+                </h3>
+                <p className="mt-1 text-xs text-ink-muted">
+                  ID: {String(confirmDelete.id)}
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => !deleting && setConfirmDelete(null)}
+                    disabled={deleting}
+                    className="h-9 flex-1 rounded-lg border border-line-strong bg-bg-elevated text-xs font-medium disabled:opacity-50"
+                  >
+                    Bekor
+                  </button>
+                  <button
+                    onClick={() => void deleteItem(confirmDelete)}
+                    disabled={deleting}
+                    className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-bad text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {deleting ? <Spinner /> : null}
+                    {deleting ? "O‘chirilmoqda..." : "O‘chirish"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
@@ -1033,7 +1112,7 @@ function StatCard({
   label,
   value,
   hint,
-  loading
+  loading,
 }: {
   label: string;
   value: number | string | undefined;
@@ -1062,7 +1141,7 @@ function FormModal({
   onSubmit,
   submitLabel,
   loading = false,
-  children
+  children,
 }: {
   title: string;
   subtitle?: string;
@@ -1134,7 +1213,7 @@ function FieldInput({
   field,
   value,
   onChange,
-  disabled = false
+  disabled = false,
 }: {
   field: FieldConfig;
   value: string | number | boolean | undefined;
@@ -1204,7 +1283,9 @@ function FieldInput({
         disabled={disabled}
         value={String(value ?? "")}
         onChange={(e) =>
-          onChange(field.type === "number" ? Number(e.target.value) : e.target.value)
+          onChange(
+            field.type === "number" ? Number(e.target.value) : e.target.value,
+          )
         }
         className={baseClass}
       />
@@ -1216,7 +1297,8 @@ function buildInitialState(fields: FieldConfig[]) {
   return fields.reduce<FormState>((acc, field) => {
     if (field.type === "checkbox") acc[field.key] = false;
     else if (field.type === "number") acc[field.key] = 0;
-    else if (field.type === "select") acc[field.key] = field.options?.[0]?.value ?? "";
+    else if (field.type === "select")
+      acc[field.key] = field.options?.[0]?.value ?? "";
     else acc[field.key] = "";
     return acc;
   }, {});
@@ -1225,7 +1307,8 @@ function buildInitialState(fields: FieldConfig[]) {
 function buildStateFromItem(fields: FieldConfig[], item: AdminItem) {
   return fields.reduce<FormState>((acc, field) => {
     if (field.type === "checkbox") acc[field.key] = Boolean(item[field.key]);
-    else if (field.type === "number") acc[field.key] = Number(item[field.key] ?? 0);
+    else if (field.type === "number")
+      acc[field.key] = Number(item[field.key] ?? 0);
     else acc[field.key] = String(item[field.key] ?? "");
     return acc;
   }, {});
@@ -1237,7 +1320,7 @@ function serializeState(fields: FieldConfig[], state: FormState) {
       acc[field.key] = state[field.key];
       return acc;
     },
-    {}
+    {},
   );
 }
 
@@ -1283,7 +1366,7 @@ function formatDate(value: unknown) {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
     });
   } catch {
     return "—";
@@ -1292,6 +1375,8 @@ function formatDate(value: unknown) {
 
 async function assertOk(response: Response) {
   if (response.ok) return response;
-  const payload = await response.json().catch(() => ({ message: "Xatolik yuz berdi." }));
+  const payload = await response
+    .json()
+    .catch(() => ({ message: "Xatolik yuz berdi." }));
   throw new Error(payload.message ?? "Xatolik yuz berdi.");
 }
