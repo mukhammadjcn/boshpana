@@ -9,8 +9,9 @@ import {
 } from "react";
 
 import { getAuthUser, setAuthUser, type AuthUser } from "@/lib/auth";
+import type { SupportedLanguage } from "@/lib/localized-content";
 
-export type AppLanguage = "uz" | "ru" | "en";
+export type AppLanguage = SupportedLanguage;
 
 type LocaleMessages = Record<string, string>;
 

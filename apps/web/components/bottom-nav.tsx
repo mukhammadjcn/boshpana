@@ -17,7 +17,7 @@ type Tab = {
 const TABS: Tab[] = [
   {
     href: "/dashboard" as Route,
-    label: "Bosh sahifa",
+    label: "bosh_sahifa",
     icon: (active) => (
       <svg
         width="22"
@@ -37,7 +37,7 @@ const TABS: Tab[] = [
   },
   {
     href: "/dashboard/games" as Route,
-    label: "O'yinlarim",
+    label: "oyinlarim",
     icon: (active) => (
       <svg
         width="22"
@@ -60,7 +60,7 @@ const TABS: Tab[] = [
   },
   {
     href: "/dashboard/profile" as Route,
-    label: "Profil",
+    label: "profil",
     icon: (active) => (
       <svg
         width="22"

@@ -1,6 +1,6 @@
 import { BunkerCardType, BunkerDifficulty, PrismaClient } from "@prisma/client";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+
+import { seedContent, type SeedContent } from "./seed-content";
 
 const prisma = new PrismaClient();
 
@@ -13,50 +13,8 @@ const cardTypeMap: Record<string, BunkerCardType> = {
   fakt: BunkerCardType.FACT
 };
 
-type SeedContent = {
-  cards: Record<string, string[]>;
-  disasters: Array<{ name: string; description: string }>;
-  situations: Array<{ text: string; difficulty?: BunkerDifficulty }>;
-};
-
 function loadSeedContent(): SeedContent {
-  const candidates = [
-    resolve(process.cwd(), "../../data.md"),
-    resolve(process.cwd(), "data.md")
-  ];
-
-  const filePath = candidates.find((candidate) => existsSync(candidate));
-
-  if (!filePath) {
-    throw new Error("data.md topilmadi. Seed uchun loyiha root'idagi fayl kerak.");
-  }
-
-  const raw = readFileSync(filePath, "utf8");
-  const blocks = raw
-    .split(/\n\s*\n(?=\{)/)
-    .map((block) => block.trim())
-    .filter(Boolean)
-    .map((block) => JSON.parse(block) as Record<string, unknown>);
-
-  const cardBlock = blocks.find((block) => "cards" in block) as
-    | { cards: Record<string, string[]> }
-    | undefined;
-  const disasterBlock = blocks.find((block) => "disasters" in block) as
-    | { disasters: Array<{ name: string; description: string }> }
-    | undefined;
-  const situationBlock = blocks.find((block) => "situations" in block) as
-    | { situations: Array<{ text: string; difficulty?: BunkerDifficulty }> }
-    | undefined;
-
-  if (!cardBlock || !disasterBlock || !situationBlock) {
-    throw new Error("data.md ichidagi cards, disasters va situations bloklari topilmadi.");
-  }
-
-  return {
-    cards: cardBlock.cards,
-    disasters: disasterBlock.disasters,
-    situations: situationBlock.situations
-  };
+  return seedContent;
 }
 
 async function main() {
@@ -68,15 +26,19 @@ async function main() {
       return [];
     }
 
-    return values.map((text) => ({
+    return values.map((item) => ({
       type,
-      text
+      text: item.uz,
+      textRu: item.ru,
+      textEn: item.en,
+      isAdult: item.isAdult ?? false
     }));
   });
 
-  // Idempotent bootstrap: only seed tables that are currently empty so
-  // manual DB edits (e.g. card text tweaks) survive container restarts.
-  // Set SEED_RESET=1 to force a clean re-seed from data.md.
+  // Idempotent bootstrap:
+  //   - canonical Uzbek fields remain the source of truth
+  //   - ru/en fields are backfilled without clobbering manual uz edits
+  // Set SEED_RESET=1 to force a clean re-seed from the bundled seed content.
   const force = process.env.SEED_RESET === "1";
 
   const [cardCount, disasterCount, situationCount] = await Promise.all([
@@ -85,28 +47,86 @@ async function main() {
     prisma.bunkerSituation.count()
   ]);
 
-  if (force || cardCount === 0) {
-    if (force) await prisma.bunkerCard.deleteMany();
-    await prisma.bunkerCard.createMany({ data: cards, skipDuplicates: true });
+  if (force) {
+    await prisma.bunkerCard.deleteMany();
+    await prisma.bunkerDisaster.deleteMany();
+    await prisma.bunkerSituation.deleteMany();
   }
+
+  if (force || cardCount === 0) {
+    await prisma.bunkerCard.createMany({ data: cards, skipDuplicates: true });
+  } else {
+    for (const card of cards) {
+      await prisma.bunkerCard.upsert({
+        where: {
+          type_text: {
+            type: card.type,
+            text: card.text
+          }
+        },
+        update: {
+          textRu: card.textRu,
+          textEn: card.textEn
+        },
+        create: card
+      });
+    }
+  }
+
+  const disasters = content.disasters.map((item) => ({
+    name: item.name.uz,
+    nameRu: item.name.ru,
+    nameEn: item.name.en,
+    description: item.description.uz,
+    descriptionRu: item.description.ru,
+    descriptionEn: item.description.en,
+    isAdult: item.isAdult ?? false
+  }));
 
   if (force || disasterCount === 0) {
-    if (force) await prisma.bunkerDisaster.deleteMany();
     await prisma.bunkerDisaster.createMany({
-      data: content.disasters,
+      data: disasters,
       skipDuplicates: true
     });
+  } else {
+    for (const disaster of disasters) {
+      await prisma.bunkerDisaster.upsert({
+        where: { name: disaster.name },
+        update: {
+          nameRu: disaster.nameRu,
+          nameEn: disaster.nameEn,
+          descriptionRu: disaster.descriptionRu,
+          descriptionEn: disaster.descriptionEn
+        },
+        create: disaster
+      });
+    }
   }
 
+  const situations = content.situations.map((situation) => ({
+    text: situation.text.uz,
+    textRu: situation.text.ru,
+    textEn: situation.text.en,
+    difficulty: situation.difficulty ?? BunkerDifficulty.MEDIUM,
+    isAdult: situation.isAdult ?? false
+  }));
+
   if (force || situationCount === 0) {
-    if (force) await prisma.bunkerSituation.deleteMany();
     await prisma.bunkerSituation.createMany({
-      data: content.situations.map((situation) => ({
-        text: situation.text,
-        difficulty: situation.difficulty ?? BunkerDifficulty.MEDIUM
-      })),
+      data: situations,
       skipDuplicates: true
     });
+  } else {
+    for (const situation of situations) {
+      await prisma.bunkerSituation.upsert({
+        where: { text: situation.text },
+        update: {
+          textRu: situation.textRu,
+          textEn: situation.textEn
+        },
+        create: situation
+      });
+    }
   }
 }
 

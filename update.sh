@@ -53,6 +53,9 @@ docker compose -f "$COMPOSE_FILE" build
 
 echo "→ Restarting containers (DB volume preserved)..."
 docker compose -f "$COMPOSE_FILE" up -d
+# NOTE: seed endi avtomatik ishlamaydi — faqat birinchi deploy'dan keyin
+# yoki yangi base kontent qo'shganda qo'lda ishlatish:
+#   docker exec bunker-api yarn prisma:seed
 
 echo "→ Pruning dangling images..."
 docker image prune -f >/dev/null

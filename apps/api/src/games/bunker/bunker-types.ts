@@ -1,5 +1,7 @@
 import { BunkerCardType, BunkerDifficulty, BunkerPhase, RoomStatus } from "@prisma/client";
 
+import type { LocalizedText } from "../../lib/localized-content";
+
 export const CARD_TYPES = [
   BunkerCardType.PROFESSION,
   BunkerCardType.HEALTH,
@@ -29,11 +31,13 @@ export type BunkerPublicState = {
     lastEliminatedPlayerId: string | null;
     tiebreakCandidateIds: string[];
     disaster: {
-      name: string;
-      description: string;
+      id: string;
+      name: LocalizedText;
+      description: LocalizedText;
     } | null;
     situation: {
-      text: string;
+      id: string;
+      text: LocalizedText;
       difficulty: BunkerDifficulty;
     } | null;
   };
@@ -43,7 +47,7 @@ export type BunkerPublicState = {
     isHost: boolean;
     isAlive: boolean;
     sessionId: string;
-    cards: Record<string, string>;
+    cards: Record<string, LocalizedText>;
     revealed: BunkerCardType[];
   } | null;
   players: Array<{
@@ -53,8 +57,8 @@ export type BunkerPublicState = {
     isAlive: boolean;
     online: boolean;
     seatOrder: number;
-    visibleCards: Partial<Record<string, string>>;
-    revealedCards: Partial<Record<string, string>>;
+    visibleCards: Partial<Record<string, LocalizedText>>;
+    revealedCards: Partial<Record<string, LocalizedText>>;
     revealedCount: number;
   }>;
   votes: {

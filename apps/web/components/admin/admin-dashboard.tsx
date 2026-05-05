@@ -69,12 +69,19 @@ function buildDifficultyOptions() {
 const cardTypeOptions = buildCardTypeOptions();
 const difficultyOptions = buildDifficultyOptions();
 
+function formatLocalizedField(item: AdminItem, key: string) {
+  const uz = String(item[key] ?? "—");
+  const ru = String(item[`${key}Ru`] ?? "—");
+  const en = String(item[`${key}En`] ?? "—");
+  return `UZ: ${uz} | RU: ${ru} | EN: ${en}`;
+}
+
 function buildModelDefinitions(): Record<string, ModelDefinition> {
   return {
     cards: {
       label: "Kartalar",
       description: "Bunker o'yinidagi barcha kartalar",
-      searchKeys: ["text", "type"],
+      searchKeys: ["text", "textRu", "textEn", "type"],
       createFields: [
         {
           key: "type",
@@ -83,7 +90,9 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
           required: true,
           options: cardTypeOptions,
         },
-        { key: "text", label: "Matn", type: "textarea", required: true },
+        { key: "text", label: "Matn (UZ)", type: "textarea", required: true },
+        { key: "textRu", label: "Matn (RU)", type: "textarea", required: true },
+        { key: "textEn", label: "Matn (EN)", type: "textarea", required: true },
         { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       editFields: [
@@ -94,7 +103,9 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
           required: true,
           options: cardTypeOptions,
         },
-        { key: "text", label: "Matn", type: "textarea", required: true },
+        { key: "text", label: "Matn (UZ)", type: "textarea", required: true },
+        { key: "textRu", label: "Matn (RU)", type: "textarea", required: true },
+        { key: "textEn", label: "Matn (EN)", type: "textarea", required: true },
         { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       allowDelete: true,
@@ -106,33 +117,72 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
           render: (i) => formatCardType(i.type),
         },
         {
+          key: "text",
+          label: "Matnlar",
+          render: (i) => formatLocalizedField(i, "text"),
+        },
+        {
           key: "isAdult",
           label: "Reyting",
           width: "w-20",
           render: (i) => (i.isAdult ? "18+" : "Normal"),
         },
-        { key: "text", label: "Matn", render: (i) => String(i.text ?? "") },
       ],
     },
     disasters: {
       label: "Falokatlar",
       description: "Bunker o'yinidagi falokat stsenariylari",
-      searchKeys: ["name", "description"],
+      searchKeys: [
+        "name",
+        "nameRu",
+        "nameEn",
+        "description",
+        "descriptionRu",
+        "descriptionEn",
+      ],
       createFields: [
-        { key: "name", label: "Nomi", type: "text", required: true },
+        { key: "name", label: "Nomi (UZ)", type: "text", required: true },
+        { key: "nameRu", label: "Nomi (RU)", type: "text", required: true },
+        { key: "nameEn", label: "Nomi (EN)", type: "text", required: true },
         {
           key: "description",
-          label: "Tavsif",
+          label: "Tavsif (UZ)",
+          type: "textarea",
+          required: true,
+        },
+        {
+          key: "descriptionRu",
+          label: "Tavsif (RU)",
+          type: "textarea",
+          required: true,
+        },
+        {
+          key: "descriptionEn",
+          label: "Tavsif (EN)",
           type: "textarea",
           required: true,
         },
         { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       editFields: [
-        { key: "name", label: "Nomi", type: "text", required: true },
+        { key: "name", label: "Nomi (UZ)", type: "text", required: true },
+        { key: "nameRu", label: "Nomi (RU)", type: "text", required: true },
+        { key: "nameEn", label: "Nomi (EN)", type: "text", required: true },
         {
           key: "description",
-          label: "Tavsif",
+          label: "Tavsif (UZ)",
+          type: "textarea",
+          required: true,
+        },
+        {
+          key: "descriptionRu",
+          label: "Tavsif (RU)",
+          type: "textarea",
+          required: true,
+        },
+        {
+          key: "descriptionEn",
+          label: "Tavsif (EN)",
           type: "textarea",
           required: true,
         },
@@ -142,9 +192,9 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
       columns: [
         {
           key: "name",
-          label: "Nomi",
+          label: "Nomlar",
           width: "w-48",
-          render: (i) => String(i.name ?? ""),
+          render: (i) => formatLocalizedField(i, "name"),
         },
         {
           key: "isAdult",
@@ -154,17 +204,19 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
         },
         {
           key: "description",
-          label: "Tavsif",
-          render: (i) => String(i.description ?? ""),
+          label: "Tavsiflar",
+          render: (i) => formatLocalizedField(i, "description"),
         },
       ],
     },
     situations: {
       label: "Vaziyatlar",
       description: "Bunker o'yinidagi vaziyat kartalari",
-      searchKeys: ["text", "difficulty"],
+      searchKeys: ["text", "textRu", "textEn", "difficulty"],
       createFields: [
-        { key: "text", label: "Matn", type: "textarea", required: true },
+        { key: "text", label: "Matn (UZ)", type: "textarea", required: true },
+        { key: "textRu", label: "Matn (RU)", type: "textarea", required: true },
+        { key: "textEn", label: "Matn (EN)", type: "textarea", required: true },
         {
           key: "difficulty",
           label: "Daraja",
@@ -175,7 +227,9 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
         { key: "isAdult", label: "18+ kontent", type: "checkbox" },
       ],
       editFields: [
-        { key: "text", label: "Matn", type: "textarea", required: true },
+        { key: "text", label: "Matn (UZ)", type: "textarea", required: true },
+        { key: "textRu", label: "Matn (RU)", type: "textarea", required: true },
+        { key: "textEn", label: "Matn (EN)", type: "textarea", required: true },
         {
           key: "difficulty",
           label: "Daraja",
@@ -194,12 +248,16 @@ function buildModelDefinitions(): Record<string, ModelDefinition> {
           render: (i) => formatDifficulty(i.difficulty),
         },
         {
+          key: "text",
+          label: "Matnlar",
+          render: (i) => formatLocalizedField(i, "text"),
+        },
+        {
           key: "isAdult",
           label: "Reyting",
           width: "w-20",
           render: (i) => (i.isAdult ? "18+" : "Normal"),
         },
-        { key: "text", label: "Matn", render: (i) => String(i.text ?? "") },
       ],
     },
     users: {

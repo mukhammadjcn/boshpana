@@ -203,6 +203,8 @@ model BunkerCard {
   id        String   @id @default(cuid())
   type      BunkerCardType
   text      String
+  textRu    String?
+  textEn    String?
   isAdult   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -214,7 +216,11 @@ model BunkerCard {
 model BunkerDisaster {
   id          String   @id @default(cuid())
   name        String   @unique
+  nameRu      String?
+  nameEn      String?
   description String
+  descriptionRu String?
+  descriptionEn String?
   isAdult     Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -224,6 +230,8 @@ model BunkerDisaster {
 model BunkerSituation {
   id         String     @id @default(cuid())
   text       String     @unique
+  textRu     String?
+  textEn     String?
   difficulty BunkerDifficulty @default(MEDIUM)
   isAdult    Boolean    @default(false)
   createdAt  DateTime   @default(now())

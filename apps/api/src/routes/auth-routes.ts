@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 
 import { env } from "../lib/env";
+import { buildLocalizedText, isLocalizedText } from "../lib/localized-content";
 import { prisma } from "../lib/prisma";
 import {
   AuthError,
@@ -289,7 +290,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
               p.room.gameType === "MAFIA"
                 ? (p.room.mafiaGame?.phase ?? "LOBBY")
                 : (p.room.bunkerGame?.phase ?? "LOBBY"),
-            disasterName: p.room.bunkerGame?.disaster?.name ?? null
+            disasterName: p.room.bunkerGame?.disaster
+              ? buildLocalizedText(
+                  p.room.bunkerGame.disaster.name,
+                  p.room.bunkerGame.disaster.nameRu,
+                  p.room.bunkerGame.disaster.nameEn
+                )
+              : null
           }
         }))
       });
@@ -371,14 +378,18 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return reply.send({
         items: items.map((row) => {
           const meta = (row.metadata ?? null) as Record<string, unknown> | null;
+          const localizedDisasterName = meta?.disasterNameI18n;
+          const legacyDisasterName = meta?.disasterName;
           return {
             id: row.id,
             gameType: row.gameType,
             playedAt: row.playedAt.toISOString(),
             disasterName:
-              meta && typeof meta.disasterName === "string"
-                ? (meta.disasterName as string)
-                : null,
+              isLocalizedText(localizedDisasterName)
+                ? localizedDisasterName
+                : typeof legacyDisasterName === "string"
+                  ? buildLocalizedText(legacyDisasterName)
+                  : null,
             outcome: row.outcome,
             roomCode: row.roomCode,
             playerCount: row.playerCount

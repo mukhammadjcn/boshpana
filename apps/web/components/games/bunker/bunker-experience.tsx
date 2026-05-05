@@ -17,6 +17,11 @@ import { LobbyShareActions } from "@/components/lobby-share-actions";
 import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { useI18n } from "@/lib/i18n";
+import {
+  getLocalizedText,
+  type LocalizedText,
+  type SupportedLanguage
+} from "@/lib/localized-content";
 import { HostControls } from "./bunker-host-controls";
 import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
@@ -86,9 +91,18 @@ type Announcement = {
   description: string;
 };
 
+function localizeCardMap(
+  cards: Partial<Record<string, LocalizedText>>,
+  language: SupportedLanguage
+): Partial<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(cards).map(([key, value]) => [key, getLocalizedText(value, language)])
+  );
+}
+
 export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const [sessionId, setSessionId] = useState("");
   const [joinName, setJoinName] = useState("");
   // Initialize loading=false if zustand store already has fresh state for this
@@ -135,7 +149,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const seenSelfEliminationRef = useRef<Set<string>>(new Set());
   const seenWinnerModalRef = useRef<Set<string>>(new Set());
   const seenCancelledModalRef = useRef<Set<string>>(new Set());
-  const playersRef = useRef<BunkerRoomState["players"]>([]);
+  const playersRef = useRef<
+    Array<
+      Omit<BunkerRoomState["players"][number], "visibleCards" | "revealedCards"> & {
+        visibleCards: Partial<Record<string, string>>;
+        revealedCards: Partial<Record<string, string>>;
+      }
+    >
+  >([]);
 
   const bottomBarRef = useRef<HTMLDivElement | null>(null);
   const bottomBarObserverRef = useRef<ResizeObserver | null>(null);
@@ -349,7 +370,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     const situation = roomState.game.situation;
     if (!situation || roomState.game.roundNumber < 1) return;
 
-    const key = `${roomCode}-${roomState.game.roundNumber}-${situation.text}`;
+    const key = `${roomCode}-${roomState.game.roundNumber}-${situation.id}`;
     if (seenSituationKeysRef.current.has(key)) return;
 
     seenSituationKeysRef.current.add(key);
@@ -378,8 +399,12 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   // Keep latest players in a ref so announcement effects can read names
   // without re-running on every socket update.
   useEffect(() => {
-    playersRef.current = roomState?.players ?? [];
-  }, [roomState?.players]);
+    playersRef.current = (roomState?.players ?? []).map((player) => ({
+      ...player,
+      visibleCards: localizeCardMap(player.visibleCards, language),
+      revealedCards: localizeCardMap(player.revealedCards, language)
+    }));
+  }, [language, roomState?.players]);
 
   // Reveal announcement — opens a centred modal showing the player's
   // freshly revealed card (highlighted) alongside their previously-shown
@@ -560,7 +585,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const situationKey = useMemo(() => {
     const s = roomState?.game.situation;
     if (!s || (roomState?.game.roundNumber ?? 0) < 1) return null;
-    return `${roomCode}-${roomState?.game.roundNumber}-${s.text}`;
+    return `${roomCode}-${roomState?.game.roundNumber}-${s.id}`;
   }, [roomCode, roomState?.game.roundNumber, roomState?.game.situation]);
 
   const { audioEnabled, toggleAudio } = useGameAudio({
@@ -617,20 +642,38 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     room.status !== "FINISHED" &&
     room.status !== "CANCELLED";
   const players = roomState?.players ?? [];
+  const localizedPlayers = useMemo(
+    () =>
+      players.map((player) => ({
+        ...player,
+        visibleCards: localizeCardMap(player.visibleCards, language),
+        revealedCards: localizeCardMap(player.revealedCards, language)
+      })),
+    [language, players]
+  );
   const alivePlayers = players.filter((p) => p.isAlive);
   const currentTurnPlayer = players.find(
     (p) => p.id === game?.currentTurnPlayerId
   );
+  const localizedDisasterName = game?.disaster
+    ? getLocalizedText(game.disaster.name, language)
+    : "";
+  const localizedDisasterDescription = game?.disaster
+    ? getLocalizedText(game.disaster.description, language)
+    : "";
+  const localizedSituationText = game?.situation
+    ? getLocalizedText(game.situation.text, language)
+    : "";
 
   const myCards = useMemo(() => {
     if (!me) return [];
     return cardOrder.map((type) => ({
       type,
       label: t(cardLabels[type]),
-      value: me.cards[type],
+      value: getLocalizedText(me.cards[type], language),
       isRevealed: me.revealed.includes(type)
     }));
-  }, [me, t]);
+  }, [language, me, t]);
   const myVisibleCards = useMemo(
     () =>
       Object.fromEntries(
@@ -642,10 +685,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   );
   const isFinished = roomState?.room.status === "FINISHED";
   const displayPlayers = useMemo(() => {
-    if (!me) return players;
-    const selfPlayer = players.find((p) => p.id === me.id);
-    const others = players.filter((p) => p.id !== me.id);
-    if (!selfPlayer) return players;
+    if (!me) return localizedPlayers;
+    const selfPlayer = localizedPlayers.find((p) => p.id === me.id);
+    const others = localizedPlayers.filter((p) => p.id !== me.id);
+    if (!selfPlayer) return localizedPlayers;
     return [
       {
         ...selfPlayer,
@@ -653,7 +696,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       },
       ...others
     ];
-  }, [isFinished, me, myVisibleCards, players]);
+  }, [isFinished, localizedPlayers, me, myVisibleCards]);
 
   const revealOptions = useMemo(
     () =>
@@ -1113,7 +1156,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         {/* Disaster + situation summary */}
         {game.disaster || game.situation ? (
           <div
-            key={`${game.roundNumber}-${game.situation?.text ?? "intro"}`}
+            key={`${game.roundNumber}-${game.situation?.id ?? "intro"}`}
             className="animate-fade-in rounded-2xl border border-line-subtle bg-bg-surface"
           >
             {game.disaster ? (
@@ -1125,9 +1168,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
                   {t("fojea")}
                 </p>
-                <p className="mt-0.5 text-base font-semibold">
-                  {game.disaster.name}
-                </p>
+                <p className="mt-0.5 text-base font-semibold">{localizedDisasterName}</p>
               </button>
             ) : null}
 
@@ -1146,9 +1187,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                     roundNumber: game.roundNumber
                   })}
                 </p>
-                <p className="mt-1 text-sm leading-6 text-ink-primary">
-                  {game.situation.text}
-                </p>
+                <p className="mt-1 text-sm leading-6 text-ink-primary">{localizedSituationText}</p>
               </button>
             ) : null}
           </div>
@@ -1366,14 +1405,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           <div className="absolute inset-0" />
           <div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-line-subtle bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border">
             <div className="mx-auto mt-3 mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
-            {disasterImage[game.disaster.name] ? (
+            {disasterImage[game.disaster.name.uz] ? (
               // Banner image — sits flush to the modal edges so the
               // imagery feels cinematic. Bottom gradient ensures the
               // "Fojea" pill stays legible against bright artwork.
               <div className="relative aspect-[16/10] w-full overflow-hidden">
                 <Image
-                  src={disasterImage[game.disaster.name]}
-                  alt={game.disaster.name}
+                  src={disasterImage[game.disaster.name.uz]}
+                  alt={localizedDisasterName}
                   fill
                   sizes="(max-width: 640px) 100vw, 448px"
                   className="object-cover"
@@ -1386,10 +1425,8 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               <p className="text-xs font-medium uppercase tracking-wider text-brand">
                 {t("fojea")}
               </p>
-              <h2 className="mt-1 text-2xl font-bold">{game.disaster.name}</h2>
-              <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                {game.disaster.description}
-              </p>
+              <h2 className="mt-1 text-2xl font-bold">{localizedDisasterName}</h2>
+              <p className="mt-3 text-sm leading-7 text-ink-secondary">{localizedDisasterDescription}</p>
               <div className="mt-5 grid gap-2">
                 <button
                   onClick={() => setIntroOpen(false)}
@@ -1422,9 +1459,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 roundNumber: game.roundNumber
               })}
             </p>
-            <p className="mt-3 text-base leading-7 text-ink-primary">
-              {game.situation.text}
-            </p>
+            <p className="mt-3 text-base leading-7 text-ink-primary">{localizedSituationText}</p>
             <button
               onClick={closeSituation}
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
@@ -1474,7 +1509,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <VotePanel
           canVote={canVote}
           hasVoted={roomState.votes.submittedByMe}
-          players={players.map((p) => ({
+          players={localizedPlayers.map((p) => ({
             id: p.id,
             name: p.name,
             isAlive: p.isAlive,

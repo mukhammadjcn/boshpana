@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 import { randomBytes, randomInt } from "node:crypto";
 
+import { buildLocalizedText, type LocalizedText } from "../../lib/localized-content";
 import { prisma } from "../../lib/prisma";
 import { CARD_TYPES, BunkerPublicState } from "./bunker-types";
 
@@ -70,6 +71,8 @@ type RoomWithState = Prisma.RoomGetPayload<{
     bunkerVotes: true;
   };
 }>;
+
+type CardTranslationMap = Map<string, LocalizedText>;
 
 const noopRealtime: RealtimePublisher = {
   broadcastRoomState: async () => undefined,
@@ -274,7 +277,8 @@ export class BunkerGameService {
       throw new Error("Room state topilmadi.");
     }
 
-    return this.buildRoomState(room, sessionId);
+    const cardTranslations = await this.loadCardTranslations();
+    return this.buildRoomState(room, sessionId, cardTranslations);
   }
 
   // Pre-loaded version: assumes the caller already fetched the room with
@@ -289,15 +293,18 @@ export class BunkerGameService {
     if (!room || !room.bunkerGame) {
       throw new Error("Room state topilmadi.");
     }
+    const cardTranslations = await this.loadCardTranslations();
     return {
       room,
-      perSession: (sessionId: string) => this.buildRoomState(room, sessionId)
+      perSession: (sessionId: string) =>
+        this.buildRoomState(room, sessionId, cardTranslations)
     };
   }
 
   private buildRoomState(
     room: NonNullable<Awaited<ReturnType<BunkerGameService["getRoomWithState"]>>>,
-    sessionId: string
+    sessionId: string,
+    cardTranslations: CardTranslationMap
   ): BunkerPublicState {
     if (!room.bunkerGame) {
       throw new Error("Room state topilmadi.");
@@ -327,13 +334,27 @@ export class BunkerGameService {
         tiebreakCandidateIds: room.bunkerGame.tiebreakCandidateIds,
         disaster: room.bunkerGame.disaster
           ? {
-              name: room.bunkerGame.disaster.name,
-              description: room.bunkerGame.disaster.description
+              id: room.bunkerGame.disaster.id,
+              name: buildLocalizedText(
+                room.bunkerGame.disaster.name,
+                room.bunkerGame.disaster.nameRu,
+                room.bunkerGame.disaster.nameEn
+              ),
+              description: buildLocalizedText(
+                room.bunkerGame.disaster.description,
+                room.bunkerGame.disaster.descriptionRu,
+                room.bunkerGame.disaster.descriptionEn
+              )
             }
           : null,
         situation: room.bunkerGame.currentSituation
           ? {
-              text: room.bunkerGame.currentSituation.text,
+              id: room.bunkerGame.currentSituation.id,
+              text: buildLocalizedText(
+                room.bunkerGame.currentSituation.text,
+                room.bunkerGame.currentSituation.textRu,
+                room.bunkerGame.currentSituation.textEn
+              ),
               difficulty: room.bunkerGame.currentSituation.difficulty
             }
           : null
@@ -345,7 +366,7 @@ export class BunkerGameService {
             isHost: me.isHost,
             isAlive: me.isAlive,
             sessionId: me.sessionId,
-            cards: this.extractCards(me.bunkerAttributes),
+            cards: this.extractCards(me.bunkerAttributes, cardTranslations),
             revealed: me.bunkerAttributes?.revealed ?? []
           }
         : null,
@@ -366,9 +387,12 @@ export class BunkerGameService {
           online: isOnline,
           seatOrder: player.seatOrder,
           visibleCards: showAll
-            ? this.extractCards(player.bunkerAttributes)
-            : this.extractRevealedCards(player.bunkerAttributes),
-          revealedCards: this.extractRevealedCards(player.bunkerAttributes),
+            ? this.extractCards(player.bunkerAttributes, cardTranslations)
+            : this.extractRevealedCards(player.bunkerAttributes, cardTranslations),
+          revealedCards: this.extractRevealedCards(
+            player.bunkerAttributes,
+            cardTranslations
+          ),
           revealedCount: player.bunkerAttributes?.revealed.length ?? 0
         };
       }),
@@ -777,7 +801,7 @@ export class BunkerGameService {
             )
           : null;
 
-      const disasterName = room.bunkerGame?.disaster?.name ?? null;
+      const disaster = room.bunkerGame?.disaster;
       await prisma.gameHistory.create({
         data: {
           userId: room.hostUserId,
@@ -789,7 +813,16 @@ export class BunkerGameService {
           outcome,
           roomCode: room.code,
           playerCount: room.players.length,
-          metadata: disasterName ? { disasterName } : Prisma.JsonNull
+          metadata: disaster
+            ? {
+                disasterName: disaster.name,
+                disasterNameI18n: buildLocalizedText(
+                  disaster.name,
+                  disaster.nameRu,
+                  disaster.nameEn
+                )
+              }
+            : Prisma.JsonNull
         }
       });
     } catch (error) {
@@ -1315,6 +1348,24 @@ export class BunkerGameService {
     });
   }
 
+  private async loadCardTranslations(): Promise<CardTranslationMap> {
+    const cards = await prisma.bunkerCard.findMany({
+      select: {
+        type: true,
+        text: true,
+        textRu: true,
+        textEn: true
+      }
+    });
+
+    return new Map(
+      cards.map((card) => [
+        this.cardTranslationKey(card.type, card.text),
+        buildLocalizedText(card.text, card.textRu, card.textEn)
+      ])
+    );
+  }
+
   private async pickSituation(excludeId: string | undefined, isAdult: boolean) {
     const where: { id?: { not: string }; isAdult?: false } = {};
     if (excludeId) where.id = { not: excludeId };
@@ -1573,19 +1624,44 @@ export class BunkerGameService {
     bunkerAttributes:
       | Prisma.BunkerPlayerAttributeGetPayload<Record<string, never>>
       | null
-      | undefined
-  ): Record<string, string> {
+      | undefined,
+    cardTranslations: CardTranslationMap
+  ): Record<string, LocalizedText> {
     if (!bunkerAttributes) {
       return {};
     }
 
     return {
-      [BunkerCardType.PROFESSION]: bunkerAttributes.profession,
-      [BunkerCardType.HEALTH]: bunkerAttributes.health,
-      [BunkerCardType.CHARACTER]: bunkerAttributes.character,
-      [BunkerCardType.SKILL]: bunkerAttributes.skill,
-      [BunkerCardType.BAGGAGE]: bunkerAttributes.baggage,
-      [BunkerCardType.FACT]: bunkerAttributes.fact
+      [BunkerCardType.PROFESSION]: this.localizeCardValue(
+        BunkerCardType.PROFESSION,
+        bunkerAttributes.profession,
+        cardTranslations
+      ),
+      [BunkerCardType.HEALTH]: this.localizeCardValue(
+        BunkerCardType.HEALTH,
+        bunkerAttributes.health,
+        cardTranslations
+      ),
+      [BunkerCardType.CHARACTER]: this.localizeCardValue(
+        BunkerCardType.CHARACTER,
+        bunkerAttributes.character,
+        cardTranslations
+      ),
+      [BunkerCardType.SKILL]: this.localizeCardValue(
+        BunkerCardType.SKILL,
+        bunkerAttributes.skill,
+        cardTranslations
+      ),
+      [BunkerCardType.BAGGAGE]: this.localizeCardValue(
+        BunkerCardType.BAGGAGE,
+        bunkerAttributes.baggage,
+        cardTranslations
+      ),
+      [BunkerCardType.FACT]: this.localizeCardValue(
+        BunkerCardType.FACT,
+        bunkerAttributes.fact,
+        cardTranslations
+      )
     };
   }
 
@@ -1593,12 +1669,28 @@ export class BunkerGameService {
     bunkerAttributes:
       | Prisma.BunkerPlayerAttributeGetPayload<Record<string, never>>
       | null
-      | undefined
+      | undefined,
+    cardTranslations: CardTranslationMap
   ) {
-    const cards = this.extractCards(bunkerAttributes);
+    const cards = this.extractCards(bunkerAttributes, cardTranslations);
     const revealed = bunkerAttributes?.revealed ?? [];
 
     return Object.fromEntries(revealed.map((type) => [type, cards[type]]));
+  }
+
+  private cardTranslationKey(type: BunkerCardType, text: string) {
+    return `${type}:${text}`;
+  }
+
+  private localizeCardValue(
+    type: BunkerCardType,
+    text: string,
+    cardTranslations: CardTranslationMap
+  ): LocalizedText {
+    return (
+      cardTranslations.get(this.cardTranslationKey(type, text)) ??
+      buildLocalizedText(text)
+    );
   }
 
   private getRemainingSeconds(timerEndsAt: Date | null) {

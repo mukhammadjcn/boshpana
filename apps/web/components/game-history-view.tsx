@@ -6,13 +6,14 @@ import { BottomNav } from "@/components/bottom-nav";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { getLocalizedText, type LocalizedText } from "@/lib/localized-content";
 
 type Outcome = "HOSTED" | "WON" | "ELIMINATED" | "PLAYED" | "CANCELLED";
 
 type HistoryItem = {
   id: string;
   playedAt: string;
-  disasterName: string | null;
+  disasterName: LocalizedText | null;
   outcome: Outcome;
   roomCode: string | null;
   playerCount: number | null;
@@ -158,7 +159,9 @@ export function GameHistoryView() {
             {items.map((it) => {
               const isCancelled = it.outcome === "CANCELLED";
               const title =
-                it.disasterName ??
+                (it.disasterName
+                  ? getLocalizedText(it.disasterName, language)
+                  : null) ??
                 (isCancelled
                   ? t("oyin_yaratilmagan")
                   : t("falokat_noma_lum"));

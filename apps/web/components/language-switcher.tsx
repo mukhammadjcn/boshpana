@@ -11,10 +11,10 @@ import {
 } from "@/lib/auth";
 import { type AppLanguage, useI18n } from "@/lib/i18n";
 
-const LANGUAGE_OPTIONS: Array<{ value: AppLanguage; label: string }> = [
-  { value: "uz", label: "UZ" },
-  { value: "ru", label: "RU" },
-  { value: "en", label: "EN" },
+const LANGUAGE_OPTIONS: Array<{ value: AppLanguage; label: string; flag: string }> = [
+  { value: "uz", label: "UZ", flag: "🇺🇿" },
+  { value: "ru", label: "RU", flag: "🇷🇺" },
+  { value: "en", label: "EN", flag: "🇬🇧" },
 ];
 
 export function LanguageSwitcher({
@@ -77,7 +77,7 @@ export function LanguageSwitcher({
         >
           {LANGUAGE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {option.flag} {option.label}
             </option>
           ))}
         </select>
@@ -106,7 +106,7 @@ export function LanguageSwitcher({
                   : "border border-line-subtle bg-bg-base text-ink-secondary"
               } disabled:opacity-50`}
             >
-              {option.label}
+              <span className="mr-1">{option.flag}</span>{option.label}
             </button>
           );
         })}
@@ -135,7 +135,7 @@ export function LanguageSwitcher({
               active ? "bg-brand text-bg-base" : "text-ink-secondary"
             } disabled:opacity-50`}
           >
-            {option.label}
+            <span className="mr-0.5">{option.flag}</span>{option.label}
           </button>
         );
       })}

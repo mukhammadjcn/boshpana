@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { getLocalizedText, type LocalizedText } from "@/lib/localized-content";
 import { getOrCreateSessionId } from "@/lib/storage";
 
 type ActiveGameItem = {
@@ -20,13 +21,13 @@ type ActiveGameItem = {
     status: "LOBBY" | "PLAYING" | "FINISHED" | "CANCELLED";
     createdAt: string;
     phase: string;
-    disasterName: string | null;
+    disasterName: LocalizedText | null;
   };
 };
 
 export function ActiveGames() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const [items, setItems] = useState<ActiveGameItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [resuming, setResuming] = useState<string | null>(null);
@@ -112,7 +113,9 @@ export function ActiveGames() {
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
-                {it.room.disasterName ??
+                {(it.room.disasterName
+                  ? getLocalizedText(it.room.disasterName, language)
+                  : null) ??
                   (it.room.gameType === "MAFIA"
                     ? t("mafia_oyini")
                     : t("bunker_oyini"))}{" "}
