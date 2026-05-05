@@ -103,6 +103,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const [socketConnected, setSocketConnected] = useState(true);
   const [introOpen, setIntroOpen] = useState(false);
   const [situationOpen, setSituationOpen] = useState(false);
+  const [situationClosing, setSituationClosing] = useState(false);
   const [myCardsOpen, setMyCardsOpen] = useState(false);
   const [myCardsClosing, setMyCardsClosing] = useState(false);
   const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
@@ -110,11 +111,15 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [kickedModalOpen, setKickedModalOpen] = useState(false);
   const [kickTarget, setKickTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+
+  const isLeavingRef = useRef(false);
+  const previousMeRef = useRef<BunkerRoomState["me"]>(null);
   const [revealModal, setRevealModal] = useState<{
     playerId: string;
     playerName: string;
@@ -163,6 +168,24 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     setSessionId(getOrCreateSessionId());
     setOrigin(window.location.origin);
   }, []);
+
+  // Detect kicked player
+  useEffect(() => {
+    const prevMe = previousMeRef.current;
+    const currentMe = roomState?.me;
+    const status = roomState?.room.status;
+
+    if (
+      prevMe &&
+      !currentMe &&
+      status !== "CANCELLED" &&
+      status !== "FINISHED" &&
+      !isLeavingRef.current
+    ) {
+      setKickedModalOpen(true);
+    }
+    previousMeRef.current = currentMe ?? null;
+  }, [roomState?.me, roomState?.room.status]);
 
   // Clear store state if the cached room belongs to a different code — this
   // happens when navigating between rooms and prevents a flash of stale data.
@@ -338,13 +361,19 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     roomState?.room.status
   ]);
 
+  const closeSituation = useCallback(() => {
+    if (!situationOpen || situationClosing) return;
+    setSituationClosing(true);
+  }, [situationClosing, situationOpen]);
+
   useEffect(() => {
-    if (!situationOpen) return;
+    if (!situationClosing) return;
     const timer = window.setTimeout(() => {
       setSituationOpen(false);
-    }, 5000);
+      setSituationClosing(false);
+    }, 240);
     return () => window.clearTimeout(timer);
-  }, [situationOpen]);
+  }, [situationClosing]);
 
   // Keep latest players in a ref so announcement effects can read names
   // without re-running on every socket update.
@@ -710,6 +739,37 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   }
 
   if (!me) {
+    if (kickedModalOpen) {
+      return (
+        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-md rounded-3xl border border-bad/40 bg-bg-surface p-6 text-center shadow-pop">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-bad/40 bg-bad/10 text-2xl text-bad">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              </div>
+              <h3 className="mt-4 text-xl font-bold text-ink-primary">
+                {t("sizni_oyindan_chiqarishdi")}
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-ink-secondary">
+                {t("host_sizni_oyindan_chiqarib_yubordi_f51a")}
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+              >
+                {t("bosh_sahifa")}
+              </button>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
     if (room.status !== "LOBBY") {
       const finished = room.status === "FINISHED" || room.status === "CANCELLED";
       return (
@@ -888,6 +948,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                   revealedCards={{}}
                   isMe={p.id === me.id}
                   variant="tile"
+                  onKick={
+                    me.isHost && p.id !== me.id
+                      ? () => setKickTarget({ id: p.id, name: p.name })
+                      : undefined
+                  }
                 />
               ))}
             </ul>
@@ -950,14 +1015,41 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           onConfirm={() => {
             emit("end_game");
             setEndGameConfirmOpen(false);
-            // Host explicitly tore the lobby down — they don't need to see
-            // the "O'yin yaratilmadi" modal that other participants get.
-            // Send them straight to the dashboard so the click feels
-            // immediate; the broadcast continues to the rest of the room
-            // in the background.
             router.push("/dashboard");
           }}
           onClose={() => setEndGameConfirmOpen(false)}
+        />
+        <ConfirmModal
+          open={leaveConfirmOpen}
+          title={t("roomdan_chiqasizmi")}
+          description={t("siz_xonadan_chiqasiz_va_oyin_a97d")}
+          confirmLabel={t("ha_chiqish")}
+          cancelLabel={t("bekor_qilish")}
+          tone="danger"
+          onConfirm={() => {
+            isLeavingRef.current = true;
+            emit("leave_room");
+            setLeaveConfirmOpen(false);
+            router.push("/dashboard");
+          }}
+          onClose={() => setLeaveConfirmOpen(false)}
+        />
+        <ConfirmModal
+          open={!!kickTarget}
+          title={
+            kickTarget ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name }) : ""
+          }
+          description={t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")}
+          confirmLabel={t("chiqarish")}
+          cancelLabel={t("bekor_qilish")}
+          tone="danger"
+          onConfirm={() => {
+            if (kickTarget) {
+              emit("kick_player", { targetPlayerId: kickTarget.id });
+            }
+            setKickTarget(null);
+          }}
+          onClose={() => setKickTarget(null)}
         />
       </main>
     );
@@ -1316,10 +1408,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-40 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center"
+          className={`fixed inset-0 z-40 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center ${
+            situationClosing ? "animate-overlay-out" : "animate-overlay-in"
+          }`}
         >
           <div className="absolute inset-0" />
-          <div className="relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border">
+          <div className={`relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border ${
+            situationClosing ? "animate-sheet-out" : "animate-sheet-in"
+          }`}>
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
             <p className="text-xs font-medium uppercase tracking-wider text-warn">
               {t("round_roundnumber_vaziyati", {
@@ -1330,7 +1426,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               {game.situation.text}
             </p>
             <button
-              onClick={() => setSituationOpen(false)}
+              onClick={closeSituation}
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
             >
               {t("roundga_kirish")}
@@ -1577,6 +1673,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         cancelLabel={t("bekor_qilish")}
         tone="danger"
         onConfirm={() => {
+          isLeavingRef.current = true;
           emit("leave_room");
           setLeaveConfirmOpen(false);
           router.push("/dashboard");
@@ -1615,7 +1712,6 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
           className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
-          onClick={() => setRevealModal(null)}
         >
           <div
             className="w-full max-w-md rounded-3xl border border-line-strong bg-bg-surface p-5 shadow-pop"

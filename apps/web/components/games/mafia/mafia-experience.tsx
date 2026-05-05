@@ -65,6 +65,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [roleModalVisible, setRoleModalVisible] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [kickedModalOpen, setKickedModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [phaseIntro, setPhaseIntro] = useState<{
     kind: "night" | "day" | "tiebreak";
@@ -76,6 +77,8 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const seenCancelledModalRef = useRef<Set<string>>(new Set());
   const seenSelfEliminationRef = useRef<Set<string>>(new Set());
   const seenPhaseIntroRef = useRef<Set<string>>(new Set());
+  const isLeavingRef = useRef(false);
+  const previousMeRef = useRef<MafiaPublicState["me"]>(null);
   const closingConfirmation =
     !!roomState?.room &&
     roomState.room.status !== "FINISHED" &&
@@ -109,6 +112,24 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
   }, []);
+
+  // Detect kicked player
+  useEffect(() => {
+    const prevMe = previousMeRef.current;
+    const currentMe = roomState?.me;
+    const status = roomState?.room.status;
+
+    if (
+      prevMe &&
+      !currentMe &&
+      status !== "CANCELLED" &&
+      status !== "FINISHED" &&
+      !isLeavingRef.current
+    ) {
+      setKickedModalOpen(true);
+    }
+    previousMeRef.current = currentMe ?? null;
+  }, [roomState?.me, roomState?.room.status]);
 
   useEffect(() => {
     if (!pendingAction) return;
@@ -689,6 +710,37 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   // call-to-action depending on room status and auth state. Mirrors
   // Bunker's invite flow.
   if (!me) {
+    if (kickedModalOpen) {
+      return (
+        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full max-w-md rounded-3xl border border-bad/40 bg-bg-surface p-6 text-center shadow-pop">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-bad/40 bg-bad/10 text-2xl text-bad">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              </div>
+              <h3 className="mt-4 text-xl font-bold text-ink-primary">
+                {t("sizni_oyindan_chiqarishdi")}
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-ink-secondary">
+                {t("host_sizni_oyindan_chiqarib_yubordi_f51a")}
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard" as Route)}
+                className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+              >
+                {t("bosh_sahifa")}
+              </button>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
     if (room.status !== "LOBBY") {
       const finished =
         room.status === "FINISHED" || room.status === "CANCELLED";
@@ -861,6 +913,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           cancelLabel={t("bekor_qilish")}
           tone="danger"
           onConfirm={() => {
+            isLeavingRef.current = true;
             emit("leave_room");
             setLeaveConfirmOpen(false);
             router.push("/dashboard" as Route);

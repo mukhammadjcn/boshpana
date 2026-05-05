@@ -35,8 +35,8 @@ const games: GameCard[] = [
   {
     href: "/dashboard/create/bunker" as Route,
     title: "Bunker",
-    subtitle: "Apokalipsis stol o'yini — kim omon qoladi?",
-    players: "3-16 kishi · 30-60 daqiqa",
+    subtitle: "bunker_subtitle",
+    players: "bunker_metadata",
     gradient: "from-amber-700 via-orange-900 to-stone-950",
     available: true,
     image: "/bunkerbanner.webp",
@@ -44,8 +44,8 @@ const games: GameCard[] = [
   {
     href: "/dashboard/create/mafia" as Route,
     title: "Mafia",
-    subtitle: "Kun va tun — xiyonatkorni toping",
-    players: "4-16 kishi · 30-45 daqiqa",
+    subtitle: "mafia_subtitle",
+    players: "mafia_metadata",
     gradient: "from-violet-800 via-slate-900 to-zinc-950",
     available: true,
     image: "/mafiabanner.webp",
@@ -206,7 +206,7 @@ function GameCardItem({ game }: { game: GameCard }) {
         <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent" />
         {!game.available && (
           <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur">
-            <Translated text="Tez orada" />
+            <Translated text="tez_orada" />
           </span>
         )}
       </div>
@@ -221,7 +221,7 @@ function GameCardItem({ game }: { game: GameCard }) {
             <Translated text={game.players} />
           </span>
           <span className="flex items-center gap-1 text-brand">
-            <Translated text="Kirish" />
+            <Translated text="kirish_label" />
             <svg
               width="14"
               height="14"

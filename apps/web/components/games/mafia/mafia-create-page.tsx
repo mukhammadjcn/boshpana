@@ -20,10 +20,10 @@ type UsageResponse = {
 };
 
 const rules = [
-  "Har o'yinchi maxfiy rol oladi: oddiy aholi, mafia, komisar yoki doktor.",
-  "Tunda mafia birga nishon tanlaydi, komisar tekshiradi/otadi, doktor davolaydi.",
-  "Kunduzi hamma muhokama qiladi va shubhalini ovoz orqali chetlatadi.",
-  "Mafia tirik aholi bilan teng yoki ko'p bo'lsa — ular g'olib. Aksincha — shahar.",
+  "mafia_qoida_1",
+  "mafia_qoida_2",
+  "mafia_qoida_3",
+  "mafia_qoida_4",
 ];
 
 const MIN_PLAYERS = 4;

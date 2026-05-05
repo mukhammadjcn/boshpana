@@ -20,16 +20,16 @@ type UsageResponse = {
 };
 
 const winnerOptions = [
-  { value: 1, label: "1 kishi", hint: "Klassik" },
-  { value: 2, label: "2 kishi", hint: "Tezroq" },
-  { value: 3, label: "3 kishi", hint: "Yumshoq" },
+  { value: 1, label: "1_kishi_label", hint: "klassik_hint" },
+  { value: 2, label: "2_kishi_label", hint: "tezroq_hint" },
+  { value: 3, label: "3_kishi_label", hint: "yumshoq_hint" },
 ];
 
 const rules = [
-  "Har bir o'yinchiga maxfiy karta — kasb, sog'lik, xarakter, ko'nikma, bagaj va fakt — beriladi.",
-  "Apokalipsis sodir bo'ladi va guruh boshpana topadi. Faqat cheklangan o'rin bor.",
-  "Raundma-raund o'yinchilar kartalarini ochib, o'zlarini muhim ekanini isbotlaydi.",
-  "Ovoz berish orqali kim boshpanaga kirmasligini hal qilasiz. Oxirigacha qolganlar — g'olib.",
+  "bunker_qoida_1",
+  "bunker_qoida_2",
+  "bunker_qoida_3",
+  "bunker_qoida_4",
 ];
 
 export function BunkerCreatePage() {
@@ -268,7 +268,7 @@ export function BunkerCreatePage() {
                 >
                   <span className="text-sm font-semibold">{t("normal")}</span>
                   <span className="text-[11px] text-ink-muted">
-                    {t("hamma_uchun")}
+                    {t("hamma_uchun_tavsif")}
                   </span>
                 </button>
                 <button
@@ -283,7 +283,7 @@ export function BunkerCreatePage() {
                 >
                   <span className="text-sm font-semibold">18+</span>
                   <span className="text-[11px] text-ink-muted">
-                    {t("aralash_kartalar")}
+                    {t("aralash_kartalar_tavsif")}
                   </span>
                 </button>
               </div>
