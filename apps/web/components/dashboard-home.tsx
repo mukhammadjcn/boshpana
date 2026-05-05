@@ -39,7 +39,7 @@ const games: GameCard[] = [
     players: "bunker_metadata",
     gradient: "from-amber-700 via-orange-900 to-stone-950",
     available: true,
-    image: "/bunkerbanner.webp",
+    image: "/bunker/banner.webp",
   },
   {
     href: "/dashboard/create/mafia" as Route,
@@ -48,7 +48,7 @@ const games: GameCard[] = [
     players: "mafia_metadata",
     gradient: "from-violet-800 via-slate-900 to-zinc-950",
     available: true,
-    image: "/mafiabanner.webp",
+    image: "/mafia/banner.webp",
   },
 ];
 

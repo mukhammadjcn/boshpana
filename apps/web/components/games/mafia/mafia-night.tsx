@@ -544,7 +544,7 @@ function SpectatorPanel({
   return (
     <div className="grid gap-4 rounded-3xl border border-line-strong bg-bg-surface p-5">
       <div className="grid gap-3 text-center">
-        <MafiaSituationArt src="/ghostimg.webp" alt={t("olgan_oyinchi")} />
+        <MafiaSituationArt src="/mafia/ghost.webp" alt={t("olgan_oyinchi")} />
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm text-ink-muted">{subtitle}</p>
       </div>

@@ -73,7 +73,7 @@ export function MafiaNightResult({ state }: Props) {
 
           {peaceful ? (
             <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-              <MafiaSituationArt src="/dayimg.webp" alt={t("tun_tinch_otdi")} />
+              <MafiaSituationArt src="/mafia/day.webp" alt={t("tun_tinch_otdi")} />
               <p className="text-base font-semibold">{t("tun_tinch_otdi")}</p>
               <p className="text-sm text-ink-muted">
                 {t("hech_kim_shikastlanmadi")}
@@ -84,7 +84,7 @@ export function MafiaNightResult({ state }: Props) {
           {game.lastNightDoctorSaved ? (
             <div className="grid gap-3 rounded-3xl border border-ok/30 bg-ok/10 p-5 text-center animate-fade-in">
               <MafiaSituationArt
-                src="/doctorimg.webp"
+                src="/mafia/doctor.webp"
                 alt={t("doktor_saqlab_qoldi")}
               />
               <p className="text-base font-semibold text-ok">
@@ -103,7 +103,7 @@ export function MafiaNightResult({ state }: Props) {
                 key={v.playerId}
                 className="grid gap-3 rounded-3xl border border-bad/30 bg-bad/10 p-5 text-center animate-fade-in"
               >
-                <MafiaSituationArt src="/diedimg.webp" alt={t("qurbon")} />
+                <MafiaSituationArt src="/mafia/died.webp" alt={t("qurbon")} />
                 <p className="text-base font-semibold text-bad">
                   {t("name_halok_boldi", { name: player?.name ?? "?" })}
                 </p>

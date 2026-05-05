@@ -13,6 +13,7 @@ set -euo pipefail
 
 PROJECT_DIR="/opt/bunker"
 COMPOSE_FILE="docker-compose.prod.yml"
+MANUAL_MIGRATIONS_DIR="apps/api/prisma/manual-migrations"
 
 cd "$PROJECT_DIR"
 
@@ -56,6 +57,57 @@ docker compose -f "$COMPOSE_FILE" up -d
 # NOTE: seed endi avtomatik ishlamaydi — faqat birinchi deploy'dan keyin
 # yoki yangi base kontent qo'shganda qo'lda ishlatish:
 #   docker exec bunker-api yarn prisma:seed
+
+echo "→ Applying one-time manual SQL migrations (if any)..."
+docker compose -f "$COMPOSE_FILE" exec -T postgres sh -lc '
+set -eu
+psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'"'"'SQL'"'"'
+CREATE TABLE IF NOT EXISTS manual_schema_migrations (
+  filename text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now()
+);
+SQL
+'
+
+if [ -d "$MANUAL_MIGRATIONS_DIR" ]; then
+  shopt -s nullglob
+  migration_files=("$MANUAL_MIGRATIONS_DIR"/*.sql)
+  shopt -u nullglob
+
+  if [ ${#migration_files[@]} -eq 0 ]; then
+    echo "  (no manual SQL migrations found)"
+  else
+    for file in "${migration_files[@]}"; do
+      filename=$(basename "$file")
+      already_applied=$(
+        docker compose -f "$COMPOSE_FILE" exec -T postgres sh -lc \
+          'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA' <<SQL
+SELECT 1 FROM manual_schema_migrations
+WHERE filename = '$filename'
+LIMIT 1;
+SQL
+      )
+
+      if [ "$already_applied" = "1" ]; then
+        echo "  ↷ skipping $filename (already applied)"
+        continue
+      fi
+
+      echo "  → applying $filename"
+      docker compose -f "$COMPOSE_FILE" exec -T postgres sh -lc \
+        'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+        < "$file"
+      docker compose -f "$COMPOSE_FILE" exec -T postgres sh -lc \
+        'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<SQL
+INSERT INTO manual_schema_migrations (filename)
+VALUES ('$filename');
+SQL
+      echo "    ✓ applied $filename"
+    done
+  fi
+else
+  echo "  (manual migrations directory not found)"
+fi
 
 echo "→ Pruning dangling images..."
 docker image prune -f >/dev/null

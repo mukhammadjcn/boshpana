@@ -45,6 +45,7 @@ export function PlayerCard({
   const { t } = useI18n();
   const entries = Object.entries(revealedCards).filter(([, value]) => value);
   const initials = getInitials(name);
+  const canKick = !!onKick && isAlive && !isHost;
 
   // After the game ends, recolor cards: winners (alive) green, losers
   // (eliminated) red. Mid-game uses neutral / red-on-eliminated styling.
@@ -85,15 +86,40 @@ export function PlayerCard({
                     : t("oyinchi_2")}
             </p>
           </div>
-          {showPresence ? (
-            <PresenceDot online={!!online} />
-          ) : (
-            <StatusDot
-              isAlive={isAlive}
-              isCurrentTurn={isCurrentTurn}
-              gameOver={gameOver}
-            />
-          )}
+          <div className="flex items-center gap-2">
+            {showPresence ? (
+              <PresenceDot online={!!online} />
+            ) : (
+              <StatusDot
+                isAlive={isAlive}
+                isCurrentTurn={isCurrentTurn}
+                gameOver={gameOver}
+              />
+            )}
+            {canKick ? (
+              <button
+                type="button"
+                onClick={onKick}
+                aria-label={t("name_ni_chiqarish", { name })}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M18 6L6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     );
@@ -144,7 +170,7 @@ export function PlayerCard({
                   : t("oyindan_chiqqan")}
           </p>
         </div>
-        {onKick && isAlive && !isHost ? (
+        {canKick ? (
           <button
             type="button"
             onClick={onKick}

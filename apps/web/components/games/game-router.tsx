@@ -58,8 +58,20 @@ export function GameRouter({ roomCode, view }: Props) {
 
   switch (info.gameType) {
     case "BUNKER":
-      return <BunkerExperience roomCode={roomCode} view={view} />;
+      return (
+        <BunkerExperience
+          key={`bunker:${roomCode}:${view}`}
+          roomCode={roomCode}
+          view={view}
+        />
+      );
     case "MAFIA":
-      return <MafiaExperience roomCode={roomCode} view={view} />;
+      return (
+        <MafiaExperience
+          key={`mafia:${roomCode}:${view}`}
+          roomCode={roomCode}
+          view={view}
+        />
+      );
   }
 }

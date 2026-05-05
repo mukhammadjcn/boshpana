@@ -134,7 +134,7 @@ export function BunkerCreatePage() {
               context. Aspect ratio kept landscape for desktop weight. */}
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface">
             <Image
-              src="/bunkerbanner.webp"
+              src="/bunker/banner.webp"
               alt={t("bunker_banner")}
               fill
               sizes="(max-width: 768px) 100vw, 672px"
@@ -273,7 +273,9 @@ export function BunkerCreatePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsAdult(true)}
+                  onClick={() => {
+                    setIsAdult(true);
+                  }}
                   aria-pressed={isAdult}
                   className={`flex h-14 flex-col items-center justify-center rounded-xl border text-center transition active:scale-[0.98] ${
                     isAdult

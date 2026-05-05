@@ -80,7 +80,7 @@ export function MafiaFinished({ state }: Props) {
             }`}
           >
             <MafiaSituationArt
-              src={winner === "MAFIA" ? "/mafiaimg.webp" : "/cityimg.webp"}
+              src={winner === "MAFIA" ? "/mafia/mafia.webp" : "/mafia/city.webp"}
               alt={winner === "MAFIA" ? t("mafia_golib") : t("shahar_golib")}
               size="lg"
             />

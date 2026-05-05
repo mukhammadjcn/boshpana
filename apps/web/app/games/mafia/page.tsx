@@ -8,7 +8,7 @@ export const metadata = buildPublicMetadata({
   description:
     "Mafia o'yini qoidalari, role balanslari va Telegram orqali room yaratish configlarini Jamoaviy.uz ichida ko'ring.",
   path: "/games/mafia",
-  image: "/mafiabanner.webp",
+  image: "/mafia/banner.webp",
   keywords: [
     "Mafia o'yini",
     "Mafia online",
@@ -46,7 +46,7 @@ export default function MafiaPage() {
         eyebrow="mafia_kun_va_tun_strategiyasi"
         title="mafia_kim_xiyonatkor"
         description="mafia_yashirin_rollar_kuzatuv_va_2f21"
-        image="/mafiabanner.webp"
+        image="/mafia/banner.webp"
         imageAlt="mafia_oyini_banneri"
         heroStats={[
           { label: "oyinchi", value: "4-16" },

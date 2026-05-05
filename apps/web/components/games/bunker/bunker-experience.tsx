@@ -44,12 +44,15 @@ import { pushToast } from "@/store/useToastStore";
 // disasters are added. A missing entry simply falls back to the
 // text-only modal layout.
 const disasterImage: Record<string, string> = {
-  "Yadro urushi": "/yaderdavri.webp",
-  "Global virus": "/epidemiyadavri.webp",
-  "AI isyoni": "/aidavri.webp",
-  "Muz davri": "/muzlikdavri.webp",
-  "Issiq apokalipsis": "/issiqdavri.webp",
-  "Zombi apokalipsisi": "/zombidavri.webp"
+  "Yadro urushi": "/bunker/disasters/yadro-urushi.webp",
+  "Global virus": "/bunker/disasters/global-virus.webp",
+  "AI isyoni": "/bunker/disasters/ai-isyoni.webp",
+  "Muz davri": "/bunker/disasters/muz-davri.webp",
+  "Issiq apokalipsis": "/bunker/disasters/issiq-apokalipsis.webp",
+  "Zombi apokalipsisi": "/bunker/disasters/zombi-apokalipsisi.webp",
+  "Demografik kollaps": "/bunker/adult/demografik-banner.webp",
+  "Jinsiy tanlash epidemiyasi": "/bunker/adult/jinsiy-banner.webp",
+  "Narkotik urushi": "/bunker/adult/narkotik-banner.webp"
 };
 
 const cardLabels: Record<BunkerCardType, string> = {
@@ -103,6 +106,7 @@ function localizeCardMap(
 export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const router = useRouter();
   const { language, t } = useI18n();
+  const normalizedRoomCode = roomCode.toUpperCase();
   const [sessionId, setSessionId] = useState("");
   const [joinName, setJoinName] = useState("");
   // Initialize loading=false if zustand store already has fresh state for this
@@ -111,7 +115,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   // flashes the "Room yuklanmoqda…" screen.
   const [loading, setLoading] = useState(() => {
     const cached = useGameStore.getState().roomState;
-    return !cached || cached.room.code !== roomCode.toUpperCase();
+    return !cached || cached.room.code !== normalizedRoomCode;
   });
   const [origin, setOrigin] = useState("");
   const [socketConnected, setSocketConnected] = useState(true);
@@ -178,11 +182,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     bottomBarObserverRef.current = ro;
   }, []);
 
-  const roomState = useGameStore((state) => state.roomState);
+  const cachedRoomState = useGameStore((state) => state.roomState);
   const error = useGameStore((state) => state.error);
   const setRoomState = useGameStore((state) => state.setRoomState);
   const patchTimer = useGameStore((state) => state.patchTimer);
   const setError = useGameStore((state) => state.setError);
+  const roomState =
+    cachedRoomState?.room.code === normalizedRoomCode ? cachedRoomState : null;
 
   // Init session + origin
   useEffect(() => {
@@ -212,11 +218,34 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   // happens when navigating between rooms and prevents a flash of stale data.
   useEffect(() => {
     const cached = useGameStore.getState().roomState;
-    if (cached && cached.room.code !== roomCode.toUpperCase()) {
+    if (cached && cached.room.code !== normalizedRoomCode) {
       setRoomState(null);
-      setLoading(true);
     }
-  }, [roomCode, setRoomState]);
+  }, [normalizedRoomCode, setRoomState]);
+
+  useEffect(() => {
+    setIntroOpen(false);
+    setSituationOpen(false);
+    setSituationClosing(false);
+    setMyCardsOpen(false);
+    setMyCardsClosing(false);
+    setEliminatedModalOpen(false);
+    setWinnerModalOpen(false);
+    setCancelledModalOpen(false);
+    setEndGameConfirmOpen(false);
+    setLeaveConfirmOpen(false);
+    setKickedModalOpen(false);
+    setKickTarget(null);
+    setAnnouncement(null);
+    setRevealModal(null);
+    previousMeRef.current = null;
+    seenSituationKeysRef.current.clear();
+    seenRevealAnnouncementRef.current.clear();
+    seenElimAnnouncementRef.current.clear();
+    seenSelfEliminationRef.current.clear();
+    seenWinnerModalRef.current.clear();
+    seenCancelledModalRef.current.clear();
+  }, [normalizedRoomCode]);
 
   // Initial state load
   useEffect(() => {
@@ -295,6 +324,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     };
 
     const onState = (s: BunkerRoomState) => {
+      if (s.room.code !== normalizedRoomCode) return;
       setRoomState(s);
       setLoading(false);
     };
@@ -343,7 +373,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
-  }, [patchTimer, roomCode, sessionId, setError, setRoomState]);
+  }, [normalizedRoomCode, patchTimer, roomCode, sessionId, setError, setRoomState]);
 
   // Auto-route based on status
   useEffect(() => {

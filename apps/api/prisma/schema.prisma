@@ -55,7 +55,7 @@ model User {
   nickname        String?
   photoUrl        String?
   phone           String?
-  languageCode    String?
+  languageCode    String   @default("uz")
   isPremium       Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

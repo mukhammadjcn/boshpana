@@ -8,7 +8,7 @@ export const metadata = buildPublicMetadata({
   description:
     "Bunker o'yini qoidalari, create configlari va Telegram orqali room yaratish oqimini Jamoaviy.uz ichida ko'ring.",
   path: "/games/bunker",
-  image: "/bunkerbanner.webp",
+  image: "/bunker/banner.webp",
   keywords: [
     "Bunker o'yini",
     "Bunker online",
@@ -46,7 +46,7 @@ export default function BunkerPage() {
         eyebrow="bunker_apokalipsis_stol_oyini"
         title="bunker_kim_omon_qoladi"
         description="bunker_jamoaviy_muzokara_strategiya_va_b58a"
-        image="/bunkerbanner.webp"
+        image="/bunker/banner.webp"
         imageAlt="bunker_oyini_banneri"
         heroStats={[
           { label: "oyinchi", value: "3-16" },

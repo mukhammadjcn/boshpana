@@ -17,7 +17,7 @@ const GAMES = [
     body: "apokalipsisdan_keyin_bunkerga_kim_qolishini_bd05",
     meta: "3_16_oyinchi_30_60_d1dc",
     href: "/games/bunker" as Route,
-    image: "/bunkerbanner.webp",
+    image: "/bunker/banner.webp",
     cta: "bunker_sahifasini_ochish",
   },
   {
@@ -25,7 +25,7 @@ const GAMES = [
     body: "kun_va_tun_rejimida_yashirin_585d",
     meta: "4_16_oyinchi_30_45_74ed",
     href: "/games/mafia" as Route,
-    image: "/mafiabanner.webp",
+    image: "/mafia/banner.webp",
     cta: "mafia_sahifasini_ochish",
   },
 ];

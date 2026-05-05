@@ -152,7 +152,7 @@ export function MafiaCreatePage() {
               entry. Landscape ratio gives desktop visual weight. */}
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface">
             <Image
-              src="/mafiabanner.webp"
+              src="/mafia/banner.webp"
               alt={t("mafia_banner")}
               fill
               sizes="(max-width: 768px) 100vw, 672px"

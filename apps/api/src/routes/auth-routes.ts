@@ -200,7 +200,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }
   );
 
-  app.patch<{ Body: { nickname?: string; languageCode?: string | null } }>(
+  app.patch<{ Body: { nickname?: string; languageCode?: string } }>(
     "/api/me/profile",
     { preHandler: requireAuth },
     async (request, reply) => {
@@ -211,7 +211,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const normalizedLanguageCode =
         typeof languageCodeInput === "string"
           ? languageCodeInput.trim().toLowerCase()
-          : null;
+          : undefined;
 
       if (raw !== undefined && !raw) {
         return reply
@@ -224,7 +224,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           .send({ message: "Nickname 32 belgidan oshmasin." });
       }
       if (
-        normalizedLanguageCode !== null &&
+        normalizedLanguageCode !== undefined &&
         !["uz", "ru", "en"].includes(normalizedLanguageCode)
       ) {
         return reply
@@ -232,11 +232,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           .send({ message: "Til noto'g'ri." });
       }
 
-      const data: { nickname?: string; languageCode?: string | null } = {};
+      const data: { nickname?: string; languageCode?: string } = {};
       if (raw) {
         data.nickname = raw;
       }
-      if (normalizedLanguageCode !== null) {
+      if (normalizedLanguageCode !== undefined) {
         data.languageCode = normalizedLanguageCode;
       }
       if (!Object.keys(data).length) {

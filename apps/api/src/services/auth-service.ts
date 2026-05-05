@@ -126,7 +126,6 @@ export async function upsertUserFromTelegram(
     create: {
       telegramId: String(tgUser.id),
       nickname: defaultNickname,
-      languageCode: tgUser.language_code ?? null,
       ...updateData
     },
     update: updateData

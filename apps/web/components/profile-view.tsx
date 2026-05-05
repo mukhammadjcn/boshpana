@@ -87,8 +87,7 @@ export function ProfileView() {
         {
           method: "PATCH",
           body: JSON.stringify({
-            nickname: trimmed,
-            languageCode: user?.languageCode ?? null
+            nickname: trimmed
           })
         }
       );

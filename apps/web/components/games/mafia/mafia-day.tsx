@@ -140,7 +140,7 @@ function Discussion({ state }: { state: MafiaPublicState }) {
       badge={state.room.code}
     >
       <section className="grid gap-3 rounded-3xl border border-line-subtle bg-bg-surface p-5 text-center">
-        <MafiaSituationArt src="/talkimg.webp" alt={t("muhokama")} />
+        <MafiaSituationArt src="/mafia/talk.webp" alt={t("muhokama")} />
         <p className="text-base font-semibold">
           {t("hozircha_tirik_qolganlar_count", { count: aliveCount })}
         </p>
@@ -403,7 +403,7 @@ function ResultView({ state }: { state: MafiaPublicState }) {
       {eliminated && role ? (
         <div className="grid gap-3 rounded-3xl border border-bad/30 bg-bad/10 p-6 text-center animate-fade-in">
           <MafiaSituationArt
-            src="/diedimg.webp"
+            src="/mafia/died.webp"
             alt={t("chetlatilgan_oyinchi")}
           />
           <p className="text-base font-semibold text-bad">
@@ -416,7 +416,7 @@ function ResultView({ state }: { state: MafiaPublicState }) {
       ) : (
         <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
           <MafiaSituationArt
-            src="/novoiceimg.webp"
+            src="/mafia/no-voice.webp"
             alt={t("hech_kim_chetlatilmadi")}
           />
           <p className="text-base font-semibold">
@@ -444,7 +444,7 @@ function SpectatorPanel({
   return (
     <div className="grid gap-4 rounded-3xl border border-line-strong bg-bg-surface p-5">
       <div className="grid gap-3 text-center">
-        <MafiaSituationArt src="/ghostimg.webp" alt={t("olgan_oyinchi")} />
+        <MafiaSituationArt src="/mafia/ghost.webp" alt={t("olgan_oyinchi")} />
         <p className="text-base font-semibold">{title}</p>
         <p className="text-sm text-ink-muted">{subtitle}</p>
       </div>

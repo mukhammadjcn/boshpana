@@ -12,26 +12,26 @@ type GameAudioInput = {
   meEliminationKey: string | null;
 };
 
-const GAME_START = "/gamestart.mp3";
-const KILLED = "/killed.mp3";
-const VOTING_AUDIO = "/situation7.mp3";
+const GAME_START = "/audio/bunker/game-start.mp3";
+const KILLED = "/audio/shared/killed.mp3";
+const VOTING_AUDIO = "/audio/shared/voting.mp3";
 const REVEAL_AUDIOS = [
-  "/reveal2.mp3",
-  "/reveal3.mp3",
-  "/reveal4.mp3",
-  "/reveal5.mp3",
-  "/reveal6.mp3",
-  "/reveal7.mp3"
+  "/audio/bunker/reveals/reveal-2.mp3",
+  "/audio/bunker/reveals/reveal-3.mp3",
+  "/audio/bunker/reveals/reveal-4.mp3",
+  "/audio/bunker/reveals/reveal-5.mp3",
+  "/audio/bunker/reveals/reveal-6.mp3",
+  "/audio/bunker/reveals/reveal-7.mp3"
 ];
 // situation7 is reserved for the voting phase, so it's not in the per-round
 // rotation pool below.
 const SITUATION_AUDIOS = [
-  "/situation1.mp3",
-  "/situation2.mp3",
-  "/situation3.mp3",
-  "/situation4.mp3",
-  "/situation5.mp3",
-  "/situation6.mp3"
+  "/audio/bunker/situations/situation-1.mp3",
+  "/audio/bunker/situations/situation-2.mp3",
+  "/audio/bunker/situations/situation-3.mp3",
+  "/audio/bunker/situations/situation-4.mp3",
+  "/audio/bunker/situations/situation-5.mp3",
+  "/audio/bunker/situations/situation-6.mp3"
 ];
 
 function shouldPreload() {

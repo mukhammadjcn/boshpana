@@ -59,7 +59,34 @@ export class RealtimeHub {
     this.io.on("connection", (socket) => {
       socket.on("join_room", async (payload: SocketActionPayload) => {
         try {
-          socket.data.roomCode = payload.roomCode.toUpperCase();
+          const nextRoomCode = payload.roomCode.toUpperCase();
+          const previousRoomCode = socket.data.roomCode as string | undefined;
+          const previousSessionId = socket.data.sessionId as string | undefined;
+
+          // A single socket can navigate between rooms without reconnecting.
+          // Leave the previous Socket.IO room first so later broadcasts from
+          // the old game cannot overwrite the new screen on the client.
+          if (
+            previousRoomCode &&
+            previousSessionId &&
+            previousRoomCode !== nextRoomCode
+          ) {
+            await socket.leave(previousRoomCode);
+            const stillConnected = await this.hasOtherSocketForSession(
+              previousRoomCode,
+              previousSessionId,
+              socket.id
+            );
+            if (!stillConnected) {
+              this.scheduleOfflineTransition(
+                previousRoomCode,
+                previousSessionId,
+                socket.id
+              );
+            }
+          }
+
+          socket.data.roomCode = nextRoomCode;
           socket.data.sessionId = payload.sessionId;
           await socket.join(socket.data.roomCode);
           // Cancel any in-flight offline timer for this session — the

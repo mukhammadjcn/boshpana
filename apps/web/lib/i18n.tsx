@@ -80,7 +80,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const userLanguage = getInitialLanguageFromUser(cachedUser);
     const storedLanguage = getStoredLanguage();
     const initial =
-      cachedUser?.languageCode != null ? userLanguage : storedLanguage;
+      cachedUser != null ? userLanguage : storedLanguage;
     setLanguageState(initial);
     persistLanguage(initial);
   }, []);

@@ -49,6 +49,7 @@ type MafiaExperienceProps = {
 export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const router = useRouter();
   const { t } = useI18n();
+  const normalizedRoomCode = roomCode.toUpperCase();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<MafiaPublicState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -170,16 +171,16 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   // animate in, their artwork is already cached locally.
   useEffect(() => {
     const sources = [
-      "/ghostimg.webp",
-      "/diedimg.webp",
-      "/doctorimg.webp",
-      "/dayimg.webp",
-      "/daybanner.webp",
-      "/nightbanner.webp",
-      "/talkimg.webp",
-      "/novoiceimg.webp",
-      "/mafiaimg.webp",
-      "/cityimg.webp",
+      "/mafia/ghost.webp",
+      "/mafia/died.webp",
+      "/mafia/doctor.webp",
+      "/mafia/day.webp",
+      "/mafia/day-banner.webp",
+      "/mafia/night-banner.webp",
+      "/mafia/talk.webp",
+      "/mafia/no-voice.webp",
+      "/mafia/mafia.webp",
+      "/mafia/city.webp",
     ];
     for (const src of sources) {
       const img = new window.Image();
@@ -260,6 +261,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
 
     const onDisconnect = () => setSocketConnected(false);
     const onState = (s: MafiaPublicState) => {
+      if (s.room.code !== normalizedRoomCode) return;
       setRoomState(s);
       setLoading(false);
     };
@@ -302,7 +304,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
-  }, [patchTimer, roomCode, sessionId]);
+  }, [normalizedRoomCode, patchTimer, roomCode, sessionId]);
 
   function emit(event: string, payload?: Record<string, unknown>) {
     if (!sessionId) return;
@@ -586,9 +588,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     ) : null;
   const phaseIntroArt = phaseIntro
     ? phaseIntro.kind === "night"
-      ? "/nightbanner.webp"
+      ? "/mafia/night-banner.webp"
       : phaseIntro.kind === "day"
-        ? "/daybanner.webp"
+        ? "/mafia/day-banner.webp"
         : null
     : null;
   const phaseIntroModal = phaseIntro ? (
@@ -620,17 +622,11 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg-surface/85 via-transparent to-transparent" />
         </div>
         <div className="px-6 pb-7 pt-5">
-          <div
-            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full border ${
-              phaseIntro.kind === "night" || phaseIntro.kind === "tiebreak"
-                ? "border-brand/35 bg-brand/12 text-brand"
-                : "border-ok/35 bg-ok/12 text-ok"
-            }`}
-          >
-            {phaseIntro.kind === "tiebreak" && (
+          {phaseIntro.kind === "tiebreak" ? (
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-brand/35 bg-brand/12 text-brand">
               <svg
-                width="34"
-                height="34"
+                width="28"
+                height="28"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -642,9 +638,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
                 <path d="M12 3v18" />
                 <path d="M7 8h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8" />
               </svg>
-            )}
-          </div>
-          <p className="mt-4 text-xs font-medium uppercase tracking-[0.28em] text-brand">
+            </div>
+          ) : null}
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-brand">
             {phaseIntro.kind === "night"
               ? t("tun_boshlanmoqda")
               : phaseIntro.kind === "tiebreak"

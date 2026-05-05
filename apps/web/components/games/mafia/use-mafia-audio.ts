@@ -7,8 +7,8 @@ type MafiaAudioInput = {
   selfEliminationAudioKey: string | null;
 };
 
-const KILLED = "/killed.mp3";
-const VOTING_AUDIO = "/situation7.mp3";
+const KILLED = "/audio/shared/killed.mp3";
+const VOTING_AUDIO = "/audio/shared/voting.mp3";
 
 function shouldPreload() {
   if (typeof navigator === "undefined") return false;
