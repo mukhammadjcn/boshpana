@@ -64,8 +64,8 @@ export function LanguageSwitcher({
     return (
       <label
         className={`inline-flex items-center rounded-full border border-line-strong bg-bg-surface text-sm text-ink-primary ${fullWidth ? "w-full" : ""}`}
-        aria-label={t("Til")}
-        title={t("Til")}
+        aria-label={t("til")}
+        title={t("til")}
       >
         <select
           value={language}
@@ -89,8 +89,8 @@ export function LanguageSwitcher({
     return (
       <div
         className={`grid grid-cols-3 gap-2 rounded-2xl border border-line-strong bg-bg-surface p-2 ${fullWidth ? "w-full" : ""}`}
-        aria-label={t("Til")}
-        title={t("Til")}
+        aria-label={t("til")}
+        title={t("til")}
       >
         {LANGUAGE_OPTIONS.map((option) => {
           const active = option.value === language;
@@ -117,11 +117,11 @@ export function LanguageSwitcher({
   return (
     <div
       className={`inline-flex items-center gap-1 rounded-full border border-line-strong bg-bg-surface p-1 ${fullWidth ? "w-full" : ""}`}
-      aria-label={t("Til")}
-      title={t("Til")}
+      aria-label={t("til")}
+      title={t("til")}
     >
       <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">
-        {t("Til")}
+        {t("til")}
       </span>
       {LANGUAGE_OPTIONS.map((option) => {
         const active = option.value === language;

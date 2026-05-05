@@ -45,8 +45,8 @@ export function ConfirmModal({
   onClose
 }: ConfirmModalProps) {
   const { t } = useI18n();
-  const resolvedConfirmLabel = confirmLabel ?? t("Tasdiqlash");
-  const resolvedCancelLabel = cancelLabel ?? t("Bekor qilish");
+  const resolvedConfirmLabel = confirmLabel ?? t("tasdiqlash");
+  const resolvedCancelLabel = cancelLabel ?? t("bekor_qilish");
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
@@ -68,7 +68,7 @@ export function ConfirmModal({
     >
       <button
         type="button"
-        aria-label={t("Yopish")}
+        aria-label={t("yopish")}
         onClick={busy ? undefined : onClose}
         className="absolute inset-0 cursor-default"
       />
@@ -77,7 +77,7 @@ export function ConfirmModal({
         <p
           className={`text-xs font-medium uppercase tracking-[0.2em] ${styles.accent}`}
         >
-          {t("Tasdiqlash kerak")}
+          {t("tasdiqlash_kerak")}
         </p>
         <h2 className="mt-2 text-xl font-bold leading-snug text-ink-primary">
           {title}

@@ -25,7 +25,7 @@ export function CancelledRoomModal({ open, onDismiss }: Props) {
           🚫
         </div>
         <h3 className="mt-4 text-xl font-bold text-ink-primary">
-          {t("O'yin yaratilmadi")}
+          {t("oyin_yaratilmadi")}
         </h3>
         <p className="mt-3 text-sm leading-7 text-ink-secondary">
           {t(
@@ -37,7 +37,7 @@ export function CancelledRoomModal({ open, onDismiss }: Props) {
           onClick={onDismiss}
           className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
         >
-          {t("Bosh sahifa")}
+          {t("bosh_sahifa")}
         </button>
       </div>
     </div>

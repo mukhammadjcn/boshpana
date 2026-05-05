@@ -52,29 +52,29 @@ export function HostControls({
 
   // After voting resolved, the only useful host action is moving on.
   const primary = canStartGame
-    ? { label: t("O'yinni boshlash"), onClick: onStartGame }
+    ? { label: t("oyinni_boshlash"), onClick: onStartGame }
     : canStartRound
-      ? { label: t("1-roundni boshlash"), onClick: onStartRound }
+      ? { label: t("1_roundni_boshlash"), onClick: onStartRound }
       : canStartReveals
-        ? { label: t("Kartalarni ochishni boshlash"), onClick: onStartReveals }
+        ? { label: t("kartalarni_ochishni_boshlash"), onClick: onStartReveals }
         : canAdvanceTurn
           ? { label: t(advanceTurnLabel), onClick: onAdvanceTurn }
           : votingFinished && canSkipVoting
-            ? { label: t("Keyingi roundni boshlash"), onClick: onSkipVoting }
+            ? { label: t("keyingi_roundni_boshlash"), onClick: onSkipVoting }
             : canStartVoting
-              ? { label: t("Ovoz berish"), onClick: onStartVoting }
+              ? { label: t("ovoz_berish"), onClick: onStartVoting }
               : null;
 
   // Secondary action depends on whether voting already happened this round.
   // Before voting: offer to skip it. After voting: offer another vote pass
   // (useful in 8+ player games where one elimination per round is too slow).
   const secondary = !votingFinished && canStartVoting && canSkipVoting
-    ? { label: t("Ovozsiz keyingi round"), onClick: onSkipVoting }
+    ? { label: t("ovozsiz_keyingi_round"), onClick: onSkipVoting }
     : votingFinished && canStartVoting
-      ? { label: t("Yana ovoz berish"), onClick: onStartVoting }
+      ? { label: t("yana_ovoz_berish"), onClick: onStartVoting }
       : null;
 
-  const endLabel = isLobby ? t("Roomni o'chirish") : t("O'yinni tugatish");
+  const endLabel = isLobby ? t("roomni_ochirish") : t("oyinni_tugatish");
 
   // Reset the optimistic flag when the available actions change — that's
   // our signal that the server's state broadcast landed and the new phase
@@ -123,14 +123,14 @@ export function HostControls({
   return (
     <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-medium text-ink-muted">{t("Host paneli")}</p>
+        <p className="text-xs font-medium text-ink-muted">{t("host_paneli")}</p>
         {!isLobby ? (
           <button
             type="button"
             onClick={onEndGame}
             className="text-xs font-medium text-bad hover:underline"
           >
-            {t("O'yinni tugatish")}
+            {t("oyinni_tugatish")}
           </button>
         ) : null}
       </div>
@@ -145,7 +145,7 @@ export function HostControls({
             {pending === "primary" ? (
               <>
                 <Spinner />
-                {t("Yuborilmoqda…")}
+                {t("yuborilmoqda")}
               </>
             ) : (
               primary.label
@@ -161,7 +161,7 @@ export function HostControls({
             {pending === "secondary" ? (
               <>
                 <Spinner />
-                {t("Yuborilmoqda…")}
+                {t("yuborilmoqda")}
               </>
             ) : (
               secondary.label

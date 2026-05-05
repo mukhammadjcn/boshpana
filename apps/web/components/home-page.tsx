@@ -86,7 +86,7 @@ export function HomePage() {
       <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
         <div className="flex items-center gap-2 text-sm">
           <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-          {t("Yuklanmoqda...")}
+          {t("yuklanmoqda")}
         </div>
       </main>
     );
@@ -103,7 +103,7 @@ export function HomePage() {
                 Jamoaviy.uz
               </p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
-                {t("Jamoaviy o'yinlar")}
+                {t("jamoaviy_oyinlar")}
               </p>
             </div>
           </div>
@@ -111,7 +111,7 @@ export function HomePage() {
             <LanguageSwitcher variant="select" />
             <BotCta
               href={loginHref}
-              label={t("Telegramda ochish")}
+              label={t("telegramda_ochish")}
               variant="primary"
               size="sm"
             />
@@ -124,11 +124,11 @@ export function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16 lg:px-8 lg:py-24">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand">
-              {t("Telegram party games platform")}
+              {t("telegram_party_games_platform")}
             </p>
             <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
               <span className="text-brand">Jamoaviy.uz</span>{" "}
-              {t("ichida do'stlar bilan o'ynaladigan o'yinlar jamlangan")}
+              {t("ichida_dostlar_bilan_oynaladigan_oyinlar_27f9")}
             </h1>
             <p className="mt-4 text-base leading-7 text-ink-secondary sm:text-lg sm:leading-8">
               {t(
@@ -145,7 +145,7 @@ export function HomePage() {
             </div>
 
             <ul className="mt-8 grid grid-cols-3 gap-3 text-center text-xs sm:text-sm">
-              <Stat value="2+" label={t("o'yin")} />
+              <Stat value="2+" label={t("oyin")} />
               <Stat value="Telegram" label={t("login")} />
               <Stat value="Mobile" label={t("first")} />
             </ul>
@@ -170,14 +170,14 @@ export function HomePage() {
                   <div>
                     <p className="text-sm font-semibold">Jamoaviy.uz</p>
                     <p className="text-xs text-ink-muted">
-                      {t("Bunker, Mafia va yana ko'proq o'yinlar uchun kirish nuqtasi")}
+                      {t("bunker_mafia_va_yana_koproq_f1f5")}
                     </p>
                   </div>
                 </div>
                 <div className="grid gap-2 rounded-2xl border border-line-subtle bg-bg-base/60 p-4 text-sm text-ink-secondary">
-                  <p>{t("Bunker route ichida pitch, vote va survivor flow tushuntiriladi.")}</p>
-                  <p>{t("Mafia route ichida role balance, tun-kun fazalari va create tarkibi ko'rsatiladi.")}</p>
-                  <p>{t("Har ikki sahifadagi O'yin yaratish tugmasi login bilan kerakli create page'ga olib boradi.")}</p>
+                  <p>{t("bunker_route_ichida_pitch_vote_06e7")}</p>
+                  <p>{t("mafia_route_ichida_role_balance_bddf")}</p>
+                  <p>{t("har_ikki_sahifadagi_oyin_yaratish_6933")}</p>
                 </div>
               </div>
             </div>
@@ -193,10 +193,10 @@ export function HomePage() {
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("O'yin routelari")}
+              {t("oyin_routelari")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              {t("Landing ichidan ikki yangi public kirish nuqtasi")}
+              {t("landing_ichidan_ikki_yangi_public_06da")}
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
               {t(
@@ -232,7 +232,7 @@ export function HomePage() {
                       </p>
                     </div>
                     <span className="shrink-0 rounded-full border border-brand/25 bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-                      {t("Yangi o'yin")}
+                      {t("yangi_oyin")}
                     </span>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs text-ink-muted sm:text-sm">
@@ -250,10 +250,10 @@ export function HomePage() {
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("Platforma qadri")}
+              {t("platforma_qadri")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              {t("Nima uchun aynan shu struktura tanlandi")}
+              {t("nima_uchun_aynan_shu_struktura_a8c6")}
             </h2>
           </div>
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -276,10 +276,10 @@ export function HomePage() {
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-2xl">
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("Qanday ishlaydi")}
+              {t("qanday_ishlaydi")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              {t("User flow 4 qadamda aniq ko'rinadi")}
+              {t("user_flow_4_qadamda_aniq_4471")}
             </h2>
             <p className="mt-3 text-sm text-ink-secondary sm:text-base">
               {t(
@@ -314,8 +314,8 @@ export function HomePage() {
             <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
               <div>
                 <h2 className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-                  {t("Do'stlar bilan birga")}{" "}
-                  <span className="text-brand">{t("qaysi o'yindan boshlaysiz?")}</span>
+                  {t("dostlar_bilan_birga")}{" "}
+                  <span className="text-brand">{t("qaysi_oyindan_boshlaysiz")}</span>
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
                   {t(
@@ -326,12 +326,12 @@ export function HomePage() {
               <div className="grid gap-3">
                 <BotCta
                   href={loginHref}
-                  label={t("Telegramda boshlash")}
+                  label={t("telegramda_boshlash")}
                   variant="primary"
                   size="lg"
                 />
                 <p className="text-center text-xs text-ink-muted">
-                  {t("Jamoaviy.uz ichida host yaratadi, jamoa esa havola bilan kiradi.")}
+                  {t("jamoaviy_uz_ichida_host_yaratadi_82d6")}
                 </p>
               </div>
             </div>
@@ -342,7 +342,7 @@ export function HomePage() {
       <footer className="border-t border-line-subtle">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>© {new Date().getFullYear()} Jamoaviy.uz</p>
-          <p>{t("Bunker · Mafia · Mobile-first · Telegram orqali")}</p>
+          <p>{t("bunker_mafia_mobile_first_telegram_43ca")}</p>
         </div>
       </footer>
     </main>

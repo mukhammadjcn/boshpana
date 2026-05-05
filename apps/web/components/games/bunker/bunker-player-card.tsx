@@ -77,12 +77,12 @@ export function PlayerCard({
             <p className="truncate text-sm font-semibold">{name}</p>
             <p className="text-[11px] text-ink-muted">
               {showPresence && online === false
-                ? t("Tarmoqda emas")
+                ? t("tarmoqda_emas")
                 : isMe
-                  ? t("Siz")
+                  ? t("siz_2")
                   : isHost
-                    ? t("Host")
-                    : t("O'yinchi")}
+                    ? t("host")
+                    : t("oyinchi_2")}
             </p>
           </div>
           {showPresence ? (
@@ -115,12 +115,12 @@ export function PlayerCard({
             </p>
             {isMe ? (
               <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold uppercase text-brand">
-                {t("Siz")}
+                {t("siz_2")}
               </span>
             ) : null}
             {isHost ? (
               <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-[10px] font-semibold uppercase text-ink-secondary">
-                {t("Host")}
+                {t("host")}
               </span>
             ) : null}
           </div>
@@ -134,21 +134,21 @@ export function PlayerCard({
             }`}
           >
             {isCurrentTurn
-              ? t("Hozir navbat")
+              ? t("hozir_navbat")
               : gameOver
                 ? isAlive
-                  ? t("Yutgan")
-                  : t("Yutqazgan")
+                  ? t("yutgan")
+                  : t("yutqazgan")
                 : isAlive
-                  ? t("{count}/6 ochiq", { count: entries.length })
-                  : t("O'yindan chiqqan")}
+                  ? t("count_6_ochiq", { count: entries.length })
+                  : t("oyindan_chiqqan")}
           </p>
         </div>
         {onKick && isAlive && !isHost ? (
           <button
             type="button"
             onClick={onKick}
-            aria-label={t("{name}ni chiqarish", { name })}
+            aria-label={t("name_ni_chiqarish", { name })}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
           >
             <svg
@@ -228,7 +228,7 @@ function StatusDot({
   if (isCurrentTurn) {
     return (
       <span className="flex items-center gap-1 rounded-full bg-brand px-2 py-1 text-[10px] font-semibold uppercase text-bg-base">
-        {t("Navbat")}
+        {t("navbat")}
       </span>
     );
   }
@@ -239,7 +239,7 @@ function StatusDot({
           isAlive ? "bg-ok/20 text-ok" : "bg-bad/15 text-bad"
         }`}
       >
-        {isAlive ? t("Yutgan") : t("Chiqqan")}
+        {isAlive ? t("yutgan") : t("chiqqan")}
       </span>
     );
   }
@@ -257,8 +257,8 @@ function PresenceDot({ online }: { online: boolean }) {
   const { t } = useI18n();
   return (
     <span
-      aria-label={online ? t("Tarmoqda") : t("Tarmoqdan tushgan")}
-      title={online ? t("Tarmoqda") : t("Tarmoqdan tushgan")}
+      aria-label={online ? t("tarmoqda") : t("tarmoqdan_tushgan")}
+      title={online ? t("tarmoqda") : t("tarmoqdan_tushgan")}
       className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${
         online
           ? "bg-ok/15 text-ok"
@@ -271,7 +271,7 @@ function PresenceDot({ online }: { online: boolean }) {
           online ? "bg-ok" : "bg-ink-muted"
         }`}
       />
-      {online ? t("Onlayn") : t("Offlayn")}
+      {online ? t("onlayn") : t("offlayn")}
     </span>
   );
 }

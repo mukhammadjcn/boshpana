@@ -28,7 +28,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
         <div className="flex items-center gap-2 text-sm">
           <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-          {t("Yuklanmoqda...")}
+          {t("yuklanmoqda")}
         </div>
       </main>
     );

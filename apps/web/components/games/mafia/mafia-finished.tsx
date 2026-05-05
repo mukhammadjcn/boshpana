@@ -16,10 +16,10 @@ function getRoleMeta(t: (text: string, vars?: Record<string, string | number>) =
   { label: string; tone: "ok" | "bad" | "brand" }
 > {
   return {
-    CITIZEN: { label: t("Oddiy aholi"), tone: "ok" },
+    CITIZEN: { label: t("oddiy_aholi"), tone: "ok" },
     MAFIA: { label: "Mafia", tone: "bad" },
-    SHERIFF: { label: t("Komisar"), tone: "brand" },
-    DOCTOR: { label: t("Doktor"), tone: "ok" }
+    SHERIFF: { label: t("komisar_2"), tone: "brand" },
+    DOCTOR: { label: t("doktor_2"), tone: "ok" }
   };
 }
 
@@ -40,7 +40,7 @@ export function MafiaFinished({ state }: Props) {
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe pb-safe sm:px-6 lg:px-8">
         <header className="flex items-center justify-between pt-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {t("O'yin yakunlandi")}
+            {t("oyin_yakunlandi")}
           </p>
           <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
             {state.room.code}
@@ -57,7 +57,7 @@ export function MafiaFinished({ state }: Props) {
           {winner ? (
             <MafiaSituationArt
               src={winner === "MAFIA" ? "/mafiaimg.webp" : "/cityimg.webp"}
-              alt={winner === "MAFIA" ? t("Mafia g'olib") : t("Shahar g'olib")}
+              alt={winner === "MAFIA" ? t("mafia_golib") : t("shahar_golib")}
               size="lg"
             />
           ) : null}
@@ -67,15 +67,15 @@ export function MafiaFinished({ state }: Props) {
             }`}
           >
             {winner === "MAFIA"
-              ? t("Mafia jamoasi g'olib")
+              ? t("mafia_jamoasi_golib")
               : winner === "CITY"
-                ? t("Shahar g'olib")
-                : t("O'yin to'xtatildi")}
+                ? t("shahar_golib")
+                : t("oyin_toxtatildi")}
           </p>
         </section>
 
         <section className="grid gap-2">
-          <p className="text-sm font-semibold">{t("Barcha rollar")}</p>
+          <p className="text-sm font-semibold">{t("barcha_rollar")}</p>
           <ul className="grid gap-2">
             {players.map((p) => {
               const role = p.revealedRole;
@@ -104,7 +104,7 @@ export function MafiaFinished({ state }: Props) {
                       {p.name}
                     </p>
                     <p className={`text-[11px] ${toneClass}`}>
-                      {meta?.label ?? t("Rol noma'lum")}
+                      {meta?.label ?? t("rol_noma_lum")}
                     </p>
                   </div>
                   <span
@@ -112,7 +112,7 @@ export function MafiaFinished({ state }: Props) {
                       p.isAlive ? "text-ok" : "text-ink-muted"
                     }`}
                   >
-                    {p.isAlive ? t("Tirik") : t("O'lgan")}
+                    {p.isAlive ? t("tirik") : t("olgan")}
                   </span>
                 </li>
               );
@@ -125,7 +125,7 @@ export function MafiaFinished({ state }: Props) {
           onClick={() => router.push("/dashboard" as Route)}
           className="mt-auto flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
         >
-          {t("Bosh sahifaga qaytish")}
+          {t("bosh_sahifaga_qaytish")}
         </button>
       </div>
     </main>

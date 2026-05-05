@@ -76,7 +76,7 @@ export function ProfileView() {
   async function save() {
     const trimmed = nickname.trim();
     if (!trimmed) {
-      setMessage({ kind: "error", text: t("Nickname bo'sh bo'lmasin.") });
+      setMessage({ kind: "error", text: t("nickname_bosh_bolmasin") });
       return;
     }
     setSaving(true);
@@ -94,7 +94,7 @@ export function ProfileView() {
       );
       setUser(res.user);
       setAuthUser(res.user);
-      setMessage({ kind: "ok", text: t("Saqlandi.") });
+      setMessage({ kind: "ok", text: t("saqlandi") });
     } catch (error) {
       setMessage({ kind: "error", text: (error as Error).message });
     } finally {
@@ -106,14 +106,14 @@ export function ProfileView() {
     <main className="mx-auto min-h-screen max-w-xl px-4 pt-safe pb-safe">
       <header>
         <p className="text-xs font-medium uppercase tracking-wider text-brand">
-          {t("Profil")}
+          {t("profil")}
         </p>
-        <h1 className="mt-1 text-2xl font-bold">{t("Mening profilim")}</h1>
+        <h1 className="mt-1 text-2xl font-bold">{t("mening_profilim")}</h1>
       </header>
 
       {!authReady ? (
         <div className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-5 text-sm text-ink-secondary">
-          {t("Profilni ko'rish uchun avval Telegram orqali tizimga kiring.")}
+          {t("profilni_korish_uchun_avval_telegram_9745")}
         </div>
       ) : !user ? (
         <div className="animate-pulse">
@@ -165,21 +165,21 @@ export function ProfileView() {
 
           <section className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4">
             <label className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-              {t("Nickname")}
+              {t("nickname")}
             </label>
             <p className="mt-1 text-xs text-ink-secondary">
-              {t("Bu nick o'yinlarga qo'shilganda default ishlatiladi.")}
+              {t("bu_nick_oyinlarga_qoshilganda_default_aacf")}
             </p>
             <input
               value={nickname}
               maxLength={32}
               onChange={(e) => setNickname(e.target.value)}
               className="mt-3 h-12 w-full rounded-xl border border-line-strong bg-bg-base px-4 text-base"
-              placeholder={t("Nickname")}
+              placeholder={t("nickname")}
             />
             <div className="mt-4">
               <label className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                {t("Til")}
+                {t("til")}
               </label>
               <div className="mt-3">
                 <LanguageSwitcher variant="segmented" fullWidth />
@@ -190,7 +190,7 @@ export function ProfileView() {
               disabled={saving || nickname.trim() === (user.nickname ?? "")}
               className="mt-3 flex h-12 w-full items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base disabled:opacity-50"
             >
-              {saving ? t("Saqlanmoqda...") : t("Saqlash")}
+              {saving ? t("saqlanmoqda") : t("saqlash")}
             </button>
             {message ? (
               <p
@@ -206,7 +206,7 @@ export function ProfileView() {
               href={"/dashboard/games" as Route}
               className="flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-elevated text-sm font-semibold"
             >
-              {t("Mening o'yinlarim →")}
+              {t("mening_oyinlarim_2")}
             </Link>
           </section>
 
@@ -216,7 +216,7 @@ export function ProfileView() {
                 onClick={() => setLogoutOpen(true)}
                 className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.99]"
               >
-                {t("Tizimdan chiqish")}
+                {t("tizimdan_chiqish")}
               </button>
             </section>
           ) : null}
@@ -225,12 +225,12 @@ export function ProfileView() {
       <BottomNav />
       <ConfirmModal
         open={logoutOpen}
-        title={t("Tizimdan chiqasizmi?")}
+        title={t("tizimdan_chiqasizmi")}
         description={t(
           "Joriy seansdan chiqasiz. Keyingi safar Telegram orqali qayta kirish kerak bo'ladi."
         )}
-        confirmLabel={t("Chiqish")}
-        cancelLabel={t("Bekor qilish")}
+        confirmLabel={t("chiqish")}
+        cancelLabel={t("bekor_qilish")}
         tone="danger"
         onConfirm={performLogout}
         onClose={() => setLogoutOpen(false)}

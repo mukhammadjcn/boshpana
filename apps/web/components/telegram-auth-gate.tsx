@@ -77,7 +77,7 @@ export function TelegramAuthGate() {
   const { t } = useI18n();
   const [stage, setStage] = useState<Stage>({
     kind: "loading",
-    message: t("Yuklanmoqda...")
+    message: t("yuklanmoqda")
   });
   const initDataRef = useRef<string>("");
   const ranRef = useRef(false);
@@ -109,7 +109,7 @@ export function TelegramAuthGate() {
 
       setStage({
         kind: "loading",
-        message: t("Hisobingiz tekshirilmoqda...")
+        message: t("hisobingiz_tekshirilmoqda")
       });
       initDataRef.current = wa.initData;
 
@@ -176,7 +176,7 @@ export function TelegramAuthGate() {
         <div className="mt-3 flex items-center gap-2 text-sm text-ink-secondary">
           <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
           {stage.kind === "outside"
-            ? t("Telegram aniqlanmadi, sayt sahifasiga yo'naltirilmoqda...")
+            ? t("telegram_aniqlanmadi_sayt_sahifasiga_yonaltirilmoqda")
             : stage.message}
         </div>
       </main>
@@ -192,7 +192,7 @@ export function TelegramAuthGate() {
         {stage.kind === "needs-phone" || stage.kind === "submitting-phone" ? (
           <>
             <h2 className="mt-1 text-2xl font-bold">
-              {t("Telefon raqamingizni ulashing")}
+              {t("telefon_raqamingizni_ulashing")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
               {t(
@@ -205,15 +205,15 @@ export function TelegramAuthGate() {
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
             >
               {stage.kind === "submitting-phone"
-                ? t("Yuklanmoqda...")
-                : t("Telefon raqamni ulashish")}
+                ? t("yuklanmoqda")
+                : t("telefon_raqamni_ulashish")}
             </button>
           </>
         ) : null}
         {stage.kind === "error" ? (
           <>
             <h2 className="mt-1 text-2xl font-bold">
-              {t("Avtorizatsiya xatosi")}
+              {t("avtorizatsiya_xatosi")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary">
               {stage.message}
@@ -223,13 +223,13 @@ export function TelegramAuthGate() {
                 ranRef.current = false;
                 setStage({
                   kind: "loading",
-                  message: t("Qayta urinilmoqda...")
+                  message: t("qayta_urinilmoqda")
                 });
                 window.location.reload();
               }}
               className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold"
             >
-              {t("Qayta urinish")}
+              {t("qayta_urinish")}
             </button>
           </>
         ) : null}

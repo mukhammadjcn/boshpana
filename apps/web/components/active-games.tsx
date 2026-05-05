@@ -102,7 +102,7 @@ export function ActiveGames() {
   return (
     <section>
       <p className="text-xs font-medium uppercase tracking-wider text-brand">
-        {t("Davom ettirish")}
+        {t("davom_ettirish")}
       </p>
       <ul className="mt-2 grid gap-2">
         {items.map((it) => (
@@ -114,16 +114,16 @@ export function ActiveGames() {
               <p className="truncate text-sm font-semibold">
                 {it.room.disasterName ??
                   (it.room.gameType === "MAFIA"
-                    ? t("Mafia o'yini")
-                    : t("Bunker o'yini"))}{" "}
+                    ? t("mafia_oyini")
+                    : t("bunker_oyini"))}{" "}
                 <span className="text-ink-muted">· {it.room.code}</span>
               </p>
               <p className="text-xs text-ink-secondary">
                 {it.room.status === "LOBBY"
-                  ? t("Lobbi — kuting")
-                  : t("Bosqich: {phase}", { phase: it.room.phase })}
-                {it.isHost ? t(" · siz host") : ""}
-                {!it.isAlive ? t(" · chiqib ketgansiz") : ""}
+                  ? t("lobbi_kuting")
+                  : t("bosqich_phase", { phase: it.room.phase })}
+                {it.isHost ? t("siz_host") : ""}
+                {!it.isAlive ? t("chiqib_ketgansiz") : ""}
               </p>
             </div>
             <button
@@ -131,7 +131,7 @@ export function ActiveGames() {
               disabled={resuming === it.playerId}
               className="shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-bg-base disabled:opacity-50"
             >
-              {resuming === it.playerId ? t("Yuklanmoqda...") : t("Davom")}
+              {resuming === it.playerId ? t("yuklanmoqda") : t("davom")}
             </button>
           </li>
         ))}

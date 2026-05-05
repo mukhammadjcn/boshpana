@@ -35,9 +35,9 @@ export function LobbyShareActions({
       await navigator.clipboard.writeText(inviteUrl);
       setLinkCopied(true);
       window.setTimeout(() => setLinkCopied(false), 1600);
-      pushToast({ kind: "success", text: t("Link nusxalandi") });
+      pushToast({ kind: "success", text: t("link_nusxalandi") });
     } catch {
-      pushToast({ kind: "error", text: t("Nusxalab bo'lmadi") });
+      pushToast({ kind: "error", text: t("nusxalab_bolmadi") });
     }
   }
 
@@ -45,7 +45,7 @@ export function LobbyShareActions({
     const url = tgStartappLink ?? inviteUrl;
     const shareUrl = buildTelegramShareUrl(
       url,
-      t("Jamoaviy.uz — {gameLabel} uchun {roomCode} xonasiga qo'shiling", {
+      t("jamoaviy_uz_gamelabel_uchun_roomcode_54ed", {
         gameLabel,
         roomCode
       }),
@@ -62,7 +62,7 @@ export function LobbyShareActions({
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#229ED9] text-sm font-semibold text-white transition active:scale-[0.98]"
         >
           <TelegramIcon />
-          {t("Telegramda ulashish")}
+          {t("telegramda_ulashish")}
         </button>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
@@ -72,7 +72,7 @@ export function LobbyShareActions({
             className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#229ED9] text-sm font-semibold text-white transition active:scale-[0.98]"
           >
             <TelegramIcon />
-            {t("Telegramda ulashish")}
+            {t("telegramda_ulashish")}
           </button>
           <button
             type="button"
@@ -84,7 +84,7 @@ export function LobbyShareActions({
             }`}
             >
               <CopyIcon />
-            {linkCopied ? t("Nusxalandi") : t("Linkni nusxalash")}
+            {linkCopied ? t("nusxalandi") : t("linkni_nusxalash")}
           </button>
         </div>
       )}

@@ -93,27 +93,27 @@ export function GameHistoryView() {
   const canPrev = page > 1;
   const canNext = page < totalPages;
   const outcomeLabel: Record<Outcome, string> = {
-    WON: t("G'olib"),
-    ELIMINATED: t("Yakunlangan"),
-    HOSTED: t("Yakunlangan"),
-    PLAYED: t("Yakunlangan"),
-    CANCELLED: t("Bekor qilingan")
+    WON: t("golib"),
+    ELIMINATED: t("yakunlangan"),
+    HOSTED: t("yakunlangan"),
+    PLAYED: t("yakunlangan"),
+    CANCELLED: t("bekor_qilingan")
   };
   const outcomeNote: Record<Outcome, string | null> = {
     WON: null,
-    ELIMINATED: t("Siz chiqib ketgan"),
-    HOSTED: t("Qo'lda tugatildi"),
+    ELIMINATED: t("siz_chiqib_ketgan"),
+    HOSTED: t("qolda_tugatildi"),
     PLAYED: null,
-    CANCELLED: t("O'yin boshlanmagan")
+    CANCELLED: t("oyin_boshlanmagan")
   };
 
   return (
     <main className="mx-auto min-h-screen max-w-xl px-4 pt-safe pb-safe">
       <header>
         <p className="text-xs font-medium uppercase tracking-wider text-brand">
-          {t("Tarix")}
+          {t("tarix")}
         </p>
-        <h1 className="mt-1 text-2xl font-bold">{t("Mening o'yinlarim")}</h1>
+        <h1 className="mt-1 text-2xl font-bold">{t("mening_oyinlarim")}</h1>
       </header>
 
       <p className="mt-2 text-sm text-ink-secondary">
@@ -125,7 +125,7 @@ export function GameHistoryView() {
       <section className="mt-6">
         {!authReady ? (
           <div className="rounded-2xl border border-line-subtle bg-bg-surface p-5 text-sm text-ink-secondary">
-            {t("Tarixni ko'rish uchun avval Telegram orqali tizimga kiring.")}
+            {t("tarixni_korish_uchun_avval_telegram_f879")}
           </div>
         ) : loading ? (
           <ul className="grid animate-pulse gap-3">
@@ -151,7 +151,7 @@ export function GameHistoryView() {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-line-subtle bg-bg-surface p-5 text-sm text-ink-secondary">
-            {t("Hozircha tugagan o'yin yo'q.")}
+            {t("hozircha_tugagan_oyin_yoq")}
           </div>
         ) : (
           <ul className="grid gap-3">
@@ -160,8 +160,8 @@ export function GameHistoryView() {
               const title =
                 it.disasterName ??
                 (isCancelled
-                  ? t("O'yin yaratilmagan")
-                  : t("Falokat noma'lum"));
+                  ? t("oyin_yaratilmagan")
+                  : t("falokat_noma_lum"));
               return (
                 <li
                   key={it.id}
@@ -181,11 +181,11 @@ export function GameHistoryView() {
                       </p>
                       <p className="mt-1 text-xs text-ink-secondary">
                         {it.roomCode
-                          ? t("Xona: {code}", { code: it.roomCode })
+                          ? t("xona_code", { code: it.roomCode })
                           : null}
                         {it.roomCode && it.playerCount ? " · " : null}
                         {it.playerCount
-                          ? t("{count} o'yinchi", { count: it.playerCount })
+                          ? t("count_oyinchi", { count: it.playerCount })
                           : null}
                       </p>
                     </div>
@@ -215,12 +215,12 @@ export function GameHistoryView() {
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={!canPrev}
               className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:opacity-40"
-              aria-label={t("Oldingi sahifa")}
+              aria-label={t("oldingi_sahifa")}
             >
               ←
             </button>
             <p className="text-xs text-ink-muted">
-              {t("{page} / {totalPages} · jami {total}", {
+              {t("page_totalpages_jami_total", {
                 page,
                 totalPages,
                 total
@@ -231,7 +231,7 @@ export function GameHistoryView() {
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={!canNext}
               className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:opacity-40"
-              aria-label={t("Keyingi sahifa")}
+              aria-label={t("keyingi_sahifa")}
             >
               →
             </button>

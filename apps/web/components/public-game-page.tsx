@@ -77,7 +77,7 @@ export function PublicGamePage({
                 Jamoaviy.uz
               </p>
               <p className="text-[10px] uppercase tracking-wider text-ink-muted sm:text-xs">
-                {t("Jamoaviy o'yinlar")}
+                {t("jamoaviy_oyinlar")}
               </p>
             </div>
           </Link>
@@ -87,7 +87,7 @@ export function PublicGamePage({
               href={loginHref}
               className="inline-flex h-10 items-center justify-center rounded-2xl bg-brand px-4 text-xs font-semibold text-bg-base transition active:scale-[0.98] sm:text-sm"
             >
-              {t("Login qilib yaratish")}
+              {t("login_qilib_yaratish")}
             </Link>
           </div>
         </div>
@@ -111,13 +111,13 @@ export function PublicGamePage({
                 href={loginHref}
                 className="inline-flex h-14 items-center justify-center rounded-2xl bg-brand px-6 text-base font-semibold text-bg-base transition active:scale-[0.98]"
               >
-                {t("O'yin yaratish")}
+                {t("oyin_yaratish")}
               </Link>
               <Link
                 href={"/" as Route}
                 className="inline-flex h-14 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-6 text-base font-semibold text-ink-primary transition active:scale-[0.98]"
               >
-                {t("Landingga qaytish")}
+                {t("landingga_qaytish")}
               </Link>
             </div>
 
@@ -152,7 +152,7 @@ export function PublicGamePage({
             </div>
             <div className="grid gap-3 p-5 sm:p-6">
               <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-                {t("Nima uchun bu sahifa bor")}
+                {t("nima_uchun_bu_sahifa_bor")}
               </p>
               <p className="text-sm leading-7 text-ink-secondary">
                 {t(
@@ -168,10 +168,10 @@ export function PublicGamePage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-              {t("Bo'lim maqsadi")}
+              {t("bolim_maqsadi")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              {t("O'yin nimaga qurilganini oldindan bilib oling")}
+              {t("oyin_nimaga_qurilganini_oldindan_bilib_e22e")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
               {t(
@@ -200,10 +200,10 @@ export function PublicGamePage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-              {t("O'yin oqimi")}
+              {t("oyin_oqimi")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              {t("Raundlar qanday ishlashini bilish uchun")}
+              {t("raundlar_qanday_ishlashini_bilish_uchun")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
               {t(
@@ -235,10 +235,10 @@ export function PublicGamePage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-              {t("Yaratish configlari")}
+              {t("yaratish_configlari")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              {t("Har bir sozlama nimani boshqaradi")}
+              {t("har_bir_sozlama_nimani_boshqaradi")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
               {t(
@@ -256,7 +256,7 @@ export function PublicGamePage({
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.22em] text-ink-muted">
-                      {t("Config")}
+                      {t("config")}
                     </p>
                     <h3 className="mt-2 text-lg font-semibold">
                       {t(item.label)}
@@ -279,10 +279,10 @@ export function PublicGamePage({
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-              {t("Kimlar uchun")}
+              {t("kimlar_uchun")}
             </p>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-              {t("To'g'ri davrani tanlash uchun qisqa yo'nalish")}
+              {t("togri_davrani_tanlash_uchun_qisqa_073c")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
               {t(
@@ -313,10 +313,10 @@ export function PublicGamePage({
             <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.22em] text-brand">
-                  {t("Keyingi qadam")}
+                  {t("keyingi_qadam")}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-                  {t("Jamoani yig'ing va room ochishni boshlang")}
+                  {t("jamoani_yiging_va_room_ochishni_aa08")}
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-secondary sm:text-base">
                   {t(
@@ -329,13 +329,13 @@ export function PublicGamePage({
                   href={loginHref}
                   className="inline-flex h-14 items-center justify-center rounded-2xl bg-brand px-6 text-base font-semibold text-bg-base transition active:scale-[0.98]"
                 >
-                  {t("Login qilib yaratish")}
+                  {t("login_qilib_yaratish")}
                 </Link>
                 <Link
                   href={"/" as Route}
                   className="inline-flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-6 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
                 >
-                  {t("Boshqa o'yinlarni ko'rish")}
+                  {t("boshqa_oyinlarni_korish")}
                 </Link>
               </div>
             </div>

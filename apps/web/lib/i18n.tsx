@@ -17,7 +17,7 @@ type LocaleMessages = Record<string, string>;
 type I18nContextValue = {
   language: AppLanguage;
   setLanguage: (language: AppLanguage) => void;
-  t: (text: string, vars?: Record<string, string | number>) => string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
 };
 
 const LANGUAGE_STORAGE_KEY = "jamoaviy_language";
@@ -113,7 +113,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
           setAuthUser({ ...user, languageCode: nextLanguage });
         }
       },
-      t: (text, vars) => formatTemplate(messages[text] ?? text, vars)
+      t: (key, vars) => formatTemplate(messages[key] ?? key, vars)
     }),
     [language, messages]
   );
@@ -131,8 +131,8 @@ export function useI18n() {
 
 export function translateText(
   _language: AppLanguage,
-  text: string,
+  key: string,
   vars?: Record<string, string | number>
 ) {
-  return formatTemplate(text, vars);
+  return formatTemplate(key, vars);
 }

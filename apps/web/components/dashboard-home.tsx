@@ -81,7 +81,7 @@ export function DashboardHome() {
     };
   }, []);
 
-  const greeting = user?.nickname ?? user?.firstName ?? t("do'stim");
+  const greeting = user?.nickname ?? user?.firstName ?? t("dostim");
   const limitReached = !!usage && usage.remaining <= 0;
 
   return (
@@ -94,7 +94,7 @@ export function DashboardHome() {
               <p className="text-base font-semibold lg:text-lg">
                 Jamoaviy.uz
               </p>
-              <p className="text-xs text-ink-muted">{t("Jamoaviy o'yinlar")}</p>
+              <p className="text-xs text-ink-muted">{t("jamoaviy_oyinlar")}</p>
             </div>
           </div>
           <LanguageSwitcher variant="select" />
@@ -102,17 +102,17 @@ export function DashboardHome() {
 
         <section className="mt-2 flex-1 pb-10 lg:mt-6">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {t("Salom, {name}", { name: greeting })}
+            {t("salom_name", { name: greeting })}
           </p>
           <h1 className="mt-1 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-            {t("Bugun qaysi o'yinni o'ynaymiz?")}
+            {t("bugun_qaysi_oyinni_oynaymiz")}
           </h1>
 
           <div className="mt-5 grid gap-5 lg:mt-8">
             {usage && limitReached ? (
               <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
                 <div className="flex items-center justify-between text-sm">
-                  <p className="font-semibold text-ink-primary">{t("Oylik limit")}</p>
+                  <p className="font-semibold text-ink-primary">{t("oylik_limit")}</p>
                   <p
                     className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
                   >
@@ -147,7 +147,7 @@ export function DashboardHome() {
 
             <div className="grid gap-3">
               <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                {t("O'yinlar")}
+                {t("oyinlar")}
               </p>
               {!usage ? (
                 <div className="grid gap-4">
@@ -169,7 +169,7 @@ export function DashboardHome() {
               onClick={() => setJoinOpen(true)}
               className="flex h-12 items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
             >
-              {t("Kod orqali qo'shilish")}
+              {t("kod_orqali_qoshilish")}
             </button>
           </div>
         </section>

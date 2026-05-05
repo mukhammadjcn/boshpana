@@ -12,10 +12,10 @@ type Props = {
 
 function getRoleLabel(t: (text: string, vars?: Record<string, string | number>) => string): Record<MafiaRole, string> {
   return {
-    CITIZEN: t("Oddiy aholi"),
+    CITIZEN: t("oddiy_aholi"),
     MAFIA: "Mafia",
-    SHERIFF: t("Komisar"),
-    DOCTOR: t("Doktor")
+    SHERIFF: t("komisar_2"),
+    DOCTOR: t("doktor_2")
   };
 }
 
@@ -52,7 +52,7 @@ export function MafiaNightResult({ state }: Props) {
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-5 pt-safe pb-safe sm:px-6 lg:px-8">
         <header className="flex items-center justify-between pt-3">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {t("Tong otdi · #{nightNumber}", { nightNumber: game.nightNumber })}
+            {t("tong_otdi_number_nightnumber", { nightNumber: game.nightNumber })}
           </p>
           <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
             {state.room.code}
@@ -60,24 +60,24 @@ export function MafiaNightResult({ state }: Props) {
         </header>
 
         <section className="grid gap-4">
-          <h1 className="text-2xl font-bold sm:text-3xl">{t("Tunda nima bo'ldi?")}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{t("tunda_nima_boldi")}</h1>
 
           {peaceful ? (
             <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-              <MafiaSituationArt src="/dayimg.webp" alt={t("Tun tinch o'tdi")} />
-              <p className="text-base font-semibold">{t("Tun tinch o'tdi")}</p>
-              <p className="text-sm text-ink-muted">{t("Hech kim shikastlanmadi.")}</p>
+              <MafiaSituationArt src="/dayimg.webp" alt={t("tun_tinch_otdi")} />
+              <p className="text-base font-semibold">{t("tun_tinch_otdi")}</p>
+              <p className="text-sm text-ink-muted">{t("hech_kim_shikastlanmadi")}</p>
             </div>
           ) : null}
 
           {game.lastNightDoctorSaved ? (
             <div className="grid gap-3 rounded-3xl border border-ok/30 bg-ok/10 p-5 text-center animate-fade-in">
-              <MafiaSituationArt src="/doctorimg.webp" alt={t("Doktor saqlab qoldi")} />
+              <MafiaSituationArt src="/doctorimg.webp" alt={t("doktor_saqlab_qoldi")} />
               <p className="text-base font-semibold text-ok">
-                {t("Doktor 1 fuqaroni saqlab qoldi")}
+                {t("doktor_1_fuqaroni_saqlab_qoldi")}
               </p>
               <p className="text-xs text-ink-muted">
-                {t("Hujum sodir bo'ldi, lekin doktor o'sha kishini davolagan ekan.")}
+                {t("hujum_sodir_boldi_lekin_doktor_077d")}
               </p>
             </div>
           ) : null}
@@ -89,12 +89,12 @@ export function MafiaNightResult({ state }: Props) {
                 key={v.playerId}
                 className="grid gap-3 rounded-3xl border border-bad/30 bg-bad/10 p-5 text-center animate-fade-in"
               >
-                <MafiaSituationArt src="/diedimg.webp" alt={t("Qurbon")} />
+                <MafiaSituationArt src="/diedimg.webp" alt={t("qurbon")} />
                 <p className="text-base font-semibold text-bad">
-                  {t("{name} halok bo'ldi", { name: player?.name ?? "?" })}
+                  {t("name_halok_boldi", { name: player?.name ?? "?" })}
                 </p>
                 <p className="text-xs text-ink-muted">
-                  {t("Roli: {role}", { role: roleLabel[v.role] })}
+                  {t("roli_role", { role: roleLabel[v.role] })}
                 </p>
               </div>
             );
@@ -102,7 +102,7 @@ export function MafiaNightResult({ state }: Props) {
 
           {revealedCount < victims.length ? (
             <div className="text-center text-xs text-ink-muted">
-              {t("Ochilmoqda…")}
+              {t("ochilmoqda")}
             </div>
           ) : null}
         </section>

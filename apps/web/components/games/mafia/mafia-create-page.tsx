@@ -134,14 +134,14 @@ export function MafiaCreatePage() {
           <Link
             href={"/dashboard" as Route}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-ink-secondary"
-            aria-label={t("Orqaga")}
+            aria-label={t("orqaga")}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </Link>
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {t("Kun va tun mafiya")}
+            {t("kun_va_tun_mafiya")}
           </p>
           <span className="h-9 w-9" />
         </header>
@@ -153,7 +153,7 @@ export function MafiaCreatePage() {
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface">
             <Image
               src="/mafiabanner.webp"
-              alt={t("Mafia banner")}
+              alt={t("mafia_banner")}
               fill
               sizes="(max-width: 768px) 100vw, 672px"
               className="object-cover"
@@ -163,10 +163,10 @@ export function MafiaCreatePage() {
           </div>
 
           <h1 className="mt-5 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-            {t("Mafia — kim xiyonatkor?")}
+            {t("mafia_kim_xiyonatkor")}
           </h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            {t("{min}-{max} o'yinchi · 30-45 daqiqa", {
+            {t("min_max_oyinchi_30_45_e4e4", {
               min: MIN_PLAYERS,
               max: MAX_PLAYERS
             })}
@@ -174,7 +174,7 @@ export function MafiaCreatePage() {
 
           <div className="mt-6 grid gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4">
             <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-              {t("Qoidalar")}
+              {t("qoidalar")}
             </p>
             <ul className="grid gap-2 text-sm text-ink-secondary">
               {rules.map((rule, index) => (
@@ -191,7 +191,7 @@ export function MafiaCreatePage() {
           {usage && limitReached && (
             <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
               <div className="flex items-center justify-between text-sm">
-                <p className="font-semibold text-ink-primary">{t("Oylik limit")}</p>
+                <p className="font-semibold text-ink-primary">{t("oylik_limit")}</p>
                 <p
                   className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
                 >
@@ -214,7 +214,7 @@ export function MafiaCreatePage() {
                 />
               </div>
               <p className="mt-2 text-xs text-bad">
-                {t("Limit tugagan — keyingi davrigacha kuting.")}
+                {t("limit_tugagan_keyingi_davrigacha_kuting")}
               </p>
             </div>
           )}
@@ -224,12 +224,12 @@ export function MafiaCreatePage() {
             className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
           >
             <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-              {t("Yangi o'yin")}
+              {t("yangi_oyin")}
             </p>
 
             <label className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                {t("Nickname")}
+                {t("nickname")}
               </span>
               <input
                 value={hostName}
@@ -237,14 +237,14 @@ export function MafiaCreatePage() {
                 required
                 maxLength={20}
                 className="h-12 w-full rounded-xl border border-line-strong bg-bg-base px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-                placeholder={t("Masalan, Alisher")}
+                placeholder={t("masalan_alisher")}
               />
             </label>
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                  {t("Maks o'yinchi")}
+                  {t("maks_oyinchi")}
                 </span>
                 <span className="font-mono text-sm text-brand">
                   {maxPlayers}
@@ -264,7 +264,7 @@ export function MafiaCreatePage() {
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                  {t("Mafia soni")}
+                  {t("mafia_soni")}
                 </span>
                 <span className="font-mono text-sm text-brand">
                   {mafiaCount}
@@ -283,7 +283,7 @@ export function MafiaCreatePage() {
 
             <div className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                {t("Maxsus rollar")}
+                {t("maxsus_rollar")}
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -296,9 +296,9 @@ export function MafiaCreatePage() {
                       : "border-line-strong bg-bg-base text-ink-secondary"
                   }`}
                 >
-                  <span className="text-sm font-semibold">{t("Komisar")}</span>
+                  <span className="text-sm font-semibold">{t("komisar_2")}</span>
                   <span className="text-[11px] text-ink-muted">
-                    {hasSheriff ? t("Bor") : t("Yo'q")}
+                    {hasSheriff ? t("bor") : t("yoq")}
                   </span>
                 </button>
                 <button
@@ -311,16 +311,16 @@ export function MafiaCreatePage() {
                       : "border-line-strong bg-bg-base text-ink-secondary"
                   }`}
                 >
-                  <span className="text-sm font-semibold">{t("Doktor")}</span>
+                  <span className="text-sm font-semibold">{t("doktor_2")}</span>
                   <span className="text-[11px] text-ink-muted">
-                    {hasDoctor ? t("Bor") : t("Yo'q")}
+                    {hasDoctor ? t("bor") : t("yoq")}
                   </span>
                 </button>
               </div>
             </div>
 
             <div className="rounded-xl border border-line-strong bg-bg-base px-3 py-2.5 text-xs text-ink-muted">
-              {t("Tarkib")}: <span className="font-semibold text-ink-primary">{citizenCount}</span>{" "}
+              {t("tarkib")}: <span className="font-semibold text-ink-primary">{citizenCount}</span>{" "}
               {t("fuqaro")} · <span className="font-semibold text-ink-primary">{mafiaCount}</span>{" "}
               {t("mafia")}
               {hasSheriff && <> · 1 {t("komisar")}</>}
@@ -329,7 +329,7 @@ export function MafiaCreatePage() {
 
             {!compositionValid && (
               <p className="rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-                {t("Tarkib noto'g'ri: kamida 1 ta oddiy aholi qoladigan qilib sozlang.")}
+                {t("tarkib_notogri_kamida_1_ta_4178")}
               </p>
             )}
 
@@ -354,10 +354,10 @@ export function MafiaCreatePage() {
               }`}
             >
               {creating
-                ? t("Yaratilmoqda...")
+                ? t("yaratilmoqda")
                 : limitReached
-                  ? t("Limit tugagan")
-                  : t("O'yin yaratish")}
+                  ? t("limit_tugagan")
+                  : t("oyin_yaratish")}
             </button>
           </form>
 
@@ -366,7 +366,7 @@ export function MafiaCreatePage() {
             onClick={() => setJoinOpen(true)}
             className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
           >
-            {t("Kod orqali qo'shilish")}
+            {t("kod_orqali_qoshilish")}
           </button>
         </section>
       </div>

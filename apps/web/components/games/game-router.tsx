@@ -51,7 +51,7 @@ export function GameRouter({ roomCode, view }: Props) {
   if (!info) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-zinc-400">
-        {t("Yuklanmoqda…")}
+        {t("yuklanmoqda_2")}
       </div>
     );
   }

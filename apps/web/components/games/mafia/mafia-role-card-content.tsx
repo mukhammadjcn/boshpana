@@ -64,26 +64,26 @@ export function MafiaRoleCardContent({
     ? {
         CITIZEN: {
           ...mafiaRoleMeta.CITIZEN,
-          title: t("Oddiy aholi"),
-          team: t("Shahar"),
-          blurb: t("Mafiyani topib chetlatishga harakat qiling.")
+          title: t("oddiy_aholi"),
+          team: t("shahar"),
+          blurb: t("mafiyani_topib_chetlatishga_harakat_qiling")
         },
         MAFIA: {
           ...mafiaRoleMeta.MAFIA,
           team: "Mafia",
-          blurb: t("Tunda nishon tanlab, kunduzi yashirinib qoling.")
+          blurb: t("tunda_nishon_tanlab_kunduzi_yashirinib_8b6c")
         },
         SHERIFF: {
           ...mafiaRoleMeta.SHERIFF,
-          title: t("Komisar"),
-          team: t("Shahar"),
-          blurb: t("Tunda bittasini tekshiring yoki o'q uzing (2 ta o'q).")
+          title: t("komisar_2"),
+          team: t("shahar"),
+          blurb: t("tunda_bittasini_tekshiring_yoki_oq_a880")
         },
         DOCTOR: {
           ...mafiaRoleMeta.DOCTOR,
-          title: t("Doktor"),
-          team: t("Shahar"),
-          blurb: t("Tunda kimnidir davolab, mafia/komisar nishonidan qutqaring.")
+          title: t("doktor_2"),
+          team: t("shahar"),
+          blurb: t("tunda_kimnidir_davolab_mafia_komisar_02b9")
         }
       }[role]
     : null;
@@ -109,7 +109,7 @@ export function MafiaRoleCardContent({
       {role === "MAFIA" && teammateNames.length > 0 ? (
         <div className="mt-3 grid w-full gap-1 rounded-2xl border border-bad/30 bg-bad/10 px-4 py-3 text-sm">
           <p className="text-[11px] font-medium uppercase tracking-wider text-bad">
-            {t("Sheriklaringiz")}
+            {t("sheriklaringiz")}
           </p>
           <p className="font-semibold text-ink-primary">
             {teammateNames.join(", ")}
