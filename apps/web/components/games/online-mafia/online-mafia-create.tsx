@@ -42,7 +42,7 @@ export function OnlineMafiaCreate() {
   const [visibility, setVisibility] =
     useState<OnlineVisibilityTab>("PRIVATE");
   const [hostName, setHostName] = useState("");
-  const [mafiaCount, setMafiaCount] = useState(2);
+  const [mafiaCount, setMafiaCount] = useState(1);
   const [hasSheriff, setHasSheriff] = useState(true);
   const [hasDoctor, setHasDoctor] = useState(true);
   const [submitting, setSubmitting] = useState(false);

@@ -42,8 +42,12 @@ import {
   RealtimeConnectionFeedback,
   useRealtimeConnectionRecovery
 } from "../shared/realtime-connection-feedback";
-import { OnlineBunkerCreatorDock } from "../online-bunker/online-bunker-controls";
 import type { RoomVisibility } from "@/lib/types";
+
+const BUNKER_ONLINE_MODAL_TIMINGS_MS = {
+  intro: 12000,
+  situation: 9000
+} as const;
 
 // Disaster banner mapping. Image filenames in /public are tied to the
 // seeded disaster names — keep this in sync with data.md when new
@@ -424,6 +428,14 @@ export function BunkerExperience({
     if (roomState?.game.phase === "INTRO") setIntroOpen(true);
   }, [roomState?.game.phase]);
 
+  useEffect(() => {
+    if (!isOnlineVariant || !introOpen) return;
+    const timer = window.setTimeout(() => {
+      setIntroOpen(false);
+    }, BUNKER_ONLINE_MODAL_TIMINGS_MS.intro);
+    return () => window.clearTimeout(timer);
+  }, [introOpen, isOnlineVariant]);
+
   // Open situation overlay when new situation appears
   useEffect(() => {
     if (roomState?.room.status !== "PLAYING") {
@@ -458,6 +470,14 @@ export function BunkerExperience({
     }, 240);
     return () => window.clearTimeout(timer);
   }, [situationClosing]);
+
+  useEffect(() => {
+    if (!isOnlineVariant || !situationOpen || situationClosing) return;
+    const timer = window.setTimeout(() => {
+      setSituationClosing(true);
+    }, BUNKER_ONLINE_MODAL_TIMINGS_MS.situation);
+    return () => window.clearTimeout(timer);
+  }, [isOnlineVariant, situationClosing, situationOpen]);
 
   // Keep latest players in a ref so announcement effects can read names
   // without re-running on every socket update.
@@ -723,6 +743,8 @@ export function BunkerExperience({
     room.status !== "FINISHED" &&
     room.status !== "CANCELLED";
   const players = roomState?.players ?? [];
+  const readyCount = players.filter((player) => !!player.readyAt).length;
+  const meReady = !!me && players.some((player) => player.id === me.id && !!player.readyAt);
   const localizedPlayers = useMemo(
     () =>
       players.map((player) => ({
@@ -1079,6 +1101,7 @@ export function BunkerExperience({
                   isHost={p.isHost}
                   isAlive={p.isAlive}
                   online={p.online}
+                  isReady={!!p.readyAt}
                   showPresence
                   revealedCards={{}}
                   isMe={p.id === me.id}
@@ -1093,7 +1116,51 @@ export function BunkerExperience({
             </ul>
           </section>
 
-          {!me.isHost ? (
+          {isOnlineVariant ? (
+            <>
+              <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
+                {me.isHost
+                  ? t("online_lobbida_hamma_tayyor_bolsa_7195")
+                  : t("online_oyinda_barcha_tayy_9f6b")}
+              </p>
+              {!me.isHost ? (
+                <div className="mt-3 grid gap-2">
+                  <button
+                    type="button"
+                    disabled={players.length < 3}
+                    onClick={() => emit("toggle_ready")}
+                    className={`flex h-12 w-full items-center justify-center rounded-xl text-sm font-semibold transition active:scale-[0.99] disabled:opacity-50 ${
+                      meReady
+                        ? "border border-brand/30 bg-brand-soft text-brand"
+                        : "bg-brand text-bg-base"
+                    }`}
+                  >
+                    {meReady ? t("tayyorni_bekor_qilish") : t("tayyorman")}
+                  </button>
+                  {players.length < 3 ? (
+                    <p className="text-center text-xs text-ink-muted">
+                      {t("count_ta_oyinchi_kerak", { count: 3 })}
+                    </p>
+                  ) : (
+                    <p className="text-center text-xs text-ink-muted">
+                      {t("kamida_3_kishi_count_ta_fcb6", {
+                        count: readyCount
+                      })}
+                    </p>
+                  )}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={() =>
+                  me.isHost ? setEndGameConfirmOpen(true) : setLeaveConfirmOpen(true)
+                }
+                className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.99]"
+              >
+                {t(me.isHost ? "roomni_ochirish" : "roomdan_chiqish")}
+              </button>
+            </>
+          ) : !me.isHost ? (
             <>
               <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
                 {t("host_oyinni_boshlashini_kuting")}
@@ -1115,48 +1182,27 @@ export function BunkerExperience({
           ) : null}
         </div>
 
-        {me.isHost ? (
+        {me.isHost && !isOnlineVariant ? (
           <div className="fixed inset-x-0 bottom-0 border-t border-line-subtle bg-bg-base/95 px-5 pb-safe pt-3 backdrop-blur">
             <div className="mx-auto max-w-xl">
-              {isOnlineVariant ? (
-                <OnlineBunkerCreatorDock
-                  isLobby
-                  playersCount={players.length}
-                  phase="LOBBY"
-                  canStartReveals={false}
-                  canAdvanceTurn={false}
-                  advanceTurnLabelKey="keyingi_oyinchi"
-                  canStartVoting={false}
-                  canSkipVoting={false}
-                  votingFinished={false}
-                  onStartGame={() => emit("start_game")}
-                  onStartRound={() => emit("start_round")}
-                  onStartReveals={() => emit("start_reveals")}
-                  onAdvanceTurn={() => emit("advance_turn")}
-                  onStartVoting={() => emit("start_voting")}
-                  onSkipVoting={() => emit("skip_voting")}
-                  onEndGame={() => setEndGameConfirmOpen(true)}
-                />
-              ) : (
-                <HostControls
-                  isHost={me.isHost}
-                  isLobby
-                  canStartGame={room.status === "LOBBY" && players.length >= 3}
-                  canStartRound={false}
-                  canStartReveals={false}
-                  canAdvanceTurn={false}
-                  canStartVoting={false}
-                  canSkipVoting={false}
-                  votingFinished={false}
-                  onStartGame={() => emit("start_game")}
-                  onStartRound={() => emit("start_round")}
-                  onStartReveals={() => emit("start_reveals")}
-                  onAdvanceTurn={() => emit("advance_turn")}
-                  onStartVoting={() => emit("start_voting")}
-                  onSkipVoting={() => emit("skip_voting")}
-                  onEndGame={() => setEndGameConfirmOpen(true)}
-                />
-              )}
+              <HostControls
+                isHost={me.isHost}
+                isLobby
+                canStartGame={room.status === "LOBBY" && players.length >= 3}
+                canStartRound={false}
+                canStartReveals={false}
+                canAdvanceTurn={false}
+                canStartVoting={false}
+                canSkipVoting={false}
+                votingFinished={false}
+                onStartGame={() => emit("start_game")}
+                onStartRound={() => emit("start_round")}
+                onStartReveals={() => emit("start_reveals")}
+                onAdvanceTurn={() => emit("advance_turn")}
+                onStartVoting={() => emit("start_voting")}
+                onSkipVoting={() => emit("skip_voting")}
+                onEndGame={() => setEndGameConfirmOpen(true)}
+              />
             </div>
           </div>
         ) : null}
@@ -1263,7 +1309,10 @@ export function BunkerExperience({
         className="mx-auto max-w-xl px-4 pt-3"
         style={{
           paddingBottom:
-            Math.max(bottomBarHeight, me.isHost ? 240 : 140) + 24
+            Math.max(
+              bottomBarHeight,
+              me.isHost && !isOnlineVariant ? 240 : 140
+            ) + 24
         }}
       >
         {/* Disaster + situation summary */}
@@ -1370,65 +1419,51 @@ export function BunkerExperience({
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 backdrop-blur"
       >
         <div className="mx-auto max-w-xl px-4 pt-3 pb-safe">
-          {me.isHost && room.status !== "FINISHED" ? (
+          {me.isHost && room.status !== "FINISHED" && isOnlineVariant ? (
+            <div className="mb-2 rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
+              <p className="mb-2 text-xs font-medium text-ink-muted">
+                {t("online_rejim_avtomatik_oqim_8c64")}
+              </p>
+              <button
+                type="button"
+                onClick={() => setEndGameConfirmOpen(true)}
+                className="flex h-12 w-full items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
+              >
+                {t("oyinni_tugatish")}
+              </button>
+            </div>
+          ) : null}
+
+          {me.isHost && room.status !== "FINISHED" && !isOnlineVariant ? (
             <div className="mb-2">
-              {isOnlineVariant ? (
-                <OnlineBunkerCreatorDock
-                  isLobby={false}
-                  playersCount={players.length}
-                  phase={game.phase}
-                  canStartReveals={!!canStartRevealsHost}
-                  canAdvanceTurn={
-                    room.status === "PLAYING" && game.phase === "ROUND_PITCH"
-                  }
-                  advanceTurnLabelKey={
-                    hasMoreRevealPlayers ? "keyingi_oyinchi" : "pitchni_tugatish"
-                  }
-                  canStartVoting={
-                    room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
-                  }
-                  canSkipVoting={
-                    room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
-                  }
-                  votingFinished={votingFinished}
-                  onStartGame={() => emit("start_game")}
-                  onStartRound={() => emit("start_round")}
-                  onStartReveals={() => emit("start_reveals")}
-                  onAdvanceTurn={() => emit("advance_turn")}
-                  onStartVoting={() => emit("start_voting")}
-                  onSkipVoting={() => emit("skip_voting")}
-                  onEndGame={() => setEndGameConfirmOpen(true)}
-                />
-              ) : (
-                <HostControls
-                  isHost={me.isHost}
-                  canStartGame={false}
-                  canStartRound={
-                    room.status === "PLAYING" && game.phase === "INTRO"
-                  }
-                  canStartReveals={!!canStartRevealsHost}
-                  canAdvanceTurn={
-                    room.status === "PLAYING" && game.phase === "ROUND_PITCH"
-                  }
-                  advanceTurnLabel={
-                    hasMoreRevealPlayers ? "Keyingi o'yinchi" : "Pitchni yakunlash"
-                  }
-                  canStartVoting={
-                    room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
-                  }
-                  canSkipVoting={
-                    room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
-                  }
-                  votingFinished={votingFinished}
-                  onStartGame={() => emit("start_game")}
-                  onStartRound={() => emit("start_round")}
-                  onStartReveals={() => emit("start_reveals")}
-                  onAdvanceTurn={() => emit("advance_turn")}
-                  onStartVoting={() => emit("start_voting")}
-                  onSkipVoting={() => emit("skip_voting")}
-                  onEndGame={() => setEndGameConfirmOpen(true)}
-                />
-              )}
+              <HostControls
+                isHost={me.isHost}
+                canStartGame={false}
+                canStartRound={
+                  room.status === "PLAYING" && game.phase === "INTRO"
+                }
+                canStartReveals={!!canStartRevealsHost}
+                canAdvanceTurn={
+                  room.status === "PLAYING" && game.phase === "ROUND_PITCH"
+                }
+                advanceTurnLabel={
+                  hasMoreRevealPlayers ? "Keyingi o'yinchi" : "Pitchni yakunlash"
+                }
+                canStartVoting={
+                  room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
+                }
+                canSkipVoting={
+                  room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
+                }
+                votingFinished={votingFinished}
+                onStartGame={() => emit("start_game")}
+                onStartRound={() => emit("start_round")}
+                onStartReveals={() => emit("start_reveals")}
+                onAdvanceTurn={() => emit("advance_turn")}
+                onStartVoting={() => emit("start_voting")}
+                onSkipVoting={() => emit("skip_voting")}
+                onEndGame={() => setEndGameConfirmOpen(true)}
+              />
             </div>
           ) : null}
 

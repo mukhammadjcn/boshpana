@@ -40,6 +40,12 @@ export class OnlineBunkerGameService {
         maxPlayers: 16,
       },
     });
+    if (result.playerId) {
+      await prisma.player.update({
+        where: { id: result.playerId },
+        data: { readyAt: new Date() }
+      });
+    }
     return result;
   }
 }

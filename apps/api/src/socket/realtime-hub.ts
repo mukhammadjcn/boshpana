@@ -3,10 +3,18 @@ import { Server, Socket } from "socket.io";
 
 import { GameRegistry } from "../games/registry";
 import { prisma } from "../lib/prisma";
+import { hostTransferService } from "../services/host-transfer-service";
 
 type SocketActionPayload = {
   roomCode: string;
   sessionId: string;
+};
+
+type CreatorChangedPayload = {
+  roomCode: string;
+  previousHostSessionId: string;
+  nextHostSessionId: string;
+  nextHostPlayerId: string;
 };
 
 export class RealtimeHub {
@@ -24,6 +32,8 @@ export class RealtimeHub {
   // re-attaches a new socket within the window, the timer is cancelled.
   private readonly offlineTimers = new Map<string, NodeJS.Timeout>();
   private static readonly OFFLINE_GRACE_MS = 3000;
+  private readonly hostTransferTimers = new Map<string, NodeJS.Timeout>();
+  private static readonly HOST_TRANSFER_GRACE_MS = 30_000;
 
   constructor(
     private readonly io: Server,
@@ -83,6 +93,11 @@ export class RealtimeHub {
                 previousSessionId,
                 socket.id
               );
+              this.scheduleHostTransfer(
+                previousRoomCode,
+                previousSessionId,
+                socket.id
+              );
             }
           }
 
@@ -93,6 +108,10 @@ export class RealtimeHub {
           // client just (re)attached, so the previous disconnect was a
           // transient blip we shouldn't surface to other players.
           this.cancelOfflineTimer(
+            socket.data.roomCode,
+            socket.data.sessionId
+          );
+          this.cancelHostTransferTimer(
             socket.data.roomCode,
             socket.data.sessionId
           );
@@ -120,6 +139,7 @@ export class RealtimeHub {
         // retries every 2s) doesn't trigger a visible online → offline →
         // online flicker for everyone watching the lobby.
         this.scheduleOfflineTransition(roomCode, sessionId, socket.id);
+        this.scheduleHostTransfer(roomCode, sessionId, socket.id);
       });
 
       socket.on("start_game", async (payload: SocketActionPayload) => {
@@ -244,7 +264,25 @@ export class RealtimeHub {
         await this.handleAction(socket, async () => {
           const service = await this.serviceForRoom(payload.roomCode);
           if (!service) throw new Error("Room topilmadi.");
-          await service.leaveRoom({
+          const result = await service.leaveRoom({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          const creatorChanged = this.extractCreatorChangedPayload(result);
+          if (creatorChanged) {
+            this.emitCreatorChanged(creatorChanged);
+          }
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
+      socket.on("toggle_ready", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service || !("toggleReady" in service)) {
+            throw new Error("Bu xona tayyor holatini qo'llamaydi.");
+          }
+          await service.toggleReady({
             code: payload.roomCode,
             sessionId: payload.sessionId
           });
@@ -490,6 +528,66 @@ export class RealtimeHub {
       clearTimeout(timer);
       this.offlineTimers.delete(key);
     }
+  }
+
+  private scheduleHostTransfer(
+    roomCode: string,
+    sessionId: string,
+    excludeSocketId: string
+  ) {
+    const key = this.offlineTimerKey(roomCode, sessionId);
+    const existing = this.hostTransferTimers.get(key);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(async () => {
+      this.hostTransferTimers.delete(key);
+      const stillConnected = await this.hasOtherSocketForSession(
+        roomCode,
+        sessionId,
+        excludeSocketId
+      );
+      if (stillConnected) return;
+
+      const transfer = await hostTransferService.transferOnlineRoomHost({
+        roomCode,
+        expectedHostSessionId: sessionId
+      });
+
+      if (transfer?.kind !== "transferred") {
+        return;
+      }
+
+      this.emitCreatorChanged({
+        roomCode: transfer.roomCode,
+        previousHostSessionId: transfer.previousHostSessionId,
+        nextHostSessionId: transfer.nextHostSessionId,
+        nextHostPlayerId: transfer.nextHostPlayerId
+      });
+      await this.broadcastRoomState(roomCode);
+    }, RealtimeHub.HOST_TRANSFER_GRACE_MS);
+
+    this.hostTransferTimers.set(key, timer);
+  }
+
+  private cancelHostTransferTimer(roomCode: string, sessionId: string) {
+    const key = this.offlineTimerKey(roomCode, sessionId);
+    const timer = this.hostTransferTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      this.hostTransferTimers.delete(key);
+    }
+  }
+
+  private emitCreatorChanged(payload: CreatorChangedPayload) {
+    this.io.to(payload.roomCode.toUpperCase()).emit("creator_changed", payload);
+  }
+
+  private extractCreatorChangedPayload(value: unknown): CreatorChangedPayload | null {
+    if (!value || typeof value !== "object" || !("creatorChanged" in value)) {
+      return null;
+    }
+    const payload = (value as { creatorChanged?: CreatorChangedPayload | null }).creatorChanged;
+    return payload ?? null;
   }
 
   // True when any socket OTHER than `excludeSocketId` (the one currently

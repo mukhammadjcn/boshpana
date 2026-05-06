@@ -62,6 +62,7 @@ export type BunkerRoomState = {
     name: string;
     isHost: boolean;
     isAlive: boolean;
+    readyAt: string | null;
     online: boolean;
     seatOrder: number;
     visibleCards: Partial<Record<string, LocalizedText>>;

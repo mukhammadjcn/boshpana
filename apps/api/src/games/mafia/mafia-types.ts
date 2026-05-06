@@ -99,6 +99,7 @@ export type MafiaPublicState = {
     name: string;
     isHost: boolean;
     isAlive: boolean;
+    readyAt: string | null;
     online: boolean;
     seatOrder: number;
     // Roli ochilgan bo'lsa (o'lim/lynch yoki mafia teammate ko'rinishi)

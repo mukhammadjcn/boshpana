@@ -54,9 +54,9 @@ const MAFIA_MODAL_TIMINGS_MS = {
   roleReminder: 2000,
   dayResultAutoShow: 5000,
   phaseIntro: {
-    night: 5000,
-    day: 5000,
-    tiebreak: 3000,
+    night: 9000,
+    day: 9000,
+    tiebreak: 6000,
   },
 } as const;
 
@@ -750,10 +750,20 @@ export function MafiaExperience({
                 : t("kun_yorishdi_tavsifi")}
           </p>
           <p className="mt-5 text-xs text-ink-muted">
-            {phaseIntro.kind === "tiebreak"
-              ? t("jarayon_3_soniyadan_keyin_davom_etadi")
-              : t("jarayon_5_soniyadan_keyin_davom_etadi")}
+            {t("jarayon_seconds_soniyadan_keyin_davom_etadi", {
+              seconds:
+                phaseIntro.kind === "tiebreak"
+                  ? 6
+                  : 9
+            })}
           </p>
+          <button
+            type="button"
+            onClick={() => setPhaseIntro(null)}
+            className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+          >
+            {t("tushundim")}
+          </button>
         </div>
       </div>
     </div>
@@ -951,8 +961,10 @@ export function MafiaExperience({
           visibility={visibility}
           connectionFeedback={connectionFeedback}
           startGamePending={isPending("lobby:start_game")}
+          readyPending={isPending("lobby:toggle_ready")}
           uiVariant={uiVariant}
           onStartGame={() => emitWithPending("lobby:start_game", "start_game")}
+          onToggleReady={() => emitWithPending("lobby:toggle_ready", "toggle_ready")}
           onLeaveRoom={() => setLeaveConfirmOpen(true)}
           onRequestKickPlayer={(player) => setKickTarget(player)}
           onRequestEndGame={() => setEndGameConfirmOpen(true)}
@@ -1026,6 +1038,7 @@ export function MafiaExperience({
         />
         <MafiaHostDock
           state={roomState}
+          suppressPrimaryAction={uiVariant === "online"}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1125,6 +1138,7 @@ export function MafiaExperience({
         <MafiaNightResult state={roomState} />
         <MafiaHostDock
           state={roomState}
+          suppressPrimaryAction={uiVariant === "online"}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1224,6 +1238,7 @@ export function MafiaExperience({
         {game.phase === "DAY_VOTE" || game.phase === "DAY_TIEBREAK" ? null : (
           <MafiaHostDock
             state={roomState}
+            suppressPrimaryAction={uiVariant === "online"}
             showRoleReminder={showRoleReminder}
             showVoteConfirmAction={showVoteConfirmAction}
             showNightSelectionStatus={showNightSelectionStatus}
@@ -1370,6 +1385,7 @@ export function MafiaExperience({
 
 function MafiaHostDock({
   state,
+  suppressPrimaryAction = false,
   showRoleReminder,
   showVoteConfirmAction,
   showNightSelectionStatus,
@@ -1385,6 +1401,7 @@ function MafiaHostDock({
   onConfirmNight,
 }: {
   state: MafiaPublicState;
+  suppressPrimaryAction?: boolean;
   showRoleReminder: boolean;
   showVoteConfirmAction: boolean;
   showNightSelectionStatus: boolean;
@@ -1404,7 +1421,7 @@ function MafiaHostDock({
   if (!me?.isHost || state.room.status !== "PLAYING") return null;
   if (state.game.phase === "ASSIGN_ROLES" && !me.roleConfirmed) return null;
 
-  const primaryLabel = getMafiaHostPrimaryLabel(state);
+  const primaryLabel = suppressPrimaryAction ? null : getMafiaHostPrimaryLabel(state);
   const primaryDisabled =
     state.game.phase === "ASSIGN_ROLES" &&
     state.game.roleConfirmations.confirmed < state.game.roleConfirmations.total;
@@ -1697,8 +1714,10 @@ function Lobby({
   visibility,
   connectionFeedback,
   startGamePending,
+  readyPending,
   uiVariant,
   onStartGame,
+  onToggleReady,
   onLeaveRoom,
   onRequestKickPlayer,
   onRequestEndGame,
@@ -1710,8 +1729,10 @@ function Lobby({
   visibility: RoomVisibility;
   connectionFeedback: ReactNode;
   startGamePending: boolean;
+  readyPending: boolean;
   uiVariant: "friends" | "online";
   onStartGame: () => void;
+  onToggleReady: () => void;
   onLeaveRoom: () => void;
   onRequestKickPlayer: (player: { id: string; name: string }) => void;
   onRequestEndGame: () => void;
@@ -1725,6 +1746,8 @@ function Lobby({
     (config.hasDoctor ? 1 : 0);
   const minPlayers = specialRoles + 1;
   const canStart = players.length >= minPlayers;
+  const readyCount = players.filter((player) => !!player.readyAt).length;
+  const meReady = !!me && players.some((player) => player.id === me.id && !!player.readyAt);
   const inviteUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/room/${room.code}`
@@ -1842,6 +1865,11 @@ function Lobby({
                 >
                   ● {p.online ? t("onlayn") : t("offlayn")}
                 </span>
+                {p.readyAt ? (
+                  <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
+                    {t("tayyor")}
+                  </span>
+                ) : null}
                 {me?.isHost && p.id !== me.id && room.status === "LOBBY" ? (
                   <button
                     type="button"
@@ -1872,10 +1900,48 @@ function Lobby({
           </ul>
         </section>
 
-        {!me?.isHost ? (
-          <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center text-sm text-ink-secondary">
-            {t("host_oyinni_boshlashini_kuting_2")}
-          </p>
+        {uiVariant === "online" ? (
+          <div className="mt-6 grid gap-2">
+            <p className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center text-sm text-ink-secondary">
+              {me?.isHost
+                ? t("online_lobbida_hamma_tayyor_bolsa_7195")
+                : t("online_oyinda_barcha_tayy_9f6b")}
+            </p>
+            {!me?.isHost ? (
+              <>
+                <button
+                  type="button"
+                  disabled={!canStart || readyPending}
+                  onClick={onToggleReady}
+                  className={`flex h-12 w-full items-center justify-center rounded-2xl px-4 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
+                    meReady
+                      ? "border border-brand/30 bg-brand-soft text-brand"
+                      : "bg-brand text-bg-base"
+                  }`}
+                >
+                  {readyPending
+                    ? t("yuborilmoqda")
+                    : meReady
+                      ? t("tayyorni_bekor_qilish")
+                      : t("tayyorman")}
+                </button>
+                <p className="text-center text-xs text-ink-muted">
+                  {canStart
+                    ? t("kamida_minplayers_kishi_readycount_ta_6b25", {
+                        minPlayers,
+                        readyCount,
+                      })
+                    : t("count_ta_oyinchi_kerak", { count: minPlayers })}
+                </p>
+              </>
+            ) : null}
+          </div>
+        ) : !me?.isHost ? (
+          <div className="mt-6 grid gap-2">
+            <p className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center text-sm text-ink-secondary">
+              {t("host_oyinni_boshlashini_kuting_2")}
+            </p>
+          </div>
         ) : null}
       </div>
 
@@ -1885,34 +1951,49 @@ function Lobby({
           {me?.isHost ? (
             <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
               <p className="mb-2 text-xs font-medium text-ink-muted">
-                {t("host_paneli")}
+                {t(uiVariant === "online" ? "online_rejim_avtomatik_oqim_8c64" : "host_paneli")}
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={onStartGame}
-                  disabled={!canStart || startGamePending}
-                  className="flex h-12 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-                >
-                  {startGamePending ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Spinner />
-                      {t("yuborilmoqda")}
-                    </span>
-                  ) : canStart ? (
-                    t("oyinni_boshlash")
-                  ) : (
-                    t("count_ta_oyinchi_kerak", { count: minPlayers })
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={onRequestEndGame}
-                  className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
-                >
-                  {t("roomni_ochirish")}
-                </button>
-              </div>
+              {uiVariant === "online" ? (
+                <div className="grid gap-2">
+                  <p className="text-sm text-ink-secondary">
+                    {t("online_fazalar_va_start_avto_4891")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onRequestEndGame}
+                    className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
+                  >
+                    {t("roomni_ochirish")}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={onStartGame}
+                    disabled={!canStart || startGamePending}
+                    className="flex h-12 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {startGamePending ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Spinner />
+                        {t("yuborilmoqda")}
+                      </span>
+                    ) : canStart ? (
+                      t("oyinni_boshlash")
+                    ) : (
+                      t("count_ta_oyinchi_kerak", { count: minPlayers })
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onRequestEndGame}
+                    className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
+                  >
+                    {t("roomni_ochirish")}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">

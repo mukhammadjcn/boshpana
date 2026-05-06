@@ -288,6 +288,10 @@ async function enforceSingleActiveRoom(
   try {
     const service = games.for(active.gameType);
     await service.leaveRoom({ code: active.code, sessionId });
+    const broadcaster = service as typeof service & {
+      broadcastState?: (roomCode: string) => Promise<void>;
+    };
+    await broadcaster.broadcastState?.(active.code);
   } catch {
     // ignore
   }

@@ -26,6 +26,7 @@ type PlayerCardProps = {
   // dominate the row) and surface it only in the lobby tile layout.
   online?: boolean;
   showPresence?: boolean;
+  isReady?: boolean;
   onKick?: () => void;
 };
 
@@ -40,6 +41,7 @@ export function PlayerCard({
   gameOver = false,
   online,
   showPresence = false,
+  isReady = false,
   onKick
 }: PlayerCardProps) {
   const { t } = useI18n();
@@ -88,7 +90,10 @@ export function PlayerCard({
           </div>
           <div className="flex items-center gap-2">
             {showPresence ? (
-              <PresenceDot online={!!online} />
+              <>
+                <PresenceDot online={!!online} />
+                {isReady ? <ReadyDot /> : null}
+              </>
             ) : (
               <StatusDot
                 isAlive={isAlive}
@@ -298,6 +303,16 @@ function PresenceDot({ online }: { online: boolean }) {
         }`}
       />
       {online ? t("onlayn") : t("offlayn")}
+    </span>
+  );
+}
+
+function ReadyDot() {
+  const { t } = useI18n();
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-brand-soft px-2 py-1 text-[10px] font-semibold uppercase text-brand">
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand" />
+      {t("tayyor")}
     </span>
   );
 }

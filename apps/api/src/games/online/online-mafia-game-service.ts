@@ -27,7 +27,7 @@ export class OnlineMafiaGameService {
       hostName: input.hostName,
       sessionId: input.sessionId,
       hostUserId: input.hostUserId,
-      mafiaCount: input.mafiaCount ?? 2,
+      mafiaCount: input.mafiaCount ?? 1,
       hasSheriff: input.hasSheriff ?? true,
       hasDoctor: input.hasDoctor ?? true,
     });
@@ -38,6 +38,12 @@ export class OnlineMafiaGameService {
         visibility: input.visibility,
       },
     });
+    if (result.playerId) {
+      await prisma.player.update({
+        where: { id: result.playerId },
+        data: { readyAt: new Date() }
+      });
+    }
     return result;
   }
 }

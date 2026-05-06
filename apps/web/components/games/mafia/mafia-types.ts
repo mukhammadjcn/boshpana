@@ -83,6 +83,7 @@ export type MafiaPublicState = {
     name: string;
     isHost: boolean;
     isAlive: boolean;
+    readyAt: string | null;
     online: boolean;
     seatOrder: number;
     revealedRole: MafiaRole | null;

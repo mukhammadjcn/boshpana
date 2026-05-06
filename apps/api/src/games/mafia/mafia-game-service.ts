@@ -13,6 +13,12 @@ import {
 import { randomBytes, randomInt } from "node:crypto";
 
 import { prisma } from "../../lib/prisma";
+import { hostTransferService } from "../../services/host-transfer-service";
+import { shouldAutoStartOnlineLobby } from "../../services/online-lobby-service";
+import {
+  getMafiaResultRevealDurationSeconds,
+  isSelfManagedOnlineRoom
+} from "../online/online-self-managed-rules";
 
 import {
   MAFIA_DAY_DISCUSSION_DURATION_SECONDS,
@@ -228,6 +234,34 @@ export class MafiaGameService {
     const me = room.players.find((p) => p.sessionId === input.sessionId);
     if (!me) throw new Error("O'yinchi topilmadi.");
     if (me.isHost) {
+      if (room.mode === "ONLINE") {
+        const transfer = await hostTransferService.transferOnlineRoomHost({
+          roomCode: room.code,
+          expectedHostSessionId: input.sessionId,
+          currentHostPlayerId: me.id
+        });
+
+        if (transfer?.kind === "transferred") {
+          await prisma.player.delete({ where: { id: me.id } });
+          return {
+            creatorChanged: {
+              roomCode: transfer.roomCode,
+              previousHostSessionId: transfer.previousHostSessionId,
+              nextHostSessionId: transfer.nextHostSessionId,
+              nextHostPlayerId: transfer.nextHostPlayerId
+            }
+          };
+        }
+
+        await prisma.$transaction([
+          prisma.player.delete({ where: { id: me.id } }),
+          prisma.room.update({
+            where: { id: room.id },
+            data: { status: RoomStatus.CANCELLED }
+          })
+        ]);
+        return;
+      }
       throw new Error(
         "Host xonadan chiqa olmaydi. O'yinni tugating yoki bekor qiling."
       );
@@ -244,6 +278,72 @@ export class MafiaGameService {
     if (!target) throw new Error("O'yinchi topilmadi.");
     if (target.isHost) throw new Error("Hostni chiqarib bo'lmaydi.");
     await prisma.player.delete({ where: { id: target.id } });
+  }
+
+  async toggleReady(input: RoomCodeAction) {
+    const room = await prisma.room.findUnique({
+      where: { code: input.code.toUpperCase() },
+      include: {
+        players: { orderBy: { seatOrder: "asc" } },
+        mafiaGame: true
+      }
+    });
+    if (!room) throw new Error("Room topilmadi.");
+    if (room.gameType !== GameType.MAFIA) {
+      throw new Error("Bu Mafia o'yini emas.");
+    }
+    if (room.mode !== "ONLINE") {
+      throw new Error("Tayyorman faqat online lobby uchun ishlaydi.");
+    }
+    if (room.status !== RoomStatus.LOBBY) {
+      throw new Error("O'yin boshlanganidan keyin tayyor holatini o'zgartirib bo'lmaydi.");
+    }
+    if (!room.mafiaGame) {
+      throw new Error("O'yin state topilmadi.");
+    }
+
+    const me = room.players.find((player) => player.sessionId === input.sessionId);
+    if (!me) throw new Error("O'yinchi topilmadi.");
+
+    const required =
+      room.mafiaGame.mafiaCount +
+      (room.mafiaGame.hasSheriff ? 1 : 0) +
+      (room.mafiaGame.hasDoctor ? 1 : 0) +
+      1;
+    if (room.players.length < required && !me.readyAt) {
+      throw new Error(
+        `Kamida ${required} ta o'yinchi bo'lgach tayyor holatini yoqish mumkin.`
+      );
+    }
+
+    const nextReadyAt = me.readyAt ? null : new Date();
+
+    await prisma.player.update({
+      where: { id: me.id },
+      data: { readyAt: nextReadyAt }
+    });
+
+    if (!nextReadyAt) {
+      return;
+    }
+
+    const refreshed = await prisma.room.findUnique({
+      where: { id: room.id },
+      include: {
+        players: { orderBy: { seatOrder: "asc" } },
+        mafiaGame: true
+      }
+    });
+
+    if (
+      refreshed?.mafiaGame &&
+      shouldAutoStartOnlineLobby(refreshed.players, required)
+    ) {
+      await this.startGame({
+        code: refreshed.code,
+        sessionId: refreshed.hostSessionId
+      });
+    }
   }
 
   async startGame(input: RoomCodeAction) {
@@ -289,6 +389,10 @@ export class MafiaGameService {
       await tx.room.update({
         where: { id: room.id },
         data: { status: RoomStatus.PLAYING }
+      });
+      await tx.player.updateMany({
+        where: { roomId: room.id },
+        data: { readyAt: null }
       });
       await tx.mafiaGame.update({
         where: { id: gameId },
@@ -339,6 +443,23 @@ export class MafiaGameService {
       where: { id: me.mafiaRole.id },
       data: { roleConfirmed: true }
     });
+
+    if (!isSelfManagedOnlineRoom(room.mode)) {
+      return;
+    }
+
+    const confirmedCount = await prisma.mafiaPlayerRole.count({
+      where: {
+        gameId: room.mafiaGame.id,
+        isAlive: true,
+        roleConfirmed: true
+      }
+    });
+    const aliveCount = room.players.filter((player) => player.mafiaRole?.isAlive).length;
+
+    if (confirmedCount >= aliveCount) {
+      await this.advanceToNight(room.mafiaGame.id);
+    }
   }
 
   // First night begins. Subsequent nights also flow through here once
@@ -711,6 +832,10 @@ export class MafiaGameService {
 
     const sheriffShotIncrement = sheriffShootTarget !== null ? 1 : 0;
     const doctorSelfHealIncrement = doctorHealedSelf ? 1 : 0;
+    const nightResultDelaySeconds = getMafiaResultRevealDurationSeconds(
+      room.mode,
+      "NIGHT_RESULT"
+    );
 
     await prisma.$transaction(async (tx) => {
       for (const d of deathRows) {
@@ -732,15 +857,18 @@ export class MafiaGameService {
         where: { id: game.id },
         data: {
           phase: MafiaPhase.NIGHT_RESULT,
-          // Host explicitly starts the day after everyone has seen the
-          // night-result reveal.
-          timerEndsAt: null,
+          timerEndsAt: nightResultDelaySeconds
+            ? new Date(Date.now() + nightResultDelaySeconds * 1000)
+            : null,
           sheriffShotsUsed: { increment: sheriffShotIncrement },
           doctorSelfHealsUsed: { increment: doctorSelfHealIncrement },
           lastNightDoctorSaved: doctorSavedAny
         }
       });
     });
+    if (nightResultDelaySeconds) {
+      this.startTimer(roomCode);
+    }
     await this.realtime.broadcastRoomState(roomCode);
   }
 
@@ -1013,6 +1141,10 @@ export class MafiaGameService {
   ) {
     if (!room.mafiaGame) return;
     const game = room.mafiaGame;
+    const dayResultDelaySeconds = getMafiaResultRevealDurationSeconds(
+      room.mode,
+      "DAY_RESULT"
+    );
     await prisma.$transaction(async (tx) => {
       if (eliminatedPlayerId) {
         await tx.mafiaPlayerRole.update({
@@ -1033,13 +1165,16 @@ export class MafiaGameService {
         where: { id: game.id },
         data: {
           phase: MafiaPhase.DAY_RESULT,
-          // Host explicitly starts the next night after the table has
-          // seen the day-result reveal.
-          timerEndsAt: null,
+          timerEndsAt: dayResultDelaySeconds
+            ? new Date(Date.now() + dayResultDelaySeconds * 1000)
+            : null,
           tiebreakCandidateIds: []
         }
       });
     });
+    if (dayResultDelaySeconds) {
+      this.startTimer(room.code);
+    }
     await this.realtime.broadcastRoomState(room.code);
   }
 
@@ -1195,6 +1330,10 @@ export class MafiaGameService {
         }
       });
     }
+  }
+
+  async broadcastState(roomCode: string) {
+    await this.realtime.broadcastRoomState(roomCode.toUpperCase());
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -1436,6 +1575,7 @@ export class MafiaGameService {
           name: p.name,
           isHost: p.isHost,
           isAlive: p.isAlive,
+          readyAt: p.readyAt ? p.readyAt.toISOString() : null,
           online: isOnline,
           seatOrder: p.seatOrder,
           revealedRole: showRole ? p.mafiaRole?.role ?? null : null

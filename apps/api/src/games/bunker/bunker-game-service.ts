@@ -10,7 +10,20 @@ import { randomBytes, randomInt } from "node:crypto";
 
 import { buildLocalizedText, type LocalizedText } from "../../lib/localized-content";
 import { prisma } from "../../lib/prisma";
-import { CARD_TYPES, BunkerPublicState } from "./bunker-types";
+import { hostTransferService } from "../../services/host-transfer-service";
+import { shouldAutoStartOnlineLobby } from "../../services/online-lobby-service";
+import {
+  getBunkerIntroDurationSeconds,
+  getBunkerRevealDurationSeconds,
+  getBunkerRoundResultDurationSeconds,
+  isSelfManagedOnlineRoom
+} from "../online/online-self-managed-rules";
+import {
+  BUNKER_PITCH_DURATION_SECONDS,
+  BUNKER_VOTING_DURATION_SECONDS,
+  CARD_TYPES,
+  BunkerPublicState
+} from "./bunker-types";
 
 type RealtimePublisher = {
   broadcastRoomState: (roomCode: string) => Promise<void>;
@@ -384,6 +397,7 @@ export class BunkerGameService {
           name: player.name,
           isHost: player.isHost,
           isAlive: player.isAlive,
+          readyAt: player.readyAt ? player.readyAt.toISOString() : null,
           online: isOnline,
           seatOrder: player.seatOrder,
           visibleCards: showAll
@@ -447,7 +461,9 @@ export class BunkerGameService {
       ]);
       return picked;
     })();
-    const introEndsAt = new Date(Date.now() + 120_000);
+    const introEndsAt = new Date(
+      Date.now() + getBunkerIntroDurationSeconds(room.mode) * 1000
+    );
 
     // Deal a unique card per player for every type. Each player has their
     // own personal cooldown (last 2h of cards they were dealt), so
@@ -500,7 +516,7 @@ export class BunkerGameService {
 
         await tx.player.update({
           where: { id: player.id },
-          data: { isAlive: true }
+          data: { isAlive: true, readyAt: null }
         });
 
         await tx.bunkerPlayerAttribute.create({
@@ -533,6 +549,62 @@ export class BunkerGameService {
   async startRound(input: RoomCodeAction) {
     await this.requireHostRoom(input);
     await this.beginNextRound(input.code);
+  }
+
+  async toggleReady(input: RoomCodeAction) {
+    const room = await prisma.room.findUnique({
+      where: { code: input.code.toUpperCase() },
+      include: {
+        players: {
+          orderBy: { seatOrder: "asc" }
+        }
+      }
+    });
+
+    if (!room) {
+      throw new Error("Room topilmadi.");
+    }
+    if (room.mode !== "ONLINE") {
+      throw new Error("Tayyorman faqat online lobby uchun ishlaydi.");
+    }
+    if (room.status !== RoomStatus.LOBBY) {
+      throw new Error("O'yin boshlanganidan keyin tayyor holatini o'zgartirib bo'lmaydi.");
+    }
+
+    const me = room.players.find((player) => player.sessionId === input.sessionId);
+    if (!me) {
+      throw new Error("O'yinchi topilmadi.");
+    }
+    if (room.players.length < 3 && !me.readyAt) {
+      throw new Error("Kamida 3 o'yinchi bo'lgach tayyor holatini yoqish mumkin.");
+    }
+
+    const nextReadyAt = me.readyAt ? null : new Date();
+
+    await prisma.player.update({
+      where: { id: me.id },
+      data: { readyAt: nextReadyAt }
+    });
+
+    if (!nextReadyAt) {
+      return;
+    }
+
+    const refreshed = await prisma.room.findUnique({
+      where: { id: room.id },
+      include: {
+        players: {
+          orderBy: { seatOrder: "asc" }
+        }
+      }
+    });
+
+    if (refreshed && shouldAutoStartOnlineLobby(refreshed.players, 3)) {
+      await this.startGame({
+        code: refreshed.code,
+        sessionId: refreshed.hostSessionId
+      });
+    }
   }
 
   async advanceTurn(input: RoomCodeAction) {
@@ -582,7 +654,7 @@ export class BunkerGameService {
         where: { id: room.bunkerGame.id },
         data: {
           phase: BunkerPhase.VOTING,
-          timerEndsAt: new Date(Date.now() + 45_000),
+          timerEndsAt: new Date(Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000),
           currentTurnPlayerId: null,
           tiebreakCandidateIds: []
         }
@@ -609,6 +681,34 @@ export class BunkerGameService {
     const me = room.players.find((p) => p.sessionId === input.sessionId);
     if (!me) throw new Error("O'yinchi topilmadi.");
     if (me.isHost) {
+      if (room.mode === "ONLINE") {
+        const transfer = await hostTransferService.transferOnlineRoomHost({
+          roomCode: room.code,
+          expectedHostSessionId: input.sessionId,
+          currentHostPlayerId: me.id
+        });
+
+        if (transfer?.kind === "transferred") {
+          await prisma.player.delete({ where: { id: me.id } });
+          return {
+            creatorChanged: {
+              roomCode: transfer.roomCode,
+              previousHostSessionId: transfer.previousHostSessionId,
+              nextHostSessionId: transfer.nextHostSessionId,
+              nextHostPlayerId: transfer.nextHostPlayerId
+            }
+          };
+        }
+
+        await prisma.$transaction([
+          prisma.player.delete({ where: { id: me.id } }),
+          prisma.room.update({
+            where: { id: room.id },
+            data: { status: RoomStatus.CANCELLED }
+          })
+        ]);
+        return;
+      }
       throw new Error("Host xonadan chiqa olmaydi. O'yinni tugating yoki bekor qiling.");
     }
     await prisma.player.delete({ where: { id: me.id } });
@@ -892,7 +992,7 @@ export class BunkerGameService {
         where: { id: room.bunkerGame.id },
         data: {
           phase: BunkerPhase.ROUND_PITCH,
-          timerEndsAt: new Date(Date.now() + 120_000),
+          timerEndsAt: new Date(Date.now() + BUNKER_PITCH_DURATION_SECONDS * 1000),
           lastRevealedPlayerId: me.id,
           lastRevealedCardType: input.cardType
         }
@@ -1058,6 +1158,12 @@ export class BunkerGameService {
 
     this.stopTimer(room.code);
 
+    const nextRevealPlayer = this.findNextRevealPlayer(
+      room.players,
+      nextRound,
+      null
+    );
+
     await prisma.$transaction([
       prisma.room.update({
         where: { id: room.id },
@@ -1069,8 +1175,14 @@ export class BunkerGameService {
           roundNumber: nextRound,
           currentSituationId: nextSituation.id,
           phase: BunkerPhase.ROUND_REVEAL,
-          timerEndsAt: null,
-          currentTurnPlayerId: null,
+          timerEndsAt:
+            isSelfManagedOnlineRoom(room.mode)
+              ? new Date(
+                  Date.now() + (getBunkerRevealDurationSeconds(room.mode) ?? 0) * 1000
+                )
+              : null,
+          currentTurnPlayerId:
+            isSelfManagedOnlineRoom(room.mode) ? nextRevealPlayer?.id ?? null : null,
           lastEliminatedPlayerId: null,
           lastRevealedPlayerId: null,
           lastRevealedCardType: null
@@ -1113,9 +1225,69 @@ export class BunkerGameService {
       where: { id: room.bunkerGame.id },
       data: {
         currentTurnPlayerId: next.id,
-        timerEndsAt: null
+        timerEndsAt: getBunkerRevealDurationSeconds(room.mode)
+          ? new Date(
+              Date.now() + getBunkerRevealDurationSeconds(room.mode)! * 1000
+            )
+          : null
       }
     });
+
+    if (getBunkerRevealDurationSeconds(room.mode)) {
+      this.startTimer(room.code);
+    }
+  }
+
+  private async autoRevealCurrentTurn(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+
+    if (!room?.bunkerGame) {
+      throw new Error("Room topilmadi.");
+    }
+    const game = room.bunkerGame;
+    if (game.phase !== BunkerPhase.ROUND_REVEAL) {
+      return;
+    }
+
+    const currentPlayer = room.players.find(
+      (player) => player.id === game.currentTurnPlayerId
+    );
+    if (!currentPlayer?.bunkerAttributes) {
+      return;
+    }
+
+    const availableCards = CARD_TYPES.filter(
+      (cardType) =>
+        cardType !== BunkerCardType.PROFESSION &&
+        !currentPlayer.bunkerAttributes?.revealed.includes(cardType)
+    );
+
+    if (availableCards.length === 0) {
+      await this.advanceTurnForRoom(roomCode);
+      return;
+    }
+
+    const randomCardType = availableCards[randomInt(availableCards.length)];
+
+    await prisma.$transaction([
+      prisma.bunkerPlayerAttribute.update({
+        where: { id: currentPlayer.bunkerAttributes.id },
+        data: {
+          revealed: [...currentPlayer.bunkerAttributes.revealed, randomCardType]
+        }
+      }),
+      prisma.bunkerGame.update({
+        where: { id: game.id },
+        data: {
+          phase: BunkerPhase.ROUND_PITCH,
+          timerEndsAt: new Date(Date.now() + BUNKER_PITCH_DURATION_SECONDS * 1000),
+          lastRevealedPlayerId: currentPlayer.id,
+          lastRevealedCardType: randomCardType
+        }
+      })
+    ]);
+
+    this.startTimer(room.code);
   }
 
   private async advanceTurnForRoom(roomCode: string) {
@@ -1145,15 +1317,32 @@ export class BunkerGameService {
       data: nextTurn
         ? {
             phase: BunkerPhase.ROUND_REVEAL,
-            timerEndsAt: null,
+            timerEndsAt: getBunkerRevealDurationSeconds(room.mode)
+              ? new Date(
+                  Date.now() + getBunkerRevealDurationSeconds(room.mode)! * 1000
+                )
+              : null,
             currentTurnPlayerId: nextTurn.id
           }
-        : {
-            phase: BunkerPhase.ROUND_COMPLETE,
-            timerEndsAt: null,
-            currentTurnPlayerId: null
-          }
+        : isSelfManagedOnlineRoom(room.mode)
+          ? {
+              phase: BunkerPhase.VOTING,
+              timerEndsAt: new Date(
+                Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
+              ),
+              currentTurnPlayerId: null,
+              tiebreakCandidateIds: []
+            }
+          : {
+              phase: BunkerPhase.ROUND_COMPLETE,
+              timerEndsAt: null,
+              currentTurnPlayerId: null
+            }
     });
+
+    if (!nextTurn && isSelfManagedOnlineRoom(room.mode)) {
+      this.startTimer(room.code);
+    }
   }
 
   private async resolveVoting(roomCode: string) {
@@ -1178,15 +1367,22 @@ export class BunkerGameService {
       // vote against each other would otherwise loop forever). Otherwise let
       // the round end without elimination.
       if (!isEndgame) {
+        const roundResultDelaySeconds = getBunkerRoundResultDurationSeconds(room.mode);
         await prisma.bunkerGame.update({
           where: { id: room.bunkerGame.id },
           data: {
             phase: BunkerPhase.ROUND_COMPLETE,
-            timerEndsAt: null,
+            timerEndsAt: roundResultDelaySeconds
+              ? new Date(Date.now() + roundResultDelaySeconds * 1000)
+              : null,
             tiebreakCandidateIds: []
           }
         });
-        this.stopTimer(room.code);
+        if (roundResultDelaySeconds) {
+          this.startTimer(room.code);
+        } else {
+          this.stopTimer(room.code);
+        }
         return;
       }
 
@@ -1228,7 +1424,9 @@ export class BunkerGameService {
               where: { id: room.bunkerGame.id },
               data: {
                 phase: BunkerPhase.VOTING,
-                timerEndsAt: new Date(Date.now() + 45_000),
+                timerEndsAt: new Date(
+                  Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
+                ),
                 tiebreakCandidateIds: candidates
               }
             })
@@ -1293,7 +1491,12 @@ export class BunkerGameService {
         where: { id: gameId },
         data: {
           phase: BunkerPhase.ROUND_COMPLETE,
-          timerEndsAt: null,
+          timerEndsAt: getBunkerRoundResultDurationSeconds(room.mode)
+            ? new Date(
+                Date.now() +
+                  getBunkerRoundResultDurationSeconds(room.mode)! * 1000
+              )
+            : null,
           currentTurnPlayerId: null,
           lastEliminatedPlayerId: eliminatedId,
           tiebreakCandidateIds: []
@@ -1303,6 +1506,11 @@ export class BunkerGameService {
 
     if (didFinish) {
       await this.saveGameHistory(room.id, "natural");
+      return;
+    }
+
+    if (isSelfManagedOnlineRoom(room.mode)) {
+      this.startTimer(room.code);
     }
   }
 
@@ -1727,10 +1935,14 @@ export class BunkerGameService {
 
         if (room.bunkerGame.phase === BunkerPhase.INTRO) {
           await this.beginNextRound(roomCode);
+        } else if (room.bunkerGame.phase === BunkerPhase.ROUND_REVEAL) {
+          await this.autoRevealCurrentTurn(roomCode);
         } else if (room.bunkerGame.phase === BunkerPhase.ROUND_PITCH) {
           await this.advanceTurnForRoom(roomCode);
         } else if (room.bunkerGame.phase === BunkerPhase.VOTING) {
           await this.resolveVoting(roomCode);
+        } else if (room.bunkerGame.phase === BunkerPhase.ROUND_COMPLETE) {
+          await this.beginNextRound(roomCode);
         }
 
         await this.realtime.broadcastRoomState(roomCode);
