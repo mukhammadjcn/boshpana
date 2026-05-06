@@ -24,6 +24,7 @@ import { useI18n } from "@/lib/i18n";
 import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import { pushToast } from "@/store/useToastStore";
+import type { RoomVisibility } from "@/lib/types";
 import {
   RealtimeConnectionFeedback,
   useRealtimeConnectionRecovery,
@@ -44,6 +45,8 @@ import { useMafiaAudio } from "./use-mafia-audio";
 type MafiaExperienceProps = {
   roomCode: string;
   view: "room" | "game";
+  uiVariant?: "friends" | "online";
+  visibility?: RoomVisibility;
 };
 
 const MAFIA_MODAL_TIMINGS_MS = {
@@ -62,7 +65,12 @@ const MAFIA_MODAL_TIMINGS_MS = {
 // commits — for now we render a placeholder once room.status flips to
 // PLAYING / FINISHED so the host's "Start" still has somewhere to
 // land while the rest of the screens are built.
-export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
+export function MafiaExperience({
+  roomCode,
+  view,
+  uiVariant = "friends",
+  visibility = "PRIVATE",
+}: MafiaExperienceProps) {
   const router = useRouter();
   const { t } = useI18n();
   const normalizedRoomCode = roomCode.toUpperCase();
@@ -940,8 +948,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           game={game}
           players={players}
           me={me}
+          visibility={visibility}
           connectionFeedback={connectionFeedback}
           startGamePending={isPending("lobby:start_game")}
+          uiVariant={uiVariant}
           onStartGame={() => emitWithPending("lobby:start_game", "start_game")}
           onLeaveRoom={() => setLeaveConfirmOpen(true)}
           onRequestKickPlayer={(player) => setKickTarget(player)}
@@ -1684,8 +1694,10 @@ function Lobby({
   game,
   players,
   me,
+  visibility,
   connectionFeedback,
   startGamePending,
+  uiVariant,
   onStartGame,
   onLeaveRoom,
   onRequestKickPlayer,
@@ -1695,8 +1707,10 @@ function Lobby({
   game: MafiaPublicState["game"];
   players: MafiaPublicState["players"];
   me: MafiaPublicState["me"];
+  visibility: RoomVisibility;
   connectionFeedback: ReactNode;
   startGamePending: boolean;
+  uiVariant: "friends" | "online";
   onStartGame: () => void;
   onLeaveRoom: () => void;
   onRequestKickPlayer: (player: { id: string; name: string }) => void;
@@ -1715,6 +1729,7 @@ function Lobby({
     typeof window !== "undefined"
       ? `${window.location.origin}/room/${room.code}`
       : "";
+  const showShareActions = uiVariant === "friends" || visibility === "PRIVATE";
 
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary pb-32">
@@ -1747,11 +1762,23 @@ function Lobby({
             })}
           </p>
 
-          <LobbyShareActions
-            roomCode={room.code}
-            inviteUrl={inviteUrl}
-            gameLabel="Mafia"
-          />
+          {showShareActions ? (
+            <LobbyShareActions
+              roomCode={room.code}
+              inviteUrl={inviteUrl}
+              gameLabel="Mafia"
+            />
+          ) : null}
+          {uiVariant === "online" ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full border border-brand/30 bg-brand-soft px-3 py-1 text-xs font-medium text-brand">
+                {t("tab_online")}
+              </span>
+              <span className="rounded-full border border-line-strong bg-bg-base px-3 py-1 text-xs font-medium text-ink-secondary">
+                {t(visibility === "PUBLIC" ? "tab_public" : "tab_private")}
+              </span>
+            </div>
+          ) : null}
         </section>
 
         {/* Composition preview */}

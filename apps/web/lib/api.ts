@@ -55,8 +55,15 @@ export async function apiRequest<T>(
         .catch(() => ({ message: "Xatolik yuz berdi." }));
       const error = new Error(
         payload.message ?? "Xatolik yuz berdi."
-      ) as Error & { status?: number };
+      ) as Error & {
+        status?: number;
+        code?: string;
+        payload?: unknown;
+      };
       error.status = response.status;
+      error.code =
+        typeof payload.code === "string" ? payload.code : undefined;
+      error.payload = payload;
       // Only 5xx is retryable; 4xx is the caller's problem and won't get
       // better with a retry.
       if (allowRetry && response.status >= 500 && attempt < attempts - 1) {

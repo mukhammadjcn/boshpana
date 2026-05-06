@@ -13,6 +13,8 @@ import { RoomExpiredState } from "@/components/room-expired-state";
 
 import { BunkerExperience } from "./bunker/bunker-experience";
 import { MafiaExperience } from "./mafia/mafia-experience";
+import { OnlineBunkerExperience } from "./online-bunker/online-bunker-experience";
+import { OnlineMafiaExperience } from "./online-mafia/online-mafia-experience";
 import { useI18n } from "@/lib/i18n";
 
 type RoomInfo = {
@@ -27,6 +29,24 @@ type Props = {
   roomCode: string;
   view: "room" | "game";
 };
+
+export function resolveGameExperience(info: RoomInfo) {
+  if (info.mode === "ONLINE") {
+    switch (info.gameType) {
+      case "BUNKER":
+        return "online-bunker" as const;
+      case "MAFIA":
+        return "online-mafia" as const;
+    }
+  }
+
+  switch (info.gameType) {
+    case "BUNKER":
+      return "bunker" as const;
+    case "MAFIA":
+      return "mafia" as const;
+  }
+}
 
 // Resolves which per-game UI module to mount for a given room. Each game
 // lives in its own folder under components/games/<name>/ and owns its
@@ -63,8 +83,26 @@ export function GameRouter({ roomCode, view }: Props) {
     );
   }
 
-  switch (info.gameType) {
-    case "BUNKER":
+  switch (resolveGameExperience(info)) {
+    case "online-bunker":
+      return (
+        <OnlineBunkerExperience
+          key={`online-bunker:${roomCode}:${view}`}
+          roomCode={roomCode}
+          view={view}
+          visibility={info.visibility}
+        />
+      );
+    case "online-mafia":
+      return (
+        <OnlineMafiaExperience
+          key={`online-mafia:${roomCode}:${view}`}
+          roomCode={roomCode}
+          view={view}
+          visibility={info.visibility}
+        />
+      );
+    case "bunker":
       return (
         <BunkerExperience
           key={`bunker:${roomCode}:${view}`}
@@ -72,7 +110,7 @@ export function GameRouter({ roomCode, view }: Props) {
           view={view}
         />
       );
-    case "MAFIA":
+    case "mafia":
       return (
         <MafiaExperience
           key={`mafia:${roomCode}:${view}`}

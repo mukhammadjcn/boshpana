@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { CreatePageTabs } from "../shared/create-page-tabs";
 import { useCreateTabMode } from "../shared/use-create-tab-mode";
 import { BunkerFriendsCreate } from "./bunker-friends-create";
+import { OnlineBunkerCreate } from "../online-bunker/online-bunker-create";
 
 export function BunkerCreatePage() {
   const { t } = useI18n();
@@ -38,20 +39,9 @@ export function BunkerCreatePage() {
         {mode === "friends" ? (
           <BunkerFriendsCreate />
         ) : (
-          <OnlinePlaceholder />
+          <OnlineBunkerCreate />
         )}
       </div>
     </main>
-  );
-}
-
-function OnlinePlaceholder() {
-  const { t } = useI18n();
-  return (
-    <section className="mt-4 flex-1 pb-10">
-      <div className="rounded-2xl border border-dashed border-line-strong bg-bg-surface p-6 text-center">
-        <p className="text-sm text-ink-secondary">{t("online_tez_orada")}</p>
-      </div>
-    </section>
   );
 }

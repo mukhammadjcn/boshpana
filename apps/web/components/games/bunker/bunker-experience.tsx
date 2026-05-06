@@ -42,6 +42,8 @@ import {
   RealtimeConnectionFeedback,
   useRealtimeConnectionRecovery
 } from "../shared/realtime-connection-feedback";
+import { OnlineBunkerCreatorDock } from "../online-bunker/online-bunker-controls";
+import type { RoomVisibility } from "@/lib/types";
 
 // Disaster banner mapping. Image filenames in /public are tied to the
 // seeded disaster names — keep this in sync with data.md when new
@@ -90,6 +92,8 @@ const phaseHelp: Record<BunkerPhase, string> = {
 type BunkerExperienceProps = {
   roomCode: string;
   view: "room" | "game";
+  uiVariant?: "friends" | "online";
+  visibility?: RoomVisibility;
 };
 
 type Announcement = {
@@ -107,9 +111,15 @@ function localizeCardMap(
   );
 }
 
-export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
+export function BunkerExperience({
+  roomCode,
+  view,
+  uiVariant = "friends",
+  visibility = "PRIVATE"
+}: BunkerExperienceProps) {
   const router = useRouter();
   const { language, t } = useI18n();
+  const isOnlineVariant = uiVariant === "online";
   const normalizedRoomCode = roomCode.toUpperCase();
   const [sessionId, setSessionId] = useState("");
   const [joinName, setJoinName] = useState("");
@@ -707,6 +717,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const room = roomState?.room;
   const me = roomState?.me;
   const game = roomState?.game;
+  const showLobbyShareActions = !isOnlineVariant || visibility === "PRIVATE";
   const closingConfirmation =
     !!room &&
     room.status !== "FINISHED" &&
@@ -1029,13 +1040,24 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               })}
             </p>
 
-            {me.isHost ? (
+            {me.isHost && showLobbyShareActions ? (
               <div className="mt-4 grid gap-2">
                 <LobbyShareActions
                   roomCode={room.code}
                   inviteUrl={inviteUrl}
                   gameLabel="Bunker"
                 />
+              </div>
+            ) : null}
+
+            {isOnlineVariant ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full border border-brand/30 bg-brand-soft px-3 py-1 text-xs font-medium text-brand">
+                  {t("tab_online")}
+                </span>
+                <span className="rounded-full border border-line-strong bg-bg-base px-3 py-1 text-xs font-medium text-ink-secondary">
+                  {t(visibility === "PUBLIC" ? "tab_public" : "tab_private")}
+                </span>
               </div>
             ) : null}
           </section>
@@ -1096,24 +1118,45 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         {me.isHost ? (
           <div className="fixed inset-x-0 bottom-0 border-t border-line-subtle bg-bg-base/95 px-5 pb-safe pt-3 backdrop-blur">
             <div className="mx-auto max-w-xl">
-              <HostControls
-                isHost={me.isHost}
-                isLobby
-                canStartGame={room.status === "LOBBY" && players.length >= 3}
-                canStartRound={false}
-                canStartReveals={false}
-                canAdvanceTurn={false}
-                canStartVoting={false}
-                canSkipVoting={false}
-                votingFinished={false}
-                onStartGame={() => emit("start_game")}
-                onStartRound={() => emit("start_round")}
-                onStartReveals={() => emit("start_reveals")}
-                onAdvanceTurn={() => emit("advance_turn")}
-                onStartVoting={() => emit("start_voting")}
-                onSkipVoting={() => emit("skip_voting")}
-                onEndGame={() => setEndGameConfirmOpen(true)}
-              />
+              {isOnlineVariant ? (
+                <OnlineBunkerCreatorDock
+                  isLobby
+                  playersCount={players.length}
+                  phase="LOBBY"
+                  canStartReveals={false}
+                  canAdvanceTurn={false}
+                  advanceTurnLabelKey="keyingi_oyinchi"
+                  canStartVoting={false}
+                  canSkipVoting={false}
+                  votingFinished={false}
+                  onStartGame={() => emit("start_game")}
+                  onStartRound={() => emit("start_round")}
+                  onStartReveals={() => emit("start_reveals")}
+                  onAdvanceTurn={() => emit("advance_turn")}
+                  onStartVoting={() => emit("start_voting")}
+                  onSkipVoting={() => emit("skip_voting")}
+                  onEndGame={() => setEndGameConfirmOpen(true)}
+                />
+              ) : (
+                <HostControls
+                  isHost={me.isHost}
+                  isLobby
+                  canStartGame={room.status === "LOBBY" && players.length >= 3}
+                  canStartRound={false}
+                  canStartReveals={false}
+                  canAdvanceTurn={false}
+                  canStartVoting={false}
+                  canSkipVoting={false}
+                  votingFinished={false}
+                  onStartGame={() => emit("start_game")}
+                  onStartRound={() => emit("start_round")}
+                  onStartReveals={() => emit("start_reveals")}
+                  onAdvanceTurn={() => emit("advance_turn")}
+                  onStartVoting={() => emit("start_voting")}
+                  onSkipVoting={() => emit("skip_voting")}
+                  onEndGame={() => setEndGameConfirmOpen(true)}
+                />
+              )}
             </div>
           </div>
         ) : null}
@@ -1301,10 +1344,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 isCurrentTurn={p.id === game.currentTurnPlayerId}
                 gameOver={room.status === "FINISHED"}
                 onKick={
-                  me.isHost &&
-                  room.status === "PLAYING" &&
-                  p.isAlive &&
-                  !p.isHost
+                    me.isHost &&
+                    !isOnlineVariant &&
+                    room.status === "PLAYING" &&
+                    p.isAlive &&
+                    !p.isHost
                     ? () => setKickTarget({ id: p.id, name: p.name })
                     : undefined
                 }
@@ -1328,34 +1372,63 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <div className="mx-auto max-w-xl px-4 pt-3 pb-safe">
           {me.isHost && room.status !== "FINISHED" ? (
             <div className="mb-2">
-              <HostControls
-                isHost={me.isHost}
-                canStartGame={false}
-                canStartRound={
-                  room.status === "PLAYING" && game.phase === "INTRO"
-                }
-                canStartReveals={!!canStartRevealsHost}
-                canAdvanceTurn={
-                  room.status === "PLAYING" && game.phase === "ROUND_PITCH"
-                }
-                advanceTurnLabel={
-                  hasMoreRevealPlayers ? "Keyingi o'yinchi" : "Pitchni yakunlash"
-                }
-                canStartVoting={
-                  room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
-                }
-                canSkipVoting={
-                  room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
-                }
-                votingFinished={votingFinished}
-                onStartGame={() => emit("start_game")}
-                onStartRound={() => emit("start_round")}
-                onStartReveals={() => emit("start_reveals")}
-                onAdvanceTurn={() => emit("advance_turn")}
-                onStartVoting={() => emit("start_voting")}
-                onSkipVoting={() => emit("skip_voting")}
-                onEndGame={() => setEndGameConfirmOpen(true)}
-              />
+              {isOnlineVariant ? (
+                <OnlineBunkerCreatorDock
+                  isLobby={false}
+                  playersCount={players.length}
+                  phase={game.phase}
+                  canStartReveals={!!canStartRevealsHost}
+                  canAdvanceTurn={
+                    room.status === "PLAYING" && game.phase === "ROUND_PITCH"
+                  }
+                  advanceTurnLabelKey={
+                    hasMoreRevealPlayers ? "keyingi_oyinchi" : "pitchni_tugatish"
+                  }
+                  canStartVoting={
+                    room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
+                  }
+                  canSkipVoting={
+                    room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
+                  }
+                  votingFinished={votingFinished}
+                  onStartGame={() => emit("start_game")}
+                  onStartRound={() => emit("start_round")}
+                  onStartReveals={() => emit("start_reveals")}
+                  onAdvanceTurn={() => emit("advance_turn")}
+                  onStartVoting={() => emit("start_voting")}
+                  onSkipVoting={() => emit("skip_voting")}
+                  onEndGame={() => setEndGameConfirmOpen(true)}
+                />
+              ) : (
+                <HostControls
+                  isHost={me.isHost}
+                  canStartGame={false}
+                  canStartRound={
+                    room.status === "PLAYING" && game.phase === "INTRO"
+                  }
+                  canStartReveals={!!canStartRevealsHost}
+                  canAdvanceTurn={
+                    room.status === "PLAYING" && game.phase === "ROUND_PITCH"
+                  }
+                  advanceTurnLabel={
+                    hasMoreRevealPlayers ? "Keyingi o'yinchi" : "Pitchni yakunlash"
+                  }
+                  canStartVoting={
+                    room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
+                  }
+                  canSkipVoting={
+                    room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
+                  }
+                  votingFinished={votingFinished}
+                  onStartGame={() => emit("start_game")}
+                  onStartRound={() => emit("start_round")}
+                  onStartReveals={() => emit("start_reveals")}
+                  onAdvanceTurn={() => emit("advance_turn")}
+                  onStartVoting={() => emit("start_voting")}
+                  onSkipVoting={() => emit("skip_voting")}
+                  onEndGame={() => setEndGameConfirmOpen(true)}
+                />
+              )}
             </div>
           ) : null}
 

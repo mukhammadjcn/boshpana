@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { CreatePageTabs } from "../shared/create-page-tabs";
 import { useCreateTabMode } from "../shared/use-create-tab-mode";
 import { MafiaFriendsCreate } from "./mafia-friends-create";
+import { OnlineMafiaCreate } from "../online-mafia/online-mafia-create";
 
 export function MafiaCreatePage() {
   const { t } = useI18n();
@@ -38,20 +39,9 @@ export function MafiaCreatePage() {
         {mode === "friends" ? (
           <MafiaFriendsCreate />
         ) : (
-          <OnlinePlaceholder />
+          <OnlineMafiaCreate />
         )}
       </div>
     </main>
-  );
-}
-
-function OnlinePlaceholder() {
-  const { t } = useI18n();
-  return (
-    <section className="mt-4 flex-1 pb-10">
-      <div className="rounded-2xl border border-dashed border-line-strong bg-bg-surface p-6 text-center">
-        <p className="text-sm text-ink-secondary">{t("online_tez_orada")}</p>
-      </div>
-    </section>
   );
 }
