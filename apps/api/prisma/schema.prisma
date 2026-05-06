@@ -19,6 +19,11 @@ enum RoomStatus {
   CANCELLED
 }
 
+enum RoomMode {
+  FRIENDS
+  ONLINE
+}
+
 enum BunkerPhase {
   LOBBY
   DISCUSSION
@@ -44,6 +49,13 @@ enum BunkerDifficulty {
   EASY
   MEDIUM
   HARD
+}
+
+model ManualSchemaMigration {
+  filename  String   @id
+  appliedAt DateTime @default(now()) @map("applied_at")
+
+  @@map("manual_schema_migrations")
 }
 
 model User {
@@ -100,6 +112,7 @@ model Room {
   id            String      @id @default(cuid())
   code          String      @unique
   gameType      GameType    @default(BUNKER)
+  mode          RoomMode    @default(FRIENDS)
   hostSessionId String
   hostUserId    String?
   hostUser      User?       @relation("HostUser", fields: [hostUserId], references: [id], onDelete: SetNull)
