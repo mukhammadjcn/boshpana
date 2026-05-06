@@ -46,6 +46,17 @@ type MafiaExperienceProps = {
   view: "room" | "game";
 };
 
+const MAFIA_MODAL_TIMINGS_MS = {
+  pendingAction: 4000,
+  roleReminder: 2000,
+  dayResultAutoShow: 5000,
+  phaseIntro: {
+    night: 5000,
+    day: 5000,
+    tiebreak: 3000,
+  },
+} as const;
+
 // Stage 2: lobby UI is fully wired. The in-game phases (role-reveal,
 // night, day discussion, day vote, finished) ship in following
 // commits — for now we render a placeholder once room.status flips to
@@ -73,6 +84,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [kickedModalOpen, setKickedModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [showFinalResults, setShowFinalResults] = useState(false);
   const [phaseIntro, setPhaseIntro] = useState<{
     kind: "night" | "day" | "tiebreak";
     key: string;
@@ -151,7 +163,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     if (!pendingAction) return;
     const timer = window.setTimeout(() => {
       setPendingAction(null);
-    }, 4000);
+    }, MAFIA_MODAL_TIMINGS_MS.pendingAction);
     return () => window.clearTimeout(timer);
   }, [pendingAction]);
 
@@ -445,7 +457,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     if (roomState?.game.phase === "ASSIGN_ROLES") return;
     const timer = window.setTimeout(() => {
       setRoleModalOpen(false);
-    }, 2000);
+    }, MAFIA_MODAL_TIMINGS_MS.roleReminder);
     return () => window.clearTimeout(timer);
   }, [roleModalOpen, roomState?.game.phase, roomState?.room.status]);
 
@@ -481,7 +493,13 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       () => {
         setPhaseIntro((current) => (current?.key === key ? null : current));
       },
-      phase === "DAY_TIEBREAK" ? 2000 : 5000,
+      MAFIA_MODAL_TIMINGS_MS.phaseIntro[
+        phase === "NIGHT"
+          ? "night"
+          : phase === "DAY_TIEBREAK"
+            ? "tiebreak"
+            : "day"
+      ],
     );
     return () => window.clearTimeout(timer);
   }, [
@@ -491,8 +509,29 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     roomState?.room.status,
   ]);
 
+  useEffect(() => {
+    if (
+      roomState?.game.phase === "DAY_RESULT" &&
+      roomState.game.winner &&
+      roomState.room.status === "PLAYING"
+    ) {
+      if (showFinalResults) return;
+      const timer = window.setTimeout(() => {
+        setShowFinalResults(true);
+      }, MAFIA_MODAL_TIMINGS_MS.dayResultAutoShow);
+      return () => window.clearTimeout(timer);
+    }
+    setShowFinalResults(false);
+  }, [
+    roomState?.game.phase,
+    roomState?.game.winner,
+    roomState?.room.status,
+    showFinalResults,
+  ]);
+
   useMafiaAudio({
     votingActive,
+    nightActive: phase === "NIGHT",
     selfEliminationAudioKey: eliminatedModalOpen
       ? selfEliminationModalKey
       : null,
@@ -571,6 +610,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     roomState?.game.phase === "NIGHT" &&
     !!roomState?.me?.role &&
     !!roomState?.me?.isAlive;
+  const showResultsAction =
+    roomState?.room.status === "PLAYING" &&
+    roomState?.game.phase === "DAY_RESULT" &&
+    !!roomState?.game.winner;
   const isPending = (actionKey: string) => pendingAction === actionKey;
   const {
     browserOnline,
@@ -636,9 +679,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(247,181,79,0.16),transparent_40%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.06),transparent_35%)]" />
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-line-strong bg-bg-surface text-center shadow-pop">
-        <div className="relative">
-          <div className="relative aspect-[4/3] w-full">
-            {phaseIntroArt ? (
+        {phaseIntroArt ? (
+          <div className="relative">
+            <div className="relative aspect-[4/3] w-full">
               <Image
                 src={phaseIntroArt}
                 alt={
@@ -652,10 +695,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
                 sizes="(max-width: 640px) 90vw, 420px"
                 className="object-cover"
               />
-            ) : null}
+            </div>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg-surface/85 via-transparent to-transparent" />
           </div>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg-surface/85 via-transparent to-transparent" />
-        </div>
+        ) : null}
         <div className="px-6 pb-7 pt-5">
           {phaseIntro.kind === "tiebreak" ? (
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-brand/35 bg-brand/12 text-brand">
@@ -700,7 +743,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           </p>
           <p className="mt-5 text-xs text-ink-muted">
             {phaseIntro.kind === "tiebreak"
-              ? t("jarayon_2_soniyadan_keyin_davom_etadi")
+              ? t("jarayon_3_soniyadan_keyin_davom_etadi")
               : t("jarayon_5_soniyadan_keyin_davom_etadi")}
           </p>
         </div>
@@ -798,8 +841,8 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             </p>
             <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
               <p className="text-xs text-ink-muted">{t("room_code")}</p>
-              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
-                {roomCode}
+              <p className="mt-1 font-mono text-2xl font-semibold uppercase tracking-[0.34em]">
+                #{roomCode}
               </p>
             </div>
             <button
@@ -830,8 +873,8 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             </p>
             <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
               <p className="text-xs text-ink-muted">{t("room_code")}</p>
-              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
-                {roomCode}
+              <p className="mt-1 font-mono text-2xl font-semibold uppercase tracking-[0.34em]">
+                #{roomCode}
               </p>
             </div>
             <a
@@ -857,8 +900,8 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           </h1>
           <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
             <p className="text-xs text-ink-muted">{t("room_code")}</p>
-            <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
-              {roomCode}
+            <p className="mt-1 font-mono text-2xl font-semibold uppercase tracking-[0.34em]">
+              #{roomCode}
             </p>
           </div>
           <form onSubmit={handleJoin} className="mt-5 grid gap-3">
@@ -976,9 +1019,11 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
+          showResultsAction={false}
           primaryPending={isPending("mafia:advance_phase")}
           confirmVotePending={isPending("mafia:confirm_day_vote")}
           confirmNightPending={isPending("mafia:confirm_night_action")}
+          onViewResults={() => setShowFinalResults(true)}
           onAdvancePhase={() =>
             emitWithPending("mafia:advance_phase", "mafia:advance_phase")
           }
@@ -999,8 +1044,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
+          showResultsAction={false}
           confirmVotePending={isPending("mafia:confirm_day_vote")}
           confirmNightPending={isPending("mafia:confirm_night_action")}
+          onViewResults={() => setShowFinalResults(true)}
           onOpenRole={() => setRoleModalOpen(true)}
           onConfirmVote={() =>
             emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
@@ -1071,9 +1118,11 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
+          showResultsAction={false}
           primaryPending={isPending("mafia:advance_phase")}
           confirmVotePending={isPending("mafia:confirm_day_vote")}
           confirmNightPending={isPending("mafia:confirm_night_action")}
+          onViewResults={() => setShowFinalResults(true)}
           onAdvancePhase={() =>
             emitWithPending("mafia:advance_phase", "mafia:advance_phase")
           }
@@ -1096,8 +1145,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
+          showResultsAction={false}
           confirmVotePending={isPending("mafia:confirm_day_vote")}
           confirmNightPending={isPending("mafia:confirm_night_action")}
+          onViewResults={() => setShowFinalResults(true)}
           onOpenRole={() => setRoleModalOpen(true)}
           onConfirmVote={() =>
             emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
@@ -1111,6 +1162,21 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         {roleReminderModal}
         {phaseIntroModal}
+        {connectionFeedback}
+      </>
+    );
+  }
+
+  if (
+    room.status === "PLAYING" &&
+    game.phase === "DAY_RESULT" &&
+    game.winner &&
+    showFinalResults
+  ) {
+    return (
+      <>
+        <TelegramChrome backHref="/dashboard" />
+        <MafiaFinished state={roomState} />
         {connectionFeedback}
       </>
     );
@@ -1151,9 +1217,11 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             showRoleReminder={showRoleReminder}
             showVoteConfirmAction={showVoteConfirmAction}
             showNightSelectionStatus={showNightSelectionStatus}
+            showResultsAction={showResultsAction}
             primaryPending={isPending("mafia:advance_phase")}
             confirmVotePending={isPending("mafia:confirm_day_vote")}
             confirmNightPending={isPending("mafia:confirm_night_action")}
+            onViewResults={() => setShowFinalResults(true)}
             onAdvancePhase={() =>
               emitWithPending("mafia:advance_phase", "mafia:advance_phase")
             }
@@ -1178,8 +1246,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             showRoleReminder={showRoleReminder}
             showVoteConfirmAction={showVoteConfirmAction}
             showNightSelectionStatus={showNightSelectionStatus}
+            showResultsAction={showResultsAction}
             confirmVotePending={isPending("mafia:confirm_day_vote")}
             confirmNightPending={isPending("mafia:confirm_night_action")}
+            onViewResults={() => setShowFinalResults(true)}
             onOpenRole={() => setRoleModalOpen(true)}
             onConfirmVote={() =>
               emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
@@ -1293,9 +1363,11 @@ function MafiaHostDock({
   showRoleReminder,
   showVoteConfirmAction,
   showNightSelectionStatus,
+  showResultsAction,
   primaryPending,
   confirmVotePending,
   confirmNightPending,
+  onViewResults,
   onAdvancePhase,
   onEndGame,
   onOpenRole,
@@ -1306,9 +1378,11 @@ function MafiaHostDock({
   showRoleReminder: boolean;
   showVoteConfirmAction: boolean;
   showNightSelectionStatus: boolean;
+  showResultsAction: boolean;
   primaryPending: boolean;
   confirmVotePending: boolean;
   confirmNightPending: boolean;
+  onViewResults: () => void;
   onAdvancePhase: () => void;
   onEndGame: () => void;
   onOpenRole: () => void;
@@ -1331,7 +1405,7 @@ function MafiaHostDock({
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-      <div className="mx-auto max-w-xl rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
+      <div className="mx-auto max-w-2xl rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-medium text-ink-muted">
             {t("host_paneli")}
@@ -1378,7 +1452,34 @@ function MafiaHostDock({
             ) : null}
           </div>
         ) : null}
+        {!primaryLabel && showResultsAction ? (
+          <div
+            className={`mt-2 grid gap-2 ${
+              showRoleReminder
+                ? "grid-cols-[minmax(0,1fr)_auto]"
+                : "grid-cols-1"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={onViewResults}
+              className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              {t("oyin_natijalarini_korish")}
+            </button>
+            {showRoleReminder ? (
+              <button
+                type="button"
+                onClick={onOpenRole}
+                className="flex h-12 min-w-[132px] items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+              >
+                {t("mening_kartam")}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {!primaryLabel &&
+        !showResultsAction &&
         (showVoteConfirmAction ||
           showNightSelectionStatus ||
           showRoleReminder) ? (
@@ -1454,8 +1555,10 @@ function MafiaPlayerDock({
   showRoleReminder,
   showVoteConfirmAction,
   showNightSelectionStatus,
+  showResultsAction,
   confirmVotePending,
   confirmNightPending,
+  onViewResults,
   onOpenRole,
   onConfirmVote,
   onConfirmNight,
@@ -1464,8 +1567,10 @@ function MafiaPlayerDock({
   showRoleReminder: boolean;
   showVoteConfirmAction: boolean;
   showNightSelectionStatus: boolean;
+  showResultsAction: boolean;
   confirmVotePending: boolean;
   confirmNightPending: boolean;
+  onViewResults: () => void;
   onOpenRole: () => void;
   onConfirmVote: () => void;
   onConfirmNight: () => void;
@@ -1482,13 +1587,21 @@ function MafiaPlayerDock({
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
       <div
-        className={`mx-auto grid max-w-xl gap-2 ${
-          showVoteConfirmAction || showNightSelectionStatus
+        className={`mx-auto grid max-w-2xl gap-2 ${
+          showVoteConfirmAction || showNightSelectionStatus || showResultsAction
             ? "grid-cols-[minmax(0,1fr)_auto]"
             : "grid-cols-1"
         }`}
       >
-        {showVoteConfirmAction ? (
+        {showResultsAction ? (
+          <button
+            type="button"
+            onClick={onViewResults}
+            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+          >
+            {t("oyin_natijalarini_korish")}
+          </button>
+        ) : showVoteConfirmAction ? (
           <button
             type="button"
             onClick={onConfirmVote}
@@ -1547,6 +1660,7 @@ function getMafiaHostPrimaryLabel(
   state: MafiaPublicState | null,
 ): string | null {
   if (!state?.me?.isHost || state.room.status !== "PLAYING") return null;
+  if (state.game.phase === "DAY_RESULT" && state.game.winner) return null;
   switch (state.game.phase) {
     case "ASSIGN_ROLES":
       return "tunni_boshlash";
@@ -1740,7 +1854,7 @@ function Lobby({
 
       {/* Sticky bottom bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-        <div className="mx-auto max-w-xl">
+        <div className="mx-auto max-w-2xl">
           {me?.isHost ? (
             <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
               <p className="mb-2 text-xs font-medium text-ink-muted">

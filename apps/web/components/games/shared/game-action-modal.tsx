@@ -18,7 +18,7 @@ type GameActionModalProps = {
   helper: ReactNode;
   accentTone?: AccentTone;
   secondsLeft?: number | null;
-  timerVariant?: "default" | "danger" | "muted";
+  timerVariant?: "default" | "warning" | "danger" | "muted";
   badge?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -61,7 +61,7 @@ export function GameActionModal({
             : "calc(env(safe-area-inset-bottom) + 1.25rem)"
         }}
       >
-        {children}
+        <div className="grid gap-4 py-1">{children}</div>
       </div>
 
       {footer ? (

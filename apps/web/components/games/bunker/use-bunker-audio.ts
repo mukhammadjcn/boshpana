@@ -295,20 +295,18 @@ export function useGameAudio({
     if (!audioEnabled) return;
     const tryPlay = () => {
       interactionUnlockedRef.current = true;
-      window.setTimeout(() => {
-        if (!audioEnabledRef.current) return;
-        if (introOpenRef.current && !introLoopRef.current) {
-          playLoop(GAME_START, 0.9, introLoopRef);
-        }
-        const skey = situationKeyRef.current;
-        if (situationOpenRef.current && skey && !situationLoopRef.current) {
-          const src = getSituationSrc(skey);
-          if (src) playLoop(src, 0.8, situationLoopRef);
-        }
-        if (votingActiveRef.current && !votingLoopRef.current) {
-          playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
-        }
-      }, 0);
+      if (!audioEnabledRef.current) return;
+      if (introOpenRef.current && !introLoopRef.current) {
+        playLoop(GAME_START, 0.9, introLoopRef);
+      }
+      const skey = situationKeyRef.current;
+      if (situationOpenRef.current && skey && !situationLoopRef.current) {
+        const src = getSituationSrc(skey);
+        if (src) playLoop(src, 0.8, situationLoopRef);
+      }
+      if (votingActiveRef.current && !votingLoopRef.current) {
+        playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
+      }
     };
     const handleFirstInteraction = () => {
       if (interactionUnlockedRef.current) return;

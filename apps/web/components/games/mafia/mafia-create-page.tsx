@@ -27,7 +27,7 @@ const rules = [
 ];
 
 const MIN_PLAYERS = 4;
-const MAX_PLAYERS = 16;
+const MAX_PLAYERS = 15;
 
 export function MafiaCreatePage() {
   const { t } = useI18n();
@@ -35,7 +35,6 @@ export function MafiaCreatePage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [usage, setUsage] = useState<UsageResponse | null>(null);
   const [hostName, setHostName] = useState("");
-  const [maxPlayers, setMaxPlayers] = useState(10);
   const [mafiaCount, setMafiaCount] = useState(2);
   const [hasSheriff, setHasSheriff] = useState(true);
   const [hasDoctor, setHasDoctor] = useState(true);
@@ -77,18 +76,23 @@ export function MafiaCreatePage() {
 
   const limitReached = !!usage && usage.remaining <= 0;
 
-  // Tarkib hisobi: mafia + sheriff + doctor + aholi = jami. Aholini
-  // foydalanuvchi to'g'ridan to'g'ri tanlamaydi — host komponentlari
-  // (mafia/sheriff/doctor) ni va jami o'yinchi sonini belgilaydi, qolgan
-  // o'rinlar avtomatik ravishda oddiy aholi bo'ladi.
+  // Tarkib hisobi: room har doim 15 o'yinchilik. Host faqat mafia soni
+  // va maxsus rollarni belgilaydi, qolgan o'rinlar avtomatik oddiy
+  // aholi bo'ladi.
   const specialRoleCount =
     mafiaCount + (hasSheriff ? 1 : 0) + (hasDoctor ? 1 : 0);
-  const citizenCount = Math.max(0, maxPlayers - specialRoleCount);
+  const citizenCount = Math.max(0, MAX_PLAYERS - specialRoleCount);
   const compositionValid = citizenCount >= 1;
-  const maxMafiaForSize = Math.max(1, Math.floor(maxPlayers / 2));
+  const maxMafiaForSize = Math.max(
+    1,
+    Math.min(
+      3,
+      MAX_PLAYERS - (hasSheriff ? 1 : 0) - (hasDoctor ? 1 : 0) - 1,
+    ),
+  );
 
-  // Foydalanuvchi maxPlayers'ni qisqartirsa, mafia soni avtomatik
-  // pasaytiriladi (yangi yuqori chegaradan oshib ketmasligi uchun).
+  // Komisar/doktor yoqib-o'chirilganda mafia soni yangi limitdan oshib
+  // ketmasin.
   useEffect(() => {
     setMafiaCount((c) => Math.min(c, maxMafiaForSize));
   }, [maxMafiaForSize]);
@@ -111,7 +115,7 @@ export function MafiaCreatePage() {
             gameType: "MAFIA",
             hostName: hostName.trim(),
             sessionId,
-            maxPlayers,
+            maxPlayers: MAX_PLAYERS,
             mafiaCount,
             hasSheriff,
             hasDoctor,
@@ -240,26 +244,6 @@ export function MafiaCreatePage() {
                 placeholder={t("masalan_alisher")}
               />
             </label>
-
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-                  {t("maks_oyinchi")}
-                </span>
-                <span className="font-mono text-sm text-brand">
-                  {maxPlayers}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={MIN_PLAYERS}
-                max={MAX_PLAYERS}
-                step={1}
-                value={maxPlayers}
-                onChange={(e) => setMaxPlayers(Number(e.target.value))}
-                className="h-2 w-full cursor-pointer accent-brand"
-              />
-            </div>
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between">

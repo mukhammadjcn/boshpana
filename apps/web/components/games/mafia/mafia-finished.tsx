@@ -40,8 +40,8 @@ export function MafiaFinished({ state }: Props) {
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
             {t("oyin_yakunlandi")}
           </p>
-          <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
-            {state.room.code}
+          <span className="inline-flex h-9 min-w-[124px] items-center justify-center rounded-full border border-line-strong bg-bg-surface px-4 font-mono text-sm font-semibold uppercase tracking-[0.22em] text-ink-secondary">
+            #{state.room.code}
           </span>
         </header>
 

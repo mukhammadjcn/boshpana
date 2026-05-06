@@ -100,8 +100,15 @@ export class MafiaGameService {
   // ────────────────────────────────────────────────────────────────
 
   async createRoom(input: CreateRoomInput) {
-    const maxPlayers = Math.max(4, Math.min(input.maxPlayers ?? 10, 16));
-    const mafiaCount = Math.max(1, Math.min(input.mafiaCount, Math.floor(maxPlayers / 2)));
+    const maxPlayers = Math.max(4, Math.min(input.maxPlayers ?? 15, 15));
+    const maxMafiaCount = Math.max(
+      1,
+      Math.min(
+        3,
+        maxPlayers - (input.hasSheriff ? 1 : 0) - (input.hasDoctor ? 1 : 0) - 1
+      )
+    );
+    const mafiaCount = Math.max(1, Math.min(input.mafiaCount, maxMafiaCount));
     const hasSheriff = !!input.hasSheriff;
     const hasDoctor = !!input.hasDoctor;
 
@@ -1299,6 +1306,7 @@ export class MafiaGameService {
               (s) =>
                 s.actorPlayerId === me.id &&
                 s.action === MafiaNightActionType.SHERIFF_CHECK &&
+                s.isConfirmed &&
                 s.targetPlayerId
             )
             .map((s) => {
@@ -1362,6 +1370,10 @@ export class MafiaGameService {
         p.mafiaRole?.eliminatedCause === MafiaEliminationCause.DAY_VOTE &&
         p.mafiaRole?.eliminatedRound === game.dayNumber
     );
+    const winnerPreview =
+      game.phase === MafiaPhase.DAY_RESULT
+        ? this.computeWinner(room.players) ?? game.winner
+        : game.winner;
 
     return {
       room: {
@@ -1387,7 +1399,7 @@ export class MafiaGameService {
           confirmed: confirmedCount,
           total: aliveWithRole.length
         },
-        winner: game.winner,
+        winner: winnerPreview,
         lastNightVictims,
         lastNightDoctorSaved: game.lastNightDoctorSaved,
         lastEliminatedPlayerId: dayEliminated?.id ?? null,
@@ -1417,6 +1429,7 @@ export class MafiaGameService {
         // publicly revealed. Otherwise role is exposed only on death.
         const showRole =
           p.mafiaRole?.roleRevealed === true ||
+          winnerPreview != null ||
           (myRole?.role === "MAFIA" && p.mafiaRole?.role === "MAFIA");
         return {
           id: p.id,

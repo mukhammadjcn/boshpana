@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { MafiaPhase, MafiaRole, RoomStatus } from "@prisma/client";
 
 import { env } from "../lib/env";
 import { buildLocalizedText, isLocalizedText } from "../lib/localized-content";
@@ -26,6 +27,42 @@ function buildBotLink(botHash: string): string | null {
   // (?startapp=...). The bot chat is what surfaces the contact keyboard
   // and the Yes/No confirmation buttons; the WebApp can't run those.
   return `https://t.me/${username}?start=auth_${botHash}`;
+}
+
+function isEffectivelyFinishedMafiaRoom(room: {
+  status: RoomStatus;
+  gameType: string;
+  mafiaGame?: {
+    phase: MafiaPhase;
+    winner: string | null;
+  } | null;
+  players?: Array<{
+    mafiaRole?: {
+      role: MafiaRole;
+      isAlive: boolean;
+    } | null;
+  }>;
+}) {
+  if (room.gameType !== "MAFIA" || !room.mafiaGame) return false;
+  if (
+    room.status === RoomStatus.FINISHED ||
+    room.status === RoomStatus.CANCELLED ||
+    room.mafiaGame.phase === MafiaPhase.FINISHED ||
+    room.mafiaGame.winner
+  ) {
+    return true;
+  }
+  if (room.mafiaGame.phase !== MafiaPhase.DAY_RESULT || !room.players?.length) {
+    return false;
+  }
+  let mafiaAlive = 0;
+  let cityAlive = 0;
+  for (const player of room.players) {
+    if (!player.mafiaRole?.isAlive) continue;
+    if (player.mafiaRole.role === MafiaRole.MAFIA) mafiaAlive += 1;
+    else cityAlive += 1;
+  }
+  return mafiaAlive === 0 || mafiaAlive >= cityAlive;
 }
 
 export async function registerAuthRoutes(app: FastifyInstance) {
@@ -268,6 +305,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: {
           room: {
             include: {
+              players: {
+                include: { mafiaRole: true }
+              },
               bunkerGame: { include: { disaster: true } },
               mafiaGame: true
             }
@@ -276,29 +316,31 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         orderBy: { joinedAt: "desc" }
       });
       return reply.send({
-        items: items.map((p) => ({
-          playerId: p.id,
-          isHost: p.isHost,
-          isAlive: p.isAlive,
-          name: p.name,
-          room: {
-            code: p.room.code,
-            gameType: p.room.gameType,
-            status: p.room.status,
-            createdAt: p.room.createdAt.toISOString(),
-            phase:
-              p.room.gameType === "MAFIA"
-                ? (p.room.mafiaGame?.phase ?? "LOBBY")
-                : (p.room.bunkerGame?.phase ?? "LOBBY"),
-            disasterName: p.room.bunkerGame?.disaster
-              ? buildLocalizedText(
-                  p.room.bunkerGame.disaster.name,
-                  p.room.bunkerGame.disaster.nameRu,
-                  p.room.bunkerGame.disaster.nameEn
-                )
-              : null
-          }
-        }))
+        items: items
+          .filter((p) => !isEffectivelyFinishedMafiaRoom(p.room))
+          .map((p) => ({
+            playerId: p.id,
+            isHost: p.isHost,
+            isAlive: p.isAlive,
+            name: p.name,
+            room: {
+              code: p.room.code,
+              gameType: p.room.gameType,
+              status: p.room.status,
+              createdAt: p.room.createdAt.toISOString(),
+              phase:
+                p.room.gameType === "MAFIA"
+                  ? (p.room.mafiaGame?.phase ?? "LOBBY")
+                  : (p.room.bunkerGame?.phase ?? "LOBBY"),
+              disasterName: p.room.bunkerGame?.disaster
+                ? buildLocalizedText(
+                    p.room.bunkerGame.disaster.name,
+                    p.room.bunkerGame.disaster.nameRu,
+                    p.room.bunkerGame.disaster.nameEn
+                  )
+                : null
+            }
+          }))
       });
     }
   );
@@ -321,10 +363,27 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       if (!room) {
         return reply.status(404).send({ message: "Room topilmadi." });
       }
+      const roomWithRoles =
+        room.gameType === "MAFIA"
+          ? await prisma.room.findUnique({
+              where: { id: room.id },
+              include: {
+                players: {
+                  include: { mafiaRole: true }
+                },
+                mafiaGame: true
+              }
+            })
+          : null;
       if (
         room.status !== "LOBBY" &&
         room.status !== "PLAYING"
       ) {
+        return reply
+          .status(409)
+          .send({ message: "Bu o'yin allaqachon yakunlangan." });
+      }
+      if (roomWithRoles && isEffectivelyFinishedMafiaRoom(roomWithRoles)) {
         return reply
           .status(409)
           .send({ message: "Bu o'yin allaqachon yakunlangan." });

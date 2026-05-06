@@ -91,9 +91,7 @@ export function DashboardHome() {
           <div className="flex items-center gap-2">
             <BrandMark size={40} className="lg:h-10 lg:w-10" />
             <div className="leading-tight">
-              <p className="text-base font-semibold lg:text-lg">
-                Jamoaviy.uz
-              </p>
+              <p className="text-base font-semibold lg:text-lg">Jamoaviy.uz</p>
               <p className="text-xs text-ink-muted">{t("jamoaviy_oyinlar")}</p>
             </div>
           </div>
@@ -112,7 +110,9 @@ export function DashboardHome() {
             {usage && limitReached ? (
               <div className="rounded-2xl border border-line-subtle bg-bg-surface p-4">
                 <div className="flex items-center justify-between text-sm">
-                  <p className="font-semibold text-ink-primary">{t("oylik_limit")}</p>
+                  <p className="font-semibold text-ink-primary">
+                    {t("oylik_limit")}
+                  </p>
                   <p
                     className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
                   >
@@ -137,7 +137,7 @@ export function DashboardHome() {
                 <p className="mt-2 text-xs text-ink-muted">
                   {t(
                     "30 kunda {limit} ta o'yin yarata olasiz. Limit tugagan — keyingi davrigacha kuting.",
-                    { limit: usage.roomCreationLimit }
+                    { limit: usage.roomCreationLimit },
                   )}
                 </p>
               </div>
@@ -190,9 +190,9 @@ function GameCardItem({ game }: { game: GameCard }) {
           while the image hydrates and as a backdrop if the file is
           ever missing. */}
       <div className="relative aspect-[16/9] w-full overflow-hidden">
-        <div
+        {/* <div
           className={`absolute inset-0 bg-gradient-to-br ${game.gradient}`}
-        />
+        /> */}
         <Image
           src={game.image}
           alt={game.title}

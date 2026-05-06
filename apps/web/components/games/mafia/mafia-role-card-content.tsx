@@ -32,7 +32,7 @@ export const mafiaRoleMeta: Record<
   SHERIFF: {
     title: "Komisar",
     team: "Shahar",
-    blurb: "Tunda bittasini tekshiring yoki o'q uzing (sizda 2 ta o'q bor).",
+    blurb: "Tunda bittasini tekshiring yoki o'q uzing \n (sizda 2 ta o'q bor).",
     accent: "text-brand",
     bgGradient:
       "radial-gradient(circle at 50% 0%, rgba(244,168,58,0.22), transparent 55%)",

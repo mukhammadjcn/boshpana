@@ -113,6 +113,14 @@ export function JoinRoomModal({
         </div>
 
         <div className="mt-5 grid gap-3">
+          {joinCode.trim() ? (
+            <div className="rounded-2xl border border-line-subtle bg-bg-base p-4">
+              <p className="text-xs text-ink-muted">{t("room_code")}</p>
+              <p className="mt-1 font-mono text-2xl font-semibold uppercase tracking-[0.34em] text-ink-primary">
+                #{joinCode.toUpperCase()}
+              </p>
+            </div>
+          ) : null}
           <input
             value={joinCode}
             onChange={(event) =>

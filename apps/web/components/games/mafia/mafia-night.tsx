@@ -25,6 +25,41 @@ type Props = {
   onOpenRole?: () => void;
 };
 
+type NightTone = "bad" | "warn" | "ok" | "muted";
+
+function getNightToneClasses(tone: NightTone) {
+  switch (tone) {
+    case "bad":
+      return {
+        button: "bg-bad text-white",
+        selectedCard: "border-bad bg-bad/10",
+        selectedIcon: "border-bad bg-bad text-white",
+        count: "text-bad",
+      };
+    case "ok":
+      return {
+        button: "bg-ok text-bg-base",
+        selectedCard: "border-ok bg-ok/10",
+        selectedIcon: "border-ok bg-ok text-bg-base",
+        count: "text-ok",
+      };
+    case "warn":
+      return {
+        button: "bg-warn text-bg-base",
+        selectedCard: "border-warn bg-warn/10",
+        selectedIcon: "border-warn bg-warn text-bg-base",
+        count: "text-warn",
+      };
+    default:
+      return {
+        button: "bg-brand text-bg-base",
+        selectedCard: "border-brand bg-brand/12",
+        selectedIcon: "border-brand bg-brand text-bg-base",
+        count: "text-brand",
+      };
+  }
+}
+
 function getRoleHeader(
   t: (text: string, vars?: Record<string, string | number>) => string,
 ): Record<MafiaRole, { title: string; subtitle: string; accent: string }> {
@@ -69,6 +104,19 @@ export function MafiaNight({
   const { game, me, players } = state;
   const role = me?.role ?? null;
   const roleHeader = getRoleHeader(t);
+  const pendingSheriffMode =
+    me?.pendingNightAction === "SHERIFF_SHOOT" ? "SHOOT" : "CHECK";
+  const actionTone: NightTone =
+    role === "MAFIA"
+      ? "bad"
+      : role === "DOCTOR"
+        ? "ok"
+        : role === "SHERIFF"
+          ? pendingSheriffMode === "SHOOT"
+            ? "bad"
+            : "warn"
+          : "muted";
+  const toneClasses = getNightToneClasses(actionTone);
   const confirmDisabled = !me?.pendingNightTargetId || state.night.confirmedByMe;
   const helper = !me || !role
     ? !me
@@ -203,9 +251,11 @@ export function MafiaNight({
       timerVariant={
         state.night.confirmedByMe
           ? "muted"
-          : game.remainingSeconds <= 5
+          : game.remainingSeconds <= 8
             ? "danger"
-            : "default"
+            : game.remainingSeconds <= 20
+              ? "warning"
+              : "default"
       }
       badge={
         <span
@@ -224,7 +274,7 @@ export function MafiaNight({
             type="button"
             onClick={onConfirmNight}
             disabled={confirmDisabled || confirmNightPending}
-            className="flex h-14 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-40"
+            className={`flex h-14 min-w-0 items-center justify-center rounded-2xl px-4 text-base font-semibold transition active:scale-[0.98] disabled:opacity-40 ${toneClasses.button}`}
           >
             {confirmNightPending
               ? t("yuborilmoqda")
@@ -246,7 +296,7 @@ export function MafiaNight({
         </div>
       }
     >
-      <div className="mb-4 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3">
+      <div className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-4">
         <p className={`text-[11px] font-medium uppercase tracking-[0.24em] ${header.accent}`}>
           {header.title}
         </p>
@@ -261,6 +311,7 @@ export function MafiaNight({
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
           submitPending={submitPending}
+          tone="bad"
         />
       ) : null}
       {role === "SHERIFF" ? (
@@ -277,6 +328,7 @@ export function MafiaNight({
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
           submitPending={submitPending}
+          tone="ok"
         />
       ) : null}
       {role === "CITIZEN" ? (
@@ -285,13 +337,14 @@ export function MafiaNight({
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
           submitPending={submitPending}
+          tone="muted"
         />
       ) : null}
-      <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center">
+      <div className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center">
         <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
           {t("tasdiqlanganlar")}
         </p>
-        <p className="mt-1 font-mono text-lg font-semibold text-brand">
+        <p className={`mt-1 font-mono text-lg font-semibold ${toneClasses.count}`}>
           {state.night.confirmations.confirmed} / {state.night.confirmations.total}
         </p>
       </div>
@@ -307,12 +360,14 @@ function MafiaView({
   state,
   aliveTargets,
   onSubmit,
-  submitPending = false
+  submitPending = false,
+  tone,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
   submitPending?: boolean;
+  tone: NightTone;
 }) {
   const { t } = useI18n();
   const me = state.me!;
@@ -361,6 +416,7 @@ function MafiaView({
         excludeIds={[me.id, ...me.mafiaTeammates]}
         disabled={locked}
         submitPending={submitPending}
+        tone={tone}
       />
     </>
   );
@@ -387,6 +443,7 @@ function SheriffView({
   const locked = state.night.confirmedByMe;
   const mode: "CHECK" | "SHOOT" =
     me.pendingNightAction === "SHERIFF_SHOOT" ? "SHOOT" : "CHECK";
+  const tone: NightTone = mode === "SHOOT" ? "bad" : "warn";
 
   return (
     <>
@@ -396,6 +453,7 @@ function SheriffView({
           label={t("tekshirish")}
           subtitle={t("cheksiz")}
           disabled={locked}
+          tone="warn"
           onClick={() => onSubmit("SHERIFF_CHECK", me.pendingNightTargetId)}
         />
         <ModeButton
@@ -403,6 +461,7 @@ function SheriffView({
           label={t("oq_uzish")}
           subtitle={t("count_oq_qoldi", { count: shotsLeft })}
           disabled={shotsLeft === 0 || locked}
+          tone="bad"
           onClick={() => onSubmit("SHERIFF_SHOOT", me.pendingNightTargetId)}
         />
       </section>
@@ -443,6 +502,7 @@ function SheriffView({
         excludeIds={[me.id]}
         disabled={locked}
         submitPending={submitPending}
+        tone={tone}
       />
     </>
   );
@@ -456,12 +516,14 @@ function DoctorView({
   state,
   aliveTargets,
   onSubmit,
-  submitPending = false
+  submitPending = false,
+  tone,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
   submitPending?: boolean;
+  tone: NightTone;
 }) {
   const { t } = useI18n();
   const me = state.me!;
@@ -485,6 +547,7 @@ function DoctorView({
         excludeIds={excludeIds}
         disabled={locked}
         submitPending={submitPending}
+        tone={tone}
       />
     </>
   );
@@ -498,12 +561,14 @@ function CitizenView({
   state,
   aliveTargets,
   onSubmit,
-  submitPending = false
+  submitPending = false,
+  tone,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
   submitPending?: boolean;
+  tone: NightTone;
 }) {
   const { t } = useI18n();
   const me = state.me!;
@@ -527,6 +592,7 @@ function CitizenView({
       excludeIds={[me.id]}
       disabled={locked}
       submitPending={submitPending}
+      tone={tone}
     />
   );
 }
@@ -542,7 +608,8 @@ function TargetGrid({
   onPick,
   excludeIds,
   disabled = false,
-  submitPending = false
+  submitPending = false,
+  tone,
 }: {
   title: string;
   targets: MafiaPublicState["players"];
@@ -551,11 +618,13 @@ function TargetGrid({
   excludeIds: string[];
   disabled?: boolean;
   submitPending?: boolean;
+  tone: NightTone;
 }) {
   const { t } = useI18n();
   const [optimisticSelectedId, setOptimisticSelectedId] = useState<
     string | null
   >(selectedId);
+  const toneClasses = getNightToneClasses(tone);
 
   useEffect(() => {
     setOptimisticSelectedId(selectedId);
@@ -579,7 +648,7 @@ function TargetGrid({
                 disabled={disabled}
                 className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.98] disabled:opacity-55 ${
                   selected
-                    ? "border-brand bg-brand/12"
+                    ? toneClasses.selectedCard
                     : "border-line-strong bg-bg-surface"
                 }`}
               >
@@ -599,7 +668,7 @@ function TargetGrid({
                   <span
                     className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
                       selected
-                        ? "border-brand bg-brand text-bg-base"
+                        ? toneClasses.selectedIcon
                         : "border-line-strong bg-bg-base text-transparent"
                     }`}
                     aria-hidden
@@ -660,21 +729,24 @@ function ModeButton({
   label,
   subtitle,
   disabled,
+  tone,
   onClick,
 }: {
   active: boolean;
   label: string;
   subtitle: string;
   disabled?: boolean;
+  tone: NightTone;
   onClick: () => void;
 }) {
+  const toneClasses = getNightToneClasses(tone);
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
-        active ? "bg-brand text-bg-base" : "bg-bg-base text-ink-primary"
+        active ? toneClasses.button : "bg-bg-base text-ink-primary"
       }`}
     >
       <span>{label}</span>

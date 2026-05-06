@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { Timer } from "@/components/timer";
 import { useI18n } from "@/lib/i18n";
 import { GameActionModal } from "@/components/games/shared/game-action-modal";
 import { MafiaSituationArt } from "./mafia-situation-art";
@@ -68,63 +69,51 @@ function DayShell({
   title,
   subtitle,
   remaining,
-  totalSeconds,
+  accentTone = "warn",
   badge,
   children,
 }: {
   title: string;
   subtitle: string;
   remaining: number;
-  totalSeconds: number;
+  accentTone?: "brand" | "warn" | "bad";
   badge?: string;
   children: React.ReactNode;
 }) {
-  const { t } = useI18n();
-  const fraction = Math.max(
-    0,
-    Math.min(1, totalSeconds === 0 ? 0 : remaining / totalSeconds),
-  );
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
+  const timerVariant =
+    remaining <= 30 ? "danger" : remaining <= 90 ? "warning" : "default";
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
       <div
         className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe sm:px-6 lg:px-8"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
       >
-        <header className="flex items-center justify-between pt-3">
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {title}
-          </p>
-          {badge ? (
-            <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
-              {badge}
-            </span>
-          ) : null}
-        </header>
-
-        <div>
-          <p className="text-xs text-ink-muted">{subtitle}</p>
-          <div className="mt-2 flex items-center justify-between">
-            <span
-              className={`font-mono text-lg font-bold ${
-                remaining <= 10 ? "text-bad" : "text-ink-primary"
+        <header className="sticky top-0 z-10 -mx-5 border-b border-line-subtle bg-bg-base/95 px-5 pt-safe pb-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="flex items-center justify-between gap-2">
+            <p
+              className={`text-xs font-medium uppercase tracking-[0.25em] ${
+                accentTone === "bad"
+                  ? "text-bad"
+                  : accentTone === "brand"
+                    ? "text-brand"
+                    : "text-warn"
               }`}
             >
-              {mins > 0
-                ? `${mins}:${String(secs).padStart(2, "0")}`
-                : t("seconds_s", { seconds: secs })}
-            </span>
+              {title}
+            </p>
+            <div className="flex items-center gap-2">
+              <Timer seconds={remaining} variant={timerVariant} />
+              {badge ? (
+                <span className="inline-flex h-9 min-w-[124px] items-center justify-center rounded-full border border-line-strong bg-bg-surface px-4 font-mono text-sm font-semibold uppercase tracking-[0.22em] text-ink-secondary">
+                  #{badge}
+                </span>
+              ) : null}
+            </div>
           </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-elevated">
-            <div
-              className={`h-full transition-all ${
-                remaining <= 10 ? "bg-bad" : "bg-brand"
-              }`}
-              style={{ width: `${fraction * 100}%` }}
-            />
-          </div>
-        </div>
+          <p className="mt-4 text-lg font-semibold leading-snug text-ink-primary sm:text-2xl">
+            {subtitle}
+          </p>
+        </header>
 
         <div className="flex flex-1 flex-col gap-4">{children}</div>
       </div>
@@ -146,7 +135,7 @@ function Discussion({ state }: { state: MafiaPublicState }) {
       title={t("kun_number_daynumber", { dayNumber: game.dayNumber })}
       subtitle={t("muhokama_vaqti_kim_mafia_ekanligi_508d")}
       remaining={game.remainingSeconds}
-      totalSeconds={240}
+      accentTone="warn"
       badge={state.room.code}
     >
       <section className="grid gap-3 rounded-3xl border border-line-subtle bg-bg-surface p-5 text-center">
@@ -224,6 +213,19 @@ function VoteView({
     );
   const canVoteInTiebreak = !meIsCandidate || allAliveAreTied;
   const confirmDisabled = !votes.myTargetPlayerId || votes.confirmedByMe;
+  const voteToneClass = isTiebreak
+    ? {
+        selectedCard: "border-warn bg-warn/10",
+        selectedIcon: "border-warn bg-warn text-bg-base",
+        count: "text-warn",
+        status: "text-warn",
+      }
+    : {
+        selectedCard: "border-bad bg-bad/10",
+        selectedIcon: "border-bad bg-bad text-white",
+        count: "text-bad",
+        status: "text-bad",
+      };
 
   useEffect(() => {
     setOptimisticTargetId(myTargetPlayerId);
@@ -285,13 +287,15 @@ function VoteView({
       helper={helper}
       accentTone={isTiebreak ? "warn" : "bad"}
       secondsLeft={game.remainingSeconds}
-      timerVariant={
-        votes.confirmedByMe
-          ? "muted"
-          : game.remainingSeconds <= 10
-            ? "danger"
-            : "default"
-      }
+        timerVariant={
+          votes.confirmedByMe
+            ? "muted"
+            : game.remainingSeconds <= 15
+              ? "danger"
+              : game.remainingSeconds <= 35
+                ? "warning"
+                : "default"
+        }
       badge={
         <span className="inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 font-mono text-sm font-semibold text-ink-secondary">
           {votes.confirmations.confirmed} / {votes.confirmations.total}
@@ -337,128 +341,130 @@ function VoteView({
         ) : null
       }
     >
-      {!me?.isAlive ? (
-        <SpectatorPanel
-          players={players}
-          title={t("siz_olgansiz")}
-          subtitle={t("tomoshabin_sifatida_ovoz_natijasini_va_bd94")}
-        />
-      ) : (
-        <>
-          {isTiebreak && meIsCandidate && !allAliveAreTied ? (
-            <div className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm leading-6 text-ink-primary">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
-                {t("tenglik")}
-              </p>
-              <p className="mt-1 text-base font-semibold">
-                {t("siz_teng_ovoz_topladingiz")}
-              </p>
-              {otherTiedNames.length > 0 ? (
-                <p className="mt-2 text-ink-secondary">
-                  {t("boshqa_tenglikdagilar")}{" "}
-                  <span className="font-semibold text-ink-primary">
-                    {otherTiedNames.join(", ")}
-                  </span>
+      <div className="grid gap-4">
+        {!me?.isAlive ? (
+          <SpectatorPanel
+            players={players}
+            title={t("siz_olgansiz")}
+            subtitle={t("tomoshabin_sifatida_ovoz_natijasini_va_bd94")}
+          />
+        ) : (
+          <>
+            {isTiebreak && meIsCandidate && !allAliveAreTied ? (
+              <div className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm leading-6 text-ink-primary">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
+                  {t("tenglik")}
                 </p>
-              ) : null}
-              <p className="mt-2 text-ink-secondary">
-                {t("bu_bosqichda_ovoz_bera_olmaysiz_67a0")}
-              </p>
-            </div>
-          ) : null}
+                <p className="mt-1 text-base font-semibold">
+                  {t("siz_teng_ovoz_topladingiz")}
+                </p>
+                {otherTiedNames.length > 0 ? (
+                  <p className="mt-2 text-ink-secondary">
+                    {t("boshqa_tenglikdagilar")}{" "}
+                    <span className="font-semibold text-ink-primary">
+                      {otherTiedNames.join(", ")}
+                    </span>
+                  </p>
+                ) : null}
+                <p className="mt-2 text-ink-secondary">
+                  {t("bu_bosqichda_ovoz_bera_olmaysiz_67a0")}
+                </p>
+              </div>
+            ) : null}
 
-          {isTiebreak && (!meIsCandidate || allAliveAreTied) ? (
-            <div className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm leading-6 text-ink-primary">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
-                {t("teng_ovoz")}
-              </p>
-              <p className="mt-1">
-                <span className="font-semibold">{tiedNames.join(", ")}</span>{" "}
-                {t("bir_xil_ovoz_topladi")}
-              </p>
-            </div>
-          ) : null}
+            {isTiebreak && (!meIsCandidate || allAliveAreTied) ? (
+              <div className="rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm leading-6 text-ink-primary">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
+                  {t("teng_ovoz")}
+                </p>
+                <p className="mt-1">
+                  <span className="font-semibold">{tiedNames.join(", ")}</span>{" "}
+                  {t("bir_xil_ovoz_topladi")}
+                </p>
+              </div>
+            ) : null}
 
-          {!isTiebreak || canVoteInTiebreak ? (
-            <ul className="grid gap-3">
-              {candidates.map((p) => {
-                const selected = optimisticTargetId === p.id;
-                return (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOptimisticTargetId(p.id);
-                        onSubmitVote(p.id);
-                      }}
-                      disabled={selectedLocked || voteSubmitPending}
-                      className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.98] ${
-                        selected
-                          ? "border-brand bg-brand/12"
-                          : "border-line-strong bg-bg-surface"
-                      } disabled:opacity-55`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-base font-semibold text-ink-primary">
-                            {p.name}
-                          </p>
-                          <p className="mt-1 text-xs text-ink-muted">
-                            {selected && voteSubmitPending
-                              ? t("yuborilmoqda")
-                              : selected
-                                ? t("tanlandi")
-                                : t("ovoz")}
-                          </p>
+            {!isTiebreak || canVoteInTiebreak ? (
+              <ul className="grid gap-3">
+                {candidates.map((p) => {
+                  const selected = optimisticTargetId === p.id;
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOptimisticTargetId(p.id);
+                          onSubmitVote(p.id);
+                        }}
+                        disabled={selectedLocked || voteSubmitPending}
+                        className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.98] ${
+                          selected
+                            ? voteToneClass.selectedCard
+                            : "border-line-strong bg-bg-surface"
+                        } disabled:opacity-55`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-base font-semibold text-ink-primary">
+                              {p.name}
+                            </p>
+                            <p className="mt-1 text-xs text-ink-muted">
+                              {selected && voteSubmitPending
+                                ? t("yuborilmoqda")
+                                : selected
+                                  ? t("tanlandi")
+                                  : t("ovoz")}
+                            </p>
+                          </div>
+                          <span
+                            className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
+                              selected
+                                ? voteToneClass.selectedIcon
+                                : "border-line-strong bg-bg-base text-transparent"
+                            }`}
+                            aria-hidden
+                          >
+                            ✓
+                          </span>
                         </div>
-                        <span
-                          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
-                            selected
-                              ? "border-brand bg-brand text-bg-base"
-                              : "border-line-strong bg-bg-base text-transparent"
-                          }`}
-                          aria-hidden
-                        >
-                          ✓
-                        </span>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-        </>
-      )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </>
+        )}
 
-      <div className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-          {t("tasdiqlanganlar")}
-        </p>
-        <p className="mt-1 font-mono text-lg font-semibold text-brand">
-          {votes.confirmations.confirmed} / {votes.confirmations.total}
+        <div className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
+            {t("tasdiqlanganlar")}
+          </p>
+          <p className={`mt-1 font-mono text-lg font-semibold ${voteToneClass.count}`}>
+            {votes.confirmations.confirmed} / {votes.confirmations.total}
+          </p>
+        </div>
+
+        <p
+          className={`text-center text-xs ${
+            isTiebreak && meIsCandidate && !allAliveAreTied
+              ? "text-ink-muted"
+              : votes.confirmedByMe
+                ? "text-ok"
+                : votes.submittedByMe
+                  ? voteToneClass.status
+                  : "text-ink-muted"
+          }`}
+        >
+          {isTiebreak && meIsCandidate && !allAliveAreTied
+            ? t("natijani_kutmoqdasiz")
+            : votes.confirmedByMe
+              ? t("ovozingiz_tasdiqlandi")
+              : votes.submittedByMe
+                ? t("nomzod_tanlandi_endi_tasdiqlang")
+                : t("hali_ovoz_bermadingiz")}
         </p>
       </div>
-
-      <p
-        className={`text-center text-xs ${
-          isTiebreak && meIsCandidate && !allAliveAreTied
-            ? "text-ink-muted"
-            : votes.confirmedByMe
-              ? "text-ok"
-              : votes.submittedByMe
-                ? "text-brand"
-                : "text-ink-muted"
-        }`}
-      >
-        {isTiebreak && meIsCandidate && !allAliveAreTied
-          ? t("natijani_kutmoqdasiz")
-          : votes.confirmedByMe
-            ? t("ovozingiz_tasdiqlandi")
-            : votes.submittedByMe
-              ? t("nomzod_tanlandi_endi_tasdiqlang")
-              : t("hali_ovoz_bermadingiz")}
-      </p>
     </GameActionModal>
   );
 }
@@ -481,7 +487,7 @@ function ResultView({ state }: { state: MafiaPublicState }) {
       })}
       subtitle={t("ovoz_berish_natijasi")}
       remaining={game.remainingSeconds}
-      totalSeconds={6}
+      accentTone="bad"
       badge={state.room.code}
     >
       {eliminated && role ? (
@@ -499,10 +505,6 @@ function ResultView({ state }: { state: MafiaPublicState }) {
         </div>
       ) : (
         <div className="grid gap-3 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
-          <MafiaSituationArt
-            src="/mafia/no-voice.webp"
-            alt={t("hech_kim_chetlatilmadi")}
-          />
           <p className="text-base font-semibold">
             {t("hech_kim_chetlatilmadi")}
           </p>

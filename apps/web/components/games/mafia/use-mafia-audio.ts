@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 type MafiaAudioInput = {
   votingActive: boolean;
+  nightActive: boolean;
   selfEliminationAudioKey: string | null;
 };
 
@@ -30,6 +31,7 @@ function shouldPreload() {
 
 export function useMafiaAudio({
   votingActive,
+  nightActive,
   selfEliminationAudioKey
 }: MafiaAudioInput) {
   const activeAudiosRef = useRef<HTMLAudioElement[]>([]);
@@ -38,11 +40,15 @@ export function useMafiaAudio({
   const preloadedRef = useRef<Set<string>>(new Set());
   const didPreloadRef = useRef(false);
   const votingActiveRef = useRef(votingActive);
+  const nightActiveRef = useRef(nightActive);
   const interactionUnlockedRef = useRef(false);
 
   useEffect(() => {
     votingActiveRef.current = votingActive;
   }, [votingActive]);
+  useEffect(() => {
+    nightActiveRef.current = nightActive;
+  }, [nightActive]);
 
   const preload = useCallback((src: string) => {
     if (preloadedRef.current.has(src)) return;
@@ -156,11 +162,9 @@ export function useMafiaAudio({
   useEffect(() => {
     const tryPlay = () => {
       interactionUnlockedRef.current = true;
-      window.setTimeout(() => {
-        if (votingActiveRef.current && !votingLoopRef.current) {
-          playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
-        }
-      }, 0);
+      if ((votingActiveRef.current || nightActiveRef.current) && !votingLoopRef.current) {
+        playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
+      }
     };
     const handleFirstInteraction = () => {
       if (interactionUnlockedRef.current) return;
@@ -179,12 +183,12 @@ export function useMafiaAudio({
   }, [playLoop]);
 
   useEffect(() => {
-    if (!votingActive) {
+    if (!votingActive && !nightActive) {
       stopLoop(votingLoopRef);
       return;
     }
     playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
-  }, [votingActive, playLoop, stopLoop]);
+  }, [nightActive, votingActive, playLoop, stopLoop]);
 
   useEffect(() => {
     if (!selfEliminationAudioKey) return;

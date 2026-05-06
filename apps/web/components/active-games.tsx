@@ -71,7 +71,12 @@ export function ActiveGames() {
       ) as Route;
       router.push(target);
     } catch (error) {
-      alert((error as Error).message);
+      const message = (error as Error).message;
+      if (message.includes("yakunlangan")) {
+        setItems((current) => current.filter((it) => it.playerId !== item.playerId));
+      } else {
+        alert(message);
+      }
       setResuming(null);
     }
   }
@@ -101,27 +106,32 @@ export function ActiveGames() {
   if (!items.length) return null;
 
   return (
-    <section>
-      <p className="text-xs font-medium uppercase tracking-wider text-brand">
+    <section className="grid gap-3">
+      <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
         {t("davom_ettirish")}
       </p>
-      <ul className="mt-2 grid gap-2">
+      <ul className="grid gap-3">
         {items.map((it) => (
           <li
             key={it.playerId}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-3"
+            className="flex items-center justify-between gap-4 rounded-[28px] border border-brand/25 bg-gradient-to-br from-brand/12 via-bg-surface to-bg-surface p-4 shadow-[0_18px_48px_rgba(245,158,11,0.08)]"
           >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-brand">
+                {it.room.gameType === "MAFIA" ? "Mafia" : "Bunker"}
+              </p>
+              <p className="mt-1 truncate text-base font-semibold text-ink-primary">
                 {(it.room.disasterName
                   ? getLocalizedText(it.room.disasterName, language)
                   : null) ??
                   (it.room.gameType === "MAFIA"
                     ? t("mafia_oyini")
                     : t("bunker_oyini"))}{" "}
-                <span className="text-ink-muted">· {it.room.code}</span>
+                <span className="font-mono text-sm tracking-[0.2em] text-brand">
+                  · #{it.room.code}
+                </span>
               </p>
-              <p className="text-xs text-ink-secondary">
+              <p className="mt-1 text-sm text-ink-secondary">
                 {it.room.status === "LOBBY"
                   ? t("lobbi_kuting")
                   : t("bosqich_phase", { phase: it.room.phase })}
@@ -132,9 +142,16 @@ export function ActiveGames() {
             <button
               onClick={() => resume(it)}
               disabled={resuming === it.playerId}
-              className="shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-bg-base disabled:opacity-50"
+              className="inline-flex h-12 min-w-[132px] shrink-0 items-center justify-center gap-2 rounded-2xl bg-brand px-5 text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-100"
             >
-              {resuming === it.playerId ? t("yuklanmoqda") : t("davom")}
+              {resuming === it.playerId ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-bg-base/30 border-t-bg-base" />
+                  {t("yuklanmoqda")}
+                </>
+              ) : (
+                t("davom")
+              )}
             </button>
           </li>
         ))}
