@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Timer } from "@/components/timer";
 import { useI18n } from "@/lib/i18n";
+import { GameActionModal } from "@/components/games/shared/game-action-modal";
 
 const cardLabels: Record<string, string> = {
   PROFESSION: "Kasb",
@@ -138,158 +138,24 @@ export function VotePanel({
 
   const effectiveCanVote = canVote && (!meIsCandidate || allAliveAreTied);
 
-  const accent = tiebreakActive ? "text-warn" : "text-bad";
   const sectionLabel = tiebreakActive ? t("qayta_ovoz") : t("ovoz_berish");
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg-base">
-      <header className="sticky top-0 z-10 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-2 px-5 pt-safe">
-          <p
-            className={`flex-1 text-sm font-semibold uppercase tracking-[0.2em] ${accent}`}
-          >
-            {sectionLabel}
-          </p>
-          {typeof secondsLeft === "number" ? (
-            <Timer
-              seconds={secondsLeft}
-              variant={effectiveHasVoted ? "muted" : "danger"}
-            />
-          ) : null}
-          {!meIsCandidate ? (
-            <span className="inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-sm font-semibold text-ink-secondary">
-              {t("count_ta_nomzod", { count: options.length })}
-            </span>
-          ) : null}
-        </div>
-        <p className="px-5 pb-3 pt-2 text-base font-semibold leading-snug text-ink-primary">
-          {helper}
-        </p>
-      </header>
-
-      <div className="flex-1 overflow-y-auto px-5 py-4 pb-40">
-        {tiebreakActive && (!meIsCandidate || allAliveAreTied) ? (
-          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-warn/40 bg-warn/10 p-4">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-warn/20 text-lg">
-              ⚖️
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
-                {t("teng_ovoz")}
-              </p>
-              <p className="mt-1 text-sm leading-6 text-ink-primary">
-                <span className="font-semibold">{tiedNames.join(", ")}</span>{" "}
-                {t("bir_xil_ovoz_topladi")}{" "}
-                {allAliveAreTied
-                  ? t("hamma_tenglikda_qolgani_uchun_qayta_ac54")
-                  : t("iltimos_faqat_bir_kishini_bunkerda_152c")}
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {meIsCandidate && !allAliveAreTied ? (
-          <div className="rounded-2xl border border-warn/40 bg-warn/10 p-5 text-sm leading-6 text-ink-primary">
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warn/20 text-xl">
-                ⚖️
-              </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
-                  {t("tenglik")}
-                </p>
-                <p className="text-base font-semibold">
-                  {t("siz_teng_ovoz_topladingiz")}
-                </p>
-              </div>
-            </div>
-            {otherTiedNames.length > 0 ? (
-              <p className="mt-3 text-ink-secondary">
-                {t("boshqa_tenglikdagilar")}{" "}
-                <span className="font-semibold text-ink-primary">
-                  {otherTiedNames.join(", ")}
-                </span>
-              </p>
-            ) : null}
-            <p className="mt-3 text-ink-secondary">
-              {t("bu_bosqichda_ovoz_bera_olmaysiz_67a0")}
-            </p>
-            <div className="mt-4 flex items-center gap-2 rounded-xl border border-line-subtle bg-bg-base/60 px-3 py-2 text-xs text-ink-muted">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-              {t("natijani_kutmoqdasiz")}
-            </div>
-          </div>
-        ) : null}
-
-        <ul
-          className={`grid gap-3 ${
-            meIsCandidate && !allAliveAreTied ? "mt-4 hidden" : ""
-          }`}
-        >
-          {options.map((player) => {
-            const entries = Object.entries(player.visibleCards).filter(
-              ([, value]) => value
-            );
-            const active = selectedPlayerId === player.id;
-            const disabled = !effectiveCanVote || effectiveHasVoted;
-
-            return (
-              <li key={player.id}>
-                <button
-                  disabled={disabled}
-                  onClick={() => setSelectedPlayerId(player.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] disabled:opacity-50 ${
-                    active
-                      ? "border-bad bg-bad/10"
-                      : "border-line-subtle bg-bg-surface"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-base font-semibold text-ink-primary">
-                      {player.name}
-                    </p>
-                    <span
-                      className={`grid h-6 w-6 place-items-center rounded-full border ${
-                        active
-                          ? "border-bad bg-bad text-bg-base"
-                          : "border-line-strong bg-bg-base text-transparent"
-                      }`}
-                      aria-hidden
-                    >
-                      ✓
-                    </span>
-                  </div>
-
-                  {entries.length ? (
-                    <div className="mt-3 grid gap-1.5">
-                      {entries.map(([key, value]) => (
-                        <div
-                          key={key}
-                          className="flex items-baseline gap-2 text-sm"
-                        >
-                          <span className="w-16 shrink-0 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                            {cardLabels[key] ? t(cardLabels[key]) : key}
-                          </span>
-                          <span className="flex-1 text-ink-secondary">
-                            {value}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-3 text-sm text-ink-muted">
-                      {t("faqat_kasb_ochiq")}
-                    </p>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
-      {meIsCandidate ? null : (
-        <div className="sticky bottom-0 border-t border-line-subtle bg-bg-base/95 px-5 pb-safe pt-3 backdrop-blur">
+    <GameActionModal
+      sectionLabel={sectionLabel}
+      helper={helper}
+      accentTone={tiebreakActive ? "warn" : "bad"}
+      secondsLeft={secondsLeft}
+      timerVariant={effectiveHasVoted ? "muted" : "danger"}
+      badge={
+        !meIsCandidate ? (
+          <span className="inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-sm font-semibold text-ink-secondary">
+            {t("count_ta_nomzod", { count: options.length })}
+          </span>
+        ) : null
+      }
+      footer={
+        meIsCandidate && !allAliveAreTied ? null : (
           <button
             disabled={!effectiveCanVote || effectiveHasVoted || !selectedPlayerId}
             onClick={() => {
@@ -305,8 +171,124 @@ export function VotePanel({
                 ? t("name_tasdiqlash", { name: selectedPlayer.name })
                 : t("avval_birini_tanlang")}
           </button>
+        )
+      }
+    >
+      {tiebreakActive && (!meIsCandidate || allAliveAreTied) ? (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-warn/40 bg-warn/10 p-4">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-warn/20 text-lg">
+            ⚖️
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
+              {t("teng_ovoz")}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-ink-primary">
+              <span className="font-semibold">{tiedNames.join(", ")}</span>{" "}
+              {t("bir_xil_ovoz_topladi")}{" "}
+              {allAliveAreTied
+                ? t("hamma_tenglikda_qolgani_uchun_qayta_ac54")
+                : t("iltimos_faqat_bir_kishini_bunkerda_152c")}
+            </p>
+          </div>
         </div>
-      )}
-    </div>
+      ) : null}
+
+      {meIsCandidate && !allAliveAreTied ? (
+        <div className="rounded-2xl border border-warn/40 bg-warn/10 p-5 text-sm leading-6 text-ink-primary">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warn/20 text-xl">
+              ⚖️
+            </div>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
+                {t("tenglik")}
+              </p>
+              <p className="text-base font-semibold">
+                {t("siz_teng_ovoz_topladingiz")}
+              </p>
+            </div>
+          </div>
+          {otherTiedNames.length > 0 ? (
+            <p className="mt-3 text-ink-secondary">
+              {t("boshqa_tenglikdagilar")}{" "}
+              <span className="font-semibold text-ink-primary">
+                {otherTiedNames.join(", ")}
+              </span>
+            </p>
+          ) : null}
+          <p className="mt-3 text-ink-secondary">
+            {t("bu_bosqichda_ovoz_bera_olmaysiz_67a0")}
+          </p>
+          <div className="mt-4 flex items-center gap-2 rounded-xl border border-line-subtle bg-bg-base/60 px-3 py-2 text-xs text-ink-muted">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
+            {t("natijani_kutmoqdasiz")}
+          </div>
+        </div>
+      ) : null}
+
+      <ul
+        className={`grid gap-3 ${
+          meIsCandidate && !allAliveAreTied ? "mt-4 hidden" : ""
+        }`}
+      >
+        {options.map((player) => {
+          const entries = Object.entries(player.visibleCards).filter(
+            ([, value]) => value
+          );
+          const active = selectedPlayerId === player.id;
+          const disabled = !effectiveCanVote || effectiveHasVoted;
+
+          return (
+            <li key={player.id}>
+              <button
+                disabled={disabled}
+                onClick={() => setSelectedPlayerId(player.id)}
+                className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] disabled:opacity-50 ${
+                  active
+                    ? "border-bad bg-bad/10"
+                    : "border-line-subtle bg-bg-surface"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-base font-semibold text-ink-primary">
+                    {player.name}
+                  </p>
+                  <span
+                    className={`grid h-6 w-6 place-items-center rounded-full border ${
+                      active
+                        ? "border-bad bg-bad text-bg-base"
+                        : "border-line-strong bg-bg-base text-transparent"
+                    }`}
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                </div>
+
+                {entries.length ? (
+                  <div className="mt-3 grid gap-1.5">
+                    {entries.map(([key, value]) => (
+                      <div key={key} className="flex items-baseline gap-2 text-sm">
+                        <span className="w-16 shrink-0 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                          {cardLabels[key] ? t(cardLabels[key]) : key}
+                        </span>
+                        <span className="flex-1 text-ink-secondary">
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-ink-muted">
+                    {t("faqat_kasb_ochiq")}
+                  </p>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </GameActionModal>
   );
 }

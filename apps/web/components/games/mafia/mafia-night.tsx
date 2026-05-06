@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { JoinRoomModal } from "@/components/join-room-modal";
 import { useI18n } from "@/lib/i18n";
+import { GameActionModal } from "@/components/games/shared/game-action-modal";
 import { MafiaSituationArt } from "./mafia-situation-art";
 import type {
   MafiaNightActionType,
@@ -16,8 +17,12 @@ type Props = {
   state: MafiaPublicState;
   onSubmit: (
     action: MafiaNightActionType,
-    targetPlayerId: string | null,
+    targetPlayerId: string | null
   ) => void;
+  submitPending?: boolean;
+  confirmNightPending?: boolean;
+  onConfirmNight?: () => void;
+  onOpenRole?: () => void;
 };
 
 function getRoleHeader(
@@ -50,20 +55,37 @@ function getRoleHeader(
 // Tun ekrani — har bir o'yinchi 60 soniyada bittasini tanlaydi. Vaqt
 // strict 60s — server resolveNight'da yakunlaydi. UI mafia/komisar/
 // doktorlarga real tanlov beradi, aholiga esa pufak savol (anti-cheat).
-export function MafiaNight({ state, onSubmit }: Props) {
+export function MafiaNight({
+  state,
+  onSubmit,
+  submitPending = false,
+  confirmNightPending = false,
+  onConfirmNight,
+  onOpenRole
+}: Props) {
   const router = useRouter();
   const { t } = useI18n();
   const [joinOpen, setJoinOpen] = useState(false);
   const { game, me, players } = state;
   const role = me?.role ?? null;
   const roleHeader = getRoleHeader(t);
+  const confirmDisabled = !me?.pendingNightTargetId || state.night.confirmedByMe;
+  const helper = !me || !role
+    ? !me
+      ? t("bu_sessiya_hozirgi_oyinchi_bilan_aec7")
+      : t("oyin_davom_etyapti_lekin_siz_6857")
+    : !me.isAlive
+      ? t("tomoshabin_sifatida_tunni_kuzating_kimlar_1d03")
+      : state.night.confirmedByMe
+        ? t("natijani_kutmoqdasiz")
+        : roleHeader[role].subtitle;
 
   const aliveTargets = useMemo(
     () =>
       players.filter(
-        (p) => p.isAlive && (role === "DOCTOR" ? true : p.id !== me?.id),
+        (p) => p.isAlive && (role === "DOCTOR" ? true : p.id !== me?.id)
       ),
-    [players, role, me?.id],
+    [players, role, me?.id]
   );
 
   if (!me || !role) {
@@ -75,7 +97,36 @@ export function MafiaNight({ state, onSubmit }: Props) {
       : t("oyin_davom_etyapti_lekin_siz_6857");
 
     return (
-      <NightShell remaining={game.remainingSeconds} night={game.nightNumber}>
+      <GameActionModal
+        sectionLabel={t("tun_number_night", { night: game.nightNumber })}
+        helper={helper}
+        accentTone="warn"
+        secondsLeft={game.remainingSeconds}
+        timerVariant={game.remainingSeconds <= 5 ? "danger" : "default"}
+        badge={
+          <span className="inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 font-mono text-sm font-semibold text-ink-secondary">
+            {state.room.code}
+          </span>
+        }
+        footer={
+          <div className="grid gap-2">
+            <button
+              type="button"
+              onClick={() => setJoinOpen(true)}
+              className="flex h-14 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              {t("yangi_xonaga_qoshilish")}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="flex h-14 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+            >
+              {t("bosh_sahifaga_qaytish")}
+            </button>
+          </div>
+        }
+      >
         <div className="grid gap-4 rounded-3xl border border-line-strong bg-bg-surface p-6 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-warn/12 text-warn">
             <svg
@@ -109,53 +160,99 @@ export function MafiaNight({ state, onSubmit }: Props) {
               {state.room.code}
             </p>
           </div>
-
-          <div className="grid gap-3">
-            <button
-              type="button"
-              onClick={() => setJoinOpen(true)}
-              className="flex h-12 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              {t("yangi_xonaga_qoshilish")}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/dashboard")}
-              className="flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
-            >
-              {t("bosh_sahifaga_qaytish")}
-            </button>
-          </div>
         </div>
 
         <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />
-      </NightShell>
+      </GameActionModal>
     );
   }
 
   if (!me.isAlive) {
     return (
-      <NightShell remaining={game.remainingSeconds} night={game.nightNumber}>
+      <GameActionModal
+        sectionLabel={t("tun_number_night", { night: game.nightNumber })}
+        helper={helper}
+        accentTone="muted"
+        secondsLeft={game.remainingSeconds}
+        timerVariant={game.remainingSeconds <= 5 ? "danger" : "default"}
+        badge={
+          <span className="inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 font-mono text-sm font-semibold text-ink-secondary">
+            {state.night.confirmations.confirmed} / {state.night.confirmations.total}
+          </span>
+        }
+      >
         <SpectatorPanel
           players={players}
           title={t("siz_olgansiz")}
           subtitle={t("tomoshabin_sifatida_tunni_kuzating_kimlar_1d03")}
         />
-      </NightShell>
+      </GameActionModal>
     );
   }
 
   const header = roleHeader[role];
 
   return (
-    <NightShell remaining={game.remainingSeconds} night={game.nightNumber}>
-      <div className="grid gap-1 text-center">
-        <p
-          className={`text-xs font-medium uppercase tracking-[0.25em] ${header.accent}`}
+    <GameActionModal
+      sectionLabel={t("tun_number_night", { night: game.nightNumber })}
+      helper={helper}
+      accentTone={
+        role === "MAFIA" ? "bad" : role === "DOCTOR" ? "brand" : "warn"
+      }
+      secondsLeft={game.remainingSeconds}
+      timerVariant={
+        state.night.confirmedByMe
+          ? "muted"
+          : game.remainingSeconds <= 5
+            ? "danger"
+            : "default"
+      }
+      badge={
+        <span
+          className={`inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 text-sm font-semibold ${header.accent}`}
         >
           {header.title}
+        </span>
+      }
+      footer={
+        <div
+          className={`grid gap-2 ${
+            onOpenRole ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-1"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={onConfirmNight}
+            disabled={confirmDisabled || confirmNightPending}
+            className="flex h-14 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-40"
+          >
+            {confirmNightPending
+              ? t("yuborilmoqda")
+              : state.night.confirmedByMe
+                ? t("tasdiqlandi")
+                : me.pendingNightTargetId
+                  ? t("tungi_qarorni_tasdiqlash")
+                  : t("nishonni_tanlang")}
+          </button>
+          {onOpenRole ? (
+            <button
+              type="button"
+              onClick={onOpenRole}
+              className="flex h-14 min-w-[132px] items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+            >
+              {t("mening_kartam")}
+            </button>
+          ) : null}
+        </div>
+      }
+    >
+      <div className="mb-4 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3">
+        <p className={`text-[11px] font-medium uppercase tracking-[0.24em] ${header.accent}`}>
+          {header.title}
         </p>
-        <h1 className="text-xl font-bold sm:text-2xl">{header.subtitle}</h1>
+        <p className="mt-1 text-sm leading-6 text-ink-secondary">
+          {header.subtitle}
+        </p>
       </div>
 
       {role === "MAFIA" ? (
@@ -163,6 +260,7 @@ export function MafiaNight({ state, onSubmit }: Props) {
           state={state}
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
+          submitPending={submitPending}
         />
       ) : null}
       {role === "SHERIFF" ? (
@@ -170,6 +268,7 @@ export function MafiaNight({ state, onSubmit }: Props) {
           state={state}
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
+          submitPending={submitPending}
         />
       ) : null}
       {role === "DOCTOR" ? (
@@ -177,6 +276,7 @@ export function MafiaNight({ state, onSubmit }: Props) {
           state={state}
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
+          submitPending={submitPending}
         />
       ) : null}
       {role === "CITIZEN" ? (
@@ -184,60 +284,18 @@ export function MafiaNight({ state, onSubmit }: Props) {
           state={state}
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
+          submitPending={submitPending}
         />
       ) : null}
-    </NightShell>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Layout shell — shared header + night timer
-// ─────────────────────────────────────────────────────────────────────
-
-function NightShell({
-  remaining,
-  night,
-  children,
-}: {
-  remaining: number;
-  night: number;
-  children: React.ReactNode;
-}) {
-  const { t } = useI18n();
-  const fraction = Math.max(0, Math.min(1, remaining / 60));
-  return (
-    <main className="min-h-screen bg-bg-base text-ink-primary">
-      <div
-        className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe sm:px-6 lg:px-8"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
-      >
-        <header className="flex items-center justify-between pt-3">
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-ink-muted">
-            {t("tun_number_night", { night })}
-          </p>
-          <span
-            className={`rounded-full border px-3 py-1 font-mono text-sm font-semibold ${
-              remaining <= 5
-                ? "border-bad/40 bg-bad/15 text-bad"
-                : "border-line-strong bg-bg-surface text-brand"
-            }`}
-          >
-            {t("seconds_s", { seconds: String(remaining).padStart(2, "0") })}
-          </span>
-        </header>
-
-        <div className="h-1.5 overflow-hidden rounded-full bg-bg-elevated">
-          <div
-            className={`h-full transition-all ${
-              remaining <= 5 ? "bg-bad" : "bg-brand"
-            }`}
-            style={{ width: `${fraction * 100}%` }}
-          />
-        </div>
-
-        <div className="flex flex-1 flex-col gap-5">{children}</div>
+      <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
+          {t("tasdiqlanganlar")}
+        </p>
+        <p className="mt-1 font-mono text-lg font-semibold text-brand">
+          {state.night.confirmations.confirmed} / {state.night.confirmations.total}
+        </p>
       </div>
-    </main>
+    </GameActionModal>
   );
 }
 
@@ -249,10 +307,12 @@ function MafiaView({
   state,
   aliveTargets,
   onSubmit,
+  submitPending = false
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
+  submitPending?: boolean;
 }) {
   const { t } = useI18n();
   const me = state.me!;
@@ -300,6 +360,7 @@ function MafiaView({
         onPick={(id) => onSubmit("MAFIA_KILL", id)}
         excludeIds={[me.id, ...me.mafiaTeammates]}
         disabled={locked}
+        submitPending={submitPending}
       />
     </>
   );
@@ -313,10 +374,12 @@ function SheriffView({
   state,
   aliveTargets,
   onSubmit,
+  submitPending = false
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
+  submitPending?: boolean;
 }) {
   const { t } = useI18n();
   const me = state.me!;
@@ -379,6 +442,7 @@ function SheriffView({
         }
         excludeIds={[me.id]}
         disabled={locked}
+        submitPending={submitPending}
       />
     </>
   );
@@ -392,10 +456,12 @@ function DoctorView({
   state,
   aliveTargets,
   onSubmit,
+  submitPending = false
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
+  submitPending?: boolean;
 }) {
   const { t } = useI18n();
   const me = state.me!;
@@ -418,6 +484,7 @@ function DoctorView({
         onPick={(id) => onSubmit("DOCTOR_HEAL", id)}
         excludeIds={excludeIds}
         disabled={locked}
+        submitPending={submitPending}
       />
     </>
   );
@@ -431,10 +498,12 @@ function CitizenView({
   state,
   aliveTargets,
   onSubmit,
+  submitPending = false
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
+  submitPending?: boolean;
 }) {
   const { t } = useI18n();
   const me = state.me!;
@@ -457,6 +526,7 @@ function CitizenView({
       onPick={(id) => onSubmit(action, id)}
       excludeIds={[me.id]}
       disabled={locked}
+      submitPending={submitPending}
     />
   );
 }
@@ -472,6 +542,7 @@ function TargetGrid({
   onPick,
   excludeIds,
   disabled = false,
+  submitPending = false
 }: {
   title: string;
   targets: MafiaPublicState["players"];
@@ -479,6 +550,7 @@ function TargetGrid({
   onPick: (id: string) => void;
   excludeIds: string[];
   disabled?: boolean;
+  submitPending?: boolean;
 }) {
   const { t } = useI18n();
   const [optimisticSelectedId, setOptimisticSelectedId] = useState<
@@ -493,7 +565,7 @@ function TargetGrid({
   return (
     <section className="grid gap-2">
       <p className="text-sm font-semibold">{title}</p>
-      <ul className="grid grid-cols-2 gap-2">
+      <ul className="grid gap-3">
         {filtered.map((p) => {
           const selected = optimisticSelectedId === p.id;
           return (
@@ -505,23 +577,36 @@ function TargetGrid({
                   onPick(p.id);
                 }}
                 disabled={disabled}
-                className={`flex w-full items-center gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition active:scale-[0.98] ${
+                className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.98] disabled:opacity-55 ${
                   selected
-                    ? "border-brand bg-brand/15 text-brand"
-                    : "border-line-strong bg-bg-surface text-ink-primary"
-                } disabled:opacity-55`}
+                    ? "border-brand bg-brand/12"
+                    : "border-line-strong bg-bg-surface"
+                }`}
               >
-                <span
-                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold uppercase ${
-                    selected
-                      ? "bg-brand text-bg-base"
-                      : "bg-brand-soft text-brand"
-                  }`}
-                >
-                  {p.name.slice(0, 2)}
-                </span>
-                <span className="flex-1 truncate font-medium">{p.name}</span>
-                {selected ? <span className="text-xs">✓</span> : null}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold text-ink-primary">
+                      {p.name}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      {selected
+                        ? submitPending
+                          ? t("yuborilmoqda")
+                          : t("tanlandi")
+                        : t("nishonni_tanlang")}
+                    </p>
+                  </div>
+                  <span
+                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
+                      selected
+                        ? "border-brand bg-brand text-bg-base"
+                        : "border-line-strong bg-bg-base text-transparent"
+                    }`}
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                </div>
               </button>
             </li>
           );

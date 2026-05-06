@@ -38,6 +38,10 @@ import { getOrCreateSessionId } from "@/lib/storage";
 import type { BunkerCardType, BunkerPhase, BunkerRoomState } from "./bunker-types";
 import { useGameStore } from "./use-bunker-store";
 import { pushToast } from "@/store/useToastStore";
+import {
+  RealtimeConnectionFeedback,
+  useRealtimeConnectionRecovery
+} from "../shared/realtime-connection-feedback";
 
 // Disaster banner mapping. Image filenames in /public are tied to the
 // seeded disaster names — keep this in sync with data.md when new
@@ -189,6 +193,27 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const setError = useGameStore((state) => state.setError);
   const roomState =
     cachedRoomState?.room.code === normalizedRoomCode ? cachedRoomState : null;
+  const refreshState = useCallback(() => {
+    if (!sessionId) return;
+    void apiRequest<BunkerRoomState>(
+      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+    )
+      .then((state) => {
+        setRoomState(state);
+        setLoading(false);
+      })
+      .catch(() => undefined);
+  }, [roomCode, sessionId, setRoomState]);
+
+  const reconnectSocket = useCallback(() => {
+    if (!sessionId) return;
+    const socket = getSocket();
+    if (!socket.connected) {
+      socket.connect();
+      return;
+    }
+    refreshState();
+  }, [refreshState, sessionId]);
 
   // Init session + origin
   useEffect(() => {
@@ -308,13 +333,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       socket.emit("join_room", { roomCode, sessionId });
       if (isReconnect) {
         // Recover any broadcasts missed during the disconnect window.
-        void apiRequest<BunkerRoomState>(
-          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
-        )
-          .then((s) => setRoomState(s))
-          .catch(() => {
-            // ignore — server will broadcast room_state shortly.
-          });
+        refreshState();
       }
       isReconnect = true;
     };
@@ -347,11 +366,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       if (!socket.connected) {
         socket.connect();
       } else {
-        void apiRequest<BunkerRoomState>(
-          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
-        )
-          .then((s) => setRoomState(s))
-          .catch(() => undefined);
+        refreshState();
       }
     };
 
@@ -373,7 +388,15 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
-  }, [normalizedRoomCode, patchTimer, roomCode, sessionId, setError, setRoomState]);
+  }, [
+    normalizedRoomCode,
+    patchTimer,
+    refreshState,
+    roomCode,
+    sessionId,
+    setError,
+    setRoomState
+  ]);
 
   // Auto-route based on status
   useEffect(() => {
@@ -636,10 +659,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     });
     const socket = getSocket();
     socket.emit("join_room", { roomCode, sessionId });
-    const state = await apiRequest<BunkerRoomState>(
-      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
-    );
-    setRoomState(state);
+    refreshState();
   }
 
   async function handleJoin(event: FormEvent<HTMLFormElement>) {
@@ -662,6 +682,26 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   }
 
   const inviteUrl = roomState ? `${origin || ""}/room/${roomState.room.code}` : "";
+  const {
+    browserOnline,
+    showRecoveryModal,
+    retryNow,
+    reloadPage
+  } = useRealtimeConnectionRecovery({
+    enabled: !!sessionId,
+    connected: socketConnected,
+    onReconnect: reconnectSocket,
+    onRefreshState: refreshState
+  });
+  const connectionFeedback = (
+    <RealtimeConnectionFeedback
+      connected={socketConnected}
+      browserOnline={browserOnline}
+      showRecoveryModal={showRecoveryModal}
+      onRetryNow={retryNow}
+      onReloadPage={reloadPage}
+    />
+  );
 
   // Derived
   const room = roomState?.room;
@@ -960,7 +1000,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   if (room.status === "LOBBY") {
     return (
       <main className="min-h-screen bg-bg-base text-ink-primary">
-        <ConnectionBanner connected={socketConnected} />
+        {connectionFeedback}
         <div className="mx-auto max-w-xl px-5 pt-safe pb-32">
           <header className="flex items-center justify-between py-3">
             <button
@@ -1135,7 +1175,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         backHref="/dashboard"
         closingConfirmation={closingConfirmation}
       />
-      <ConnectionBanner connected={socketConnected} />
+      {connectionFeedback}
       {/* Sticky header */}
       <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
         <div className="mx-auto flex max-w-xl items-center justify-between gap-2 px-4 pt-safe pb-2.5">
@@ -1865,21 +1905,5 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         </div>
       ) : null}
     </main>
-  );
-}
-
-// Small toast-style banner that floats over content while the realtime
-// socket is dropped. Pinned to the top under any safe-area inset so it
-// doesn't collide with Telegram's chrome.
-function ConnectionBanner({ connected }: { connected: boolean }) {
-  const { t } = useI18n();
-  if (connected) return null;
-  return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
-      <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-        {t("qayta_ulanmoqda")}
-      </div>
-    </div>
   );
 }

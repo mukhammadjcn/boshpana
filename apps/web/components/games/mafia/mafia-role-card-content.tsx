@@ -19,7 +19,7 @@ export const mafiaRoleMeta: Record<
     blurb: "Mafiyani topib chetlatishga harakat qiling.",
     accent: "text-ok",
     bgGradient:
-      "radial-gradient(circle at 50% 0%, rgba(34,197,94,0.18), transparent 55%)"
+      "radial-gradient(circle at 50% 0%, rgba(34,197,94,0.18), transparent 55%)",
   },
   MAFIA: {
     title: "Mafia",
@@ -27,15 +27,15 @@ export const mafiaRoleMeta: Record<
     blurb: "Tunda nishon tanlab, kunduzi yashirinib qoling.",
     accent: "text-bad",
     bgGradient:
-      "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%)"
+      "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%)",
   },
   SHERIFF: {
     title: "Komisar",
     team: "Shahar",
-    blurb: "Tunda bittasini tekshiring yoki o'q uzing (2 ta o'q).",
+    blurb: "Tunda bittasini tekshiring yoki o'q uzing (sizda 2 ta o'q bor).",
     accent: "text-brand",
     bgGradient:
-      "radial-gradient(circle at 50% 0%, rgba(244,168,58,0.22), transparent 55%)"
+      "radial-gradient(circle at 50% 0%, rgba(244,168,58,0.22), transparent 55%)",
   },
   DOCTOR: {
     title: "Doktor",
@@ -43,8 +43,8 @@ export const mafiaRoleMeta: Record<
     blurb: "Tunda kimnidir davolab, mafia/komisar nishonidan qutqaring.",
     accent: "text-ok",
     bgGradient:
-      "radial-gradient(circle at 50% 0%, rgba(34,197,94,0.18), transparent 55%)"
-  }
+      "radial-gradient(circle at 50% 0%, rgba(34,197,94,0.18), transparent 55%)",
+  },
 };
 
 export function getMafiaRoleMeta(role: MafiaRole | null | undefined) {
@@ -53,7 +53,7 @@ export function getMafiaRoleMeta(role: MafiaRole | null | undefined) {
 
 export function MafiaRoleCardContent({
   state,
-  className = ""
+  className = "",
 }: {
   state: MafiaPublicState;
   className?: string;
@@ -66,26 +66,26 @@ export function MafiaRoleCardContent({
           ...mafiaRoleMeta.CITIZEN,
           title: t("oddiy_aholi"),
           team: t("shahar"),
-          blurb: t("mafiyani_topib_chetlatishga_harakat_qiling")
+          blurb: t("mafiyani_topib_chetlatishga_harakat_qiling"),
         },
         MAFIA: {
           ...mafiaRoleMeta.MAFIA,
           title: t("mafia_2"),
           team: t("mafia_2"),
-          blurb: t("tunda_nishon_tanlab_kunduzi_yashirinib_8b6c")
+          blurb: t("tunda_nishon_tanlab_kunduzi_yashirinib_8b6c"),
         },
         SHERIFF: {
           ...mafiaRoleMeta.SHERIFF,
           title: t("komisar_2"),
           team: t("shahar"),
-          blurb: t("tunda_bittasini_tekshiring_yoki_oq_a880")
+          blurb: t("tunda_bittasini_tekshiring_yoki_oq_a880"),
         },
         DOCTOR: {
           ...mafiaRoleMeta.DOCTOR,
           title: t("doktor_2"),
           team: t("shahar"),
-          blurb: t("tunda_kimnidir_davolab_mafia_komisar_02b9")
-        }
+          blurb: t("tunda_kimnidir_davolab_mafia_komisar_02b9"),
+        },
       }[role]
     : null;
   if (!role || !meta) return null;

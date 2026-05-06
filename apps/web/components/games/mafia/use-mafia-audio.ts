@@ -38,6 +38,7 @@ export function useMafiaAudio({
   const preloadedRef = useRef<Set<string>>(new Set());
   const didPreloadRef = useRef(false);
   const votingActiveRef = useRef(votingActive);
+  const interactionUnlockedRef = useRef(false);
 
   useEffect(() => {
     votingActiveRef.current = votingActive;
@@ -154,15 +155,26 @@ export function useMafiaAudio({
 
   useEffect(() => {
     const tryPlay = () => {
-      if (votingActiveRef.current && !votingLoopRef.current) {
-        playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
-      }
+      interactionUnlockedRef.current = true;
+      window.setTimeout(() => {
+        if (votingActiveRef.current && !votingLoopRef.current) {
+          playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
+        }
+      }, 0);
     };
-    window.addEventListener("pointerdown", tryPlay);
-    window.addEventListener("keydown", tryPlay);
+    const handleFirstInteraction = () => {
+      if (interactionUnlockedRef.current) return;
+      tryPlay();
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
+    };
+    window.addEventListener("pointerdown", handleFirstInteraction, {
+      passive: true
+    });
+    window.addEventListener("keydown", handleFirstInteraction);
     return () => {
-      window.removeEventListener("pointerdown", tryPlay);
-      window.removeEventListener("keydown", tryPlay);
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
     };
   }, [playLoop]);
 

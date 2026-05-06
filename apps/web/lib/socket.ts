@@ -8,7 +8,9 @@ export function getSocket() {
   if (!socket) {
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:4000", {
       autoConnect: false,
-      transports: ["websocket"],
+      // Prefer WebSocket, but keep polling available as a fallback so
+      // mobile webviews can recover after flaky network transitions.
+      transports: ["websocket", "polling"],
       // Auto-reconnect on involuntary disconnects (network drop, server
       // restart). We pin the delay to a fixed 2s with no jitter and no
       // attempt cap, so a user who briefly loses Wi-Fi reconnects within

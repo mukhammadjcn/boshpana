@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   FormEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -23,6 +24,10 @@ import { useI18n } from "@/lib/i18n";
 import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import { pushToast } from "@/store/useToastStore";
+import {
+  RealtimeConnectionFeedback,
+  useRealtimeConnectionRecovery,
+} from "../shared/realtime-connection-feedback";
 
 import { MafiaDay } from "./mafia-day";
 import { MafiaFinished } from "./mafia-finished";
@@ -109,6 +114,16 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       })
       .catch(() => undefined);
   }, [roomCode, sessionId]);
+
+  const reconnectSocket = useCallback(() => {
+    if (!sessionId) return;
+    const socket = getSocket();
+    if (!socket.connected) {
+      socket.connect();
+      return;
+    }
+    refreshState();
+  }, [refreshState, sessionId]);
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
@@ -557,6 +572,26 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     !!roomState?.me?.role &&
     !!roomState?.me?.isAlive;
   const isPending = (actionKey: string) => pendingAction === actionKey;
+  const {
+    browserOnline,
+    showRecoveryModal,
+    retryNow,
+    reloadPage,
+  } = useRealtimeConnectionRecovery({
+    enabled: !!sessionId,
+    connected: socketConnected,
+    onReconnect: reconnectSocket,
+    onRefreshState: refreshState,
+  });
+  const connectionFeedback = (
+    <RealtimeConnectionFeedback
+      connected={socketConnected}
+      browserOnline={browserOnline}
+      showRecoveryModal={showRecoveryModal}
+      onRetryNow={retryNow}
+      onReloadPage={reloadPage}
+    />
+  );
   const roleReminderModal =
     roleModalVisible && roomState?.me?.role && myRoleMeta ? (
       <div
@@ -862,7 +897,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           game={game}
           players={players}
           me={me}
-          socketConnected={socketConnected}
+          connectionFeedback={connectionFeedback}
           startGamePending={isPending("lobby:start_game")}
           onStartGame={() => emitWithPending("lobby:start_game", "start_game")}
           onLeaveRoom={() => setLeaveConfirmOpen(true)}
@@ -980,7 +1015,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         {playingEndGameModal}
         {selfEliminationModal}
         {phaseIntroModal}
-        {!socketConnected ? <ReconnectingBanner /> : null}
+        {connectionFeedback}
       </>
     );
   }
@@ -996,6 +1031,15 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <MafiaNight
           state={roomState}
+          submitPending={isPending("mafia:submit_night_action")}
+          confirmNightPending={isPending("mafia:confirm_night_action")}
+          onConfirmNight={() =>
+            emitWithPending(
+              "mafia:confirm_night_action",
+              "mafia:confirm_night_action",
+            )
+          }
+          onOpenRole={() => setRoleModalOpen(true)}
           onSubmit={(action, targetPlayerId) =>
             emitWithPending(
               "mafia:submit_night_action",
@@ -1004,52 +1048,11 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             )
           }
         />
-        <MafiaHostDock
-          state={roomState}
-          showRoleReminder={showRoleReminder}
-          showVoteConfirmAction={showVoteConfirmAction}
-          showNightSelectionStatus={showNightSelectionStatus}
-          primaryPending={isPending("mafia:advance_phase")}
-          confirmVotePending={isPending("mafia:confirm_day_vote")}
-          confirmNightPending={isPending("mafia:confirm_night_action")}
-          onAdvancePhase={() =>
-            emitWithPending("mafia:advance_phase", "mafia:advance_phase")
-          }
-          onEndGame={() => setEndGameConfirmOpen(true)}
-          onOpenRole={() => setRoleModalOpen(true)}
-          onConfirmVote={() =>
-            emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
-          }
-          onConfirmNight={() =>
-            emitWithPending(
-              "mafia:confirm_night_action",
-              "mafia:confirm_night_action",
-            )
-          }
-        />
         {playingEndGameModal}
         {selfEliminationModal}
-        <MafiaPlayerDock
-          state={roomState}
-          showRoleReminder={showRoleReminder}
-          showVoteConfirmAction={showVoteConfirmAction}
-          showNightSelectionStatus={showNightSelectionStatus}
-          confirmVotePending={isPending("mafia:confirm_day_vote")}
-          confirmNightPending={isPending("mafia:confirm_night_action")}
-          onOpenRole={() => setRoleModalOpen(true)}
-          onConfirmVote={() =>
-            emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
-          }
-          onConfirmNight={() =>
-            emitWithPending(
-              "mafia:confirm_night_action",
-              "mafia:confirm_night_action",
-            )
-          }
-        />
         {roleReminderModal}
         {phaseIntroModal}
-        {!socketConnected ? <ReconnectingBanner /> : null}
+        {connectionFeedback}
       </>
     );
   }
@@ -1108,7 +1111,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         {roleReminderModal}
         {phaseIntroModal}
-        {!socketConnected ? <ReconnectingBanner /> : null}
+        {connectionFeedback}
       </>
     );
   }
@@ -1131,58 +1134,67 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         <MafiaDay
           state={roomState}
           voteSubmitPending={isPending("mafia:submit_day_vote")}
+          confirmVotePending={isPending("mafia:confirm_day_vote")}
+          onConfirmVote={() =>
+            emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
+          }
+          onOpenRole={() => setRoleModalOpen(true)}
           onSubmitVote={(targetPlayerId) =>
             emitWithPending("mafia:submit_day_vote", "mafia:submit_day_vote", {
               targetPlayerId,
             })
           }
         />
-        <MafiaHostDock
-          state={roomState}
-          showRoleReminder={showRoleReminder}
-          showVoteConfirmAction={showVoteConfirmAction}
-          showNightSelectionStatus={showNightSelectionStatus}
-          primaryPending={isPending("mafia:advance_phase")}
-          confirmVotePending={isPending("mafia:confirm_day_vote")}
-          confirmNightPending={isPending("mafia:confirm_night_action")}
-          onAdvancePhase={() =>
-            emitWithPending("mafia:advance_phase", "mafia:advance_phase")
-          }
-          onEndGame={() => setEndGameConfirmOpen(true)}
-          onOpenRole={() => setRoleModalOpen(true)}
-          onConfirmVote={() =>
-            emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
-          }
-          onConfirmNight={() =>
-            emitWithPending(
-              "mafia:confirm_night_action",
-              "mafia:confirm_night_action",
-            )
-          }
-        />
+        {game.phase === "DAY_VOTE" || game.phase === "DAY_TIEBREAK" ? null : (
+          <MafiaHostDock
+            state={roomState}
+            showRoleReminder={showRoleReminder}
+            showVoteConfirmAction={showVoteConfirmAction}
+            showNightSelectionStatus={showNightSelectionStatus}
+            primaryPending={isPending("mafia:advance_phase")}
+            confirmVotePending={isPending("mafia:confirm_day_vote")}
+            confirmNightPending={isPending("mafia:confirm_night_action")}
+            onAdvancePhase={() =>
+              emitWithPending("mafia:advance_phase", "mafia:advance_phase")
+            }
+            onEndGame={() => setEndGameConfirmOpen(true)}
+            onOpenRole={() => setRoleModalOpen(true)}
+            onConfirmVote={() =>
+              emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
+            }
+            onConfirmNight={() =>
+              emitWithPending(
+                "mafia:confirm_night_action",
+                "mafia:confirm_night_action",
+              )
+            }
+          />
+        )}
         {playingEndGameModal}
         {selfEliminationModal}
-        <MafiaPlayerDock
-          state={roomState}
-          showRoleReminder={showRoleReminder}
-          showVoteConfirmAction={showVoteConfirmAction}
-          showNightSelectionStatus={showNightSelectionStatus}
-          confirmVotePending={isPending("mafia:confirm_day_vote")}
-          confirmNightPending={isPending("mafia:confirm_night_action")}
-          onOpenRole={() => setRoleModalOpen(true)}
-          onConfirmVote={() =>
-            emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
-          }
-          onConfirmNight={() =>
-            emitWithPending(
-              "mafia:confirm_night_action",
-              "mafia:confirm_night_action",
-            )
-          }
-        />
+        {game.phase === "DAY_VOTE" || game.phase === "DAY_TIEBREAK" ? null : (
+          <MafiaPlayerDock
+            state={roomState}
+            showRoleReminder={showRoleReminder}
+            showVoteConfirmAction={showVoteConfirmAction}
+            showNightSelectionStatus={showNightSelectionStatus}
+            confirmVotePending={isPending("mafia:confirm_day_vote")}
+            confirmNightPending={isPending("mafia:confirm_night_action")}
+            onOpenRole={() => setRoleModalOpen(true)}
+            onConfirmVote={() =>
+              emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
+            }
+            onConfirmNight={() =>
+              emitWithPending(
+                "mafia:confirm_night_action",
+                "mafia:confirm_night_action",
+              )
+            }
+          />
+        )}
         {roleReminderModal}
         {phaseIntroModal}
-        {!socketConnected ? <ReconnectingBanner /> : null}
+        {connectionFeedback}
       </>
     );
   }
@@ -1207,7 +1219,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             router.push("/dashboard" as Route);
           }}
         />
-        {!socketConnected ? <ReconnectingBanner /> : null}
+        {connectionFeedback}
       </>
     );
   }
@@ -1271,14 +1283,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         onClose={() => setEndGameConfirmOpen(false)}
       />
       {selfEliminationModal}
-      {!socketConnected ? (
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-            {t("qayta_ulanmoqda")}
-          </div>
-        </div>
-      ) : null}
+      {connectionFeedback}
     </>
   );
 }
@@ -1565,7 +1570,7 @@ function Lobby({
   game,
   players,
   me,
-  socketConnected,
+  connectionFeedback,
   startGamePending,
   onStartGame,
   onLeaveRoom,
@@ -1576,7 +1581,7 @@ function Lobby({
   game: MafiaPublicState["game"];
   players: MafiaPublicState["players"];
   me: MafiaPublicState["me"];
-  socketConnected: boolean;
+  connectionFeedback: ReactNode;
   startGamePending: boolean;
   onStartGame: () => void;
   onLeaveRoom: () => void;
@@ -1782,14 +1787,7 @@ function Lobby({
         </div>
       </div>
 
-      {!socketConnected ? (
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-            {t("qayta_ulanmoqda")}
-          </div>
-        </div>
-      ) : null}
+      {connectionFeedback}
     </main>
   );
 }
@@ -1799,18 +1797,6 @@ function CompositionChip({ label, value }: { label: string; value: number }) {
     <div className="flex items-center justify-between rounded-xl border border-line-strong bg-bg-base px-3 py-2">
       <span className="text-ink-muted">{label}</span>
       <span className="font-mono font-semibold text-ink-primary">{value}</span>
-    </div>
-  );
-}
-
-function ReconnectingBanner() {
-  const { t } = useI18n();
-  return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 grid place-items-center pt-safe">
-      <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/20 px-3 py-1 text-xs font-medium text-warn shadow-pop backdrop-blur">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn" />
-        {t("qayta_ulanmoqda")}
-      </div>
     </div>
   );
 }

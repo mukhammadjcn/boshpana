@@ -100,6 +100,7 @@ export function useGameAudio({
   const situationDeckRef = useRef<string[]>([]);
   const seenRevealRef = useRef<Set<string>>(new Set());
   const seenElimRef = useRef<Set<string>>(new Set());
+  const interactionUnlockedRef = useRef(false);
 
   // Mirror inputs into refs so the gesture handler always reads the latest
   // value, never a stale closure (root cause of "audio keeps playing after
@@ -293,24 +294,35 @@ export function useGameAudio({
   useEffect(() => {
     if (!audioEnabled) return;
     const tryPlay = () => {
-      if (!audioEnabledRef.current) return;
-      if (introOpenRef.current && !introLoopRef.current) {
-        playLoop(GAME_START, 0.9, introLoopRef);
-      }
-      const skey = situationKeyRef.current;
-      if (situationOpenRef.current && skey && !situationLoopRef.current) {
-        const src = getSituationSrc(skey);
-        if (src) playLoop(src, 0.8, situationLoopRef);
-      }
-      if (votingActiveRef.current && !votingLoopRef.current) {
-        playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
-      }
+      interactionUnlockedRef.current = true;
+      window.setTimeout(() => {
+        if (!audioEnabledRef.current) return;
+        if (introOpenRef.current && !introLoopRef.current) {
+          playLoop(GAME_START, 0.9, introLoopRef);
+        }
+        const skey = situationKeyRef.current;
+        if (situationOpenRef.current && skey && !situationLoopRef.current) {
+          const src = getSituationSrc(skey);
+          if (src) playLoop(src, 0.8, situationLoopRef);
+        }
+        if (votingActiveRef.current && !votingLoopRef.current) {
+          playLoop(VOTING_AUDIO, 0.8, votingLoopRef);
+        }
+      }, 0);
     };
-    window.addEventListener("pointerdown", tryPlay);
-    window.addEventListener("keydown", tryPlay);
+    const handleFirstInteraction = () => {
+      if (interactionUnlockedRef.current) return;
+      tryPlay();
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
+    };
+    window.addEventListener("pointerdown", handleFirstInteraction, {
+      passive: true
+    });
+    window.addEventListener("keydown", handleFirstInteraction);
     return () => {
-      window.removeEventListener("pointerdown", tryPlay);
-      window.removeEventListener("keydown", tryPlay);
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
     };
   }, [audioEnabled, playLoop, getSituationSrc]);
 

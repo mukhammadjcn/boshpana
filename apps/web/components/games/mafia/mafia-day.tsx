@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
+import { GameActionModal } from "@/components/games/shared/game-action-modal";
 import { MafiaSituationArt } from "./mafia-situation-art";
 import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 
@@ -10,6 +11,9 @@ type Props = {
   state: MafiaPublicState;
   onSubmitVote: (targetPlayerId: string) => void;
   voteSubmitPending?: boolean;
+  confirmVotePending?: boolean;
+  onConfirmVote?: () => void;
+  onOpenRole?: () => void;
 };
 
 function getRoleLabel(
@@ -30,6 +34,9 @@ export function MafiaDay({
   state,
   onSubmitVote,
   voteSubmitPending = false,
+  confirmVotePending = false,
+  onConfirmVote,
+  onOpenRole
 }: Props) {
   const phase = state.game.phase;
   if (phase === "DAY_DISCUSSION") {
@@ -41,6 +48,9 @@ export function MafiaDay({
         state={state}
         onSubmitVote={onSubmitVote}
         voteSubmitPending={voteSubmitPending}
+        confirmVotePending={confirmVotePending}
+        onConfirmVote={onConfirmVote}
+        onOpenRole={onOpenRole}
       />
     );
   }
@@ -185,18 +195,23 @@ function VoteView({
   state,
   onSubmitVote,
   voteSubmitPending = false,
+  confirmVotePending = false,
+  onConfirmVote,
+  onOpenRole
 }: {
   state: MafiaPublicState;
   onSubmitVote: (targetPlayerId: string) => void;
   voteSubmitPending?: boolean;
+  confirmVotePending?: boolean;
+  onConfirmVote?: () => void;
+  onOpenRole?: () => void;
 }) {
   const { t } = useI18n();
   const { game, players, me, votes } = state;
   const isTiebreak = game.phase === "DAY_TIEBREAK";
-  const totalSeconds = 60;
   const myTargetPlayerId = votes.myTargetPlayerId;
   const [optimisticTargetId, setOptimisticTargetId] = useState<string | null>(
-    myTargetPlayerId,
+    myTargetPlayerId
   );
   const selectedLocked = votes.confirmedByMe;
   const alivePlayers = players.filter((p) => p.isAlive);
@@ -205,9 +220,10 @@ function VoteView({
     isTiebreak &&
     alivePlayers.length > 0 &&
     alivePlayers.every((player) =>
-      game.tiebreakCandidateIds.includes(player.id),
+      game.tiebreakCandidateIds.includes(player.id)
     );
   const canVoteInTiebreak = !meIsCandidate || allAliveAreTied;
+  const confirmDisabled = !votes.myTargetPlayerId || votes.confirmedByMe;
 
   useEffect(() => {
     setOptimisticTargetId(myTargetPlayerId);
@@ -232,25 +248,94 @@ function VoteView({
   const otherTiedNames = players
     .filter(
       (player) =>
-        game.tiebreakCandidateIds.includes(player.id) && player.id !== me?.id,
+        game.tiebreakCandidateIds.includes(player.id) && player.id !== me?.id
     )
     .map((player) => player.name);
+  const helper = !me?.isAlive
+    ? t("tomoshabin_sifatida_ovoz_natijasini_va_bd94")
+    : isTiebreak
+      ? meIsCandidate && !allAliveAreTied
+        ? otherTiedNames.length > 0
+          ? t("siz_tenglikdasiz_names_bilan_teng_2297", {
+              names: otherTiedNames.join(", ")
+            })
+          : t("natijani_kutmoqdasiz")
+        : allAliveAreTied
+          ? t("barchaning_ovozi_teng_boldi_endi_814d")
+          : votes.confirmedByMe
+            ? t("ovozingiz_tasdiqlandi")
+            : votes.submittedByMe
+              ? t("nomzod_tanlandi_endi_tasdiqlang")
+              : t("names_teng_ovoz_topladi_faqat_04f4", {
+                  names: tiedNames.join(", ")
+                })
+      : votes.confirmedByMe
+        ? t("ovozingiz_tasdiqlandi")
+        : votes.submittedByMe
+          ? t("nomzod_tanlandi_endi_tasdiqlang")
+          : t("sizningcha_kim_mafia_birini_tanlang");
 
   return (
-    <DayShell
-      title={
+    <GameActionModal
+      sectionLabel={
         isTiebreak
           ? t("qayta_ovoz_teng_ovoz")
           : t("ovoz_kun_number_daynumber", { dayNumber: game.dayNumber })
       }
-      subtitle={
-        isTiebreak
-          ? t("tenglashgan_nomzodlardan_birini_tanlang")
-          : t("sizningcha_kim_mafia_birini_tanlang")
+      helper={helper}
+      accentTone={isTiebreak ? "warn" : "bad"}
+      secondsLeft={game.remainingSeconds}
+      timerVariant={
+        votes.confirmedByMe
+          ? "muted"
+          : game.remainingSeconds <= 10
+            ? "danger"
+            : "default"
       }
-      remaining={game.remainingSeconds}
-      totalSeconds={totalSeconds}
-      badge={`${votes.confirmations.confirmed} / ${votes.confirmations.total}`}
+      badge={
+        <span className="inline-flex items-center rounded-full border border-line-strong bg-bg-elevated px-3 py-1.5 font-mono text-sm font-semibold text-ink-secondary">
+          {votes.confirmations.confirmed} / {votes.confirmations.total}
+        </span>
+      }
+      footer={
+        me?.isAlive ? (
+          <div
+            className={`grid gap-2 ${
+              onOpenRole ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-1"
+            }`}
+          >
+            {isTiebreak && meIsCandidate && !allAliveAreTied ? (
+              <div className="flex h-14 items-center justify-center rounded-2xl border border-line-subtle bg-bg-elevated px-4 text-sm font-medium text-ink-muted">
+                {t("natijani_kutmoqdasiz")}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onConfirmVote}
+                disabled={confirmDisabled || confirmVotePending}
+                className="flex h-14 min-w-0 items-center justify-center rounded-2xl bg-bad px-4 text-base font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
+              >
+                {confirmVotePending
+                  ? t("yuborilmoqda")
+                  : votes.confirmedByMe
+                    ? t("tasdiqlandi")
+                    : votes.submittedByMe
+                      ? t("ovozni_tasdiqlash")
+                      : t("avval_birini_tanlang")}
+              </button>
+            )}
+            {onOpenRole ? (
+              <button
+                type="button"
+                onClick={onOpenRole}
+                className="flex h-14 min-w-[132px] items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+              >
+                {t("mening_kartam")}
+              </button>
+            ) : null}
+          </div>
+        ) : null
+      }
     >
       {!me?.isAlive ? (
         <SpectatorPanel
@@ -295,7 +380,7 @@ function VoteView({
           ) : null}
 
           {!isTiebreak || canVoteInTiebreak ? (
-            <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <ul className="grid gap-3">
               {candidates.map((p) => {
                 const selected = optimisticTargetId === p.id;
                 return (
@@ -307,35 +392,36 @@ function VoteView({
                         onSubmitVote(p.id);
                       }}
                       disabled={selectedLocked || voteSubmitPending}
-                      className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition active:scale-[0.98] ${
+                      className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.98] ${
                         selected
-                          ? "border-brand bg-brand/15 text-brand"
-                          : "border-line-strong bg-bg-surface text-ink-primary"
+                          ? "border-brand bg-brand/12"
+                          : "border-line-strong bg-bg-surface"
                       } disabled:opacity-55`}
                     >
-                      <span
-                        className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold uppercase ${
-                          selected
-                            ? "bg-brand text-bg-base"
-                            : "bg-brand-soft text-brand"
-                        }`}
-                      >
-                        {p.name.slice(0, 2)}
-                      </span>
-                      <span className="flex-1 truncate font-medium">
-                        {p.name}
-                      </span>
-                      <span
-                        className={`text-[10px] font-medium uppercase tracking-wider ${
-                          selected ? "text-brand" : "text-ink-muted"
-                        }`}
-                      >
-                        {selected && voteSubmitPending
-                          ? t("yuborilmoqda")
-                          : selected
-                            ? t("tanlandi")
-                            : t("ovoz")}
-                      </span>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-semibold text-ink-primary">
+                            {p.name}
+                          </p>
+                          <p className="mt-1 text-xs text-ink-muted">
+                            {selected && voteSubmitPending
+                              ? t("yuborilmoqda")
+                              : selected
+                                ? t("tanlandi")
+                                : t("ovoz")}
+                          </p>
+                        </div>
+                        <span
+                          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
+                            selected
+                              ? "border-brand bg-brand text-bg-base"
+                              : "border-line-strong bg-bg-base text-transparent"
+                          }`}
+                          aria-hidden
+                        >
+                          ✓
+                        </span>
+                      </div>
                     </button>
                   </li>
                 );
@@ -373,9 +459,7 @@ function VoteView({
               ? t("nomzod_tanlandi_endi_tasdiqlang")
               : t("hali_ovoz_bermadingiz")}
       </p>
-
-      {me?.isAlive ? <div className="mt-auto h-2" /> : null}
-    </DayShell>
+    </GameActionModal>
   );
 }
 
