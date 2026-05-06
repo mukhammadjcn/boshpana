@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
-import type { GameType, RoomStatus } from "@/lib/types";
+import type {
+  GameType,
+  RoomMode,
+  RoomStatus,
+  RoomVisibility,
+} from "@/lib/types";
 import { RoomExpiredState } from "@/components/room-expired-state";
 
 import { BunkerExperience } from "./bunker/bunker-experience";
@@ -14,6 +19,8 @@ type RoomInfo = {
   code: string;
   gameType: GameType;
   status: RoomStatus;
+  mode: RoomMode;
+  visibility: RoomVisibility;
 };
 
 type Props = {
