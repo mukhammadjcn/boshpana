@@ -1,4 +1,6 @@
 import type { RoomStatus } from "@/lib/types";
+import type { OnlineChatMessage } from "../shared/online-chat";
+import type { OnlineProposal } from "../bunker/bunker-types";
 
 export type MafiaTeam = "CITY" | "MAFIA";
 
@@ -83,6 +85,7 @@ export type MafiaPublicState = {
     name: string;
     isHost: boolean;
     isAlive: boolean;
+    readyAt: string | null;
     online: boolean;
     seatOrder: number;
     revealedRole: MafiaRole | null;
@@ -108,5 +111,12 @@ export type MafiaPublicState = {
       confirmed: number;
       total: number;
     };
+  };
+  chat: {
+    messages: OnlineChatMessage[];
+  };
+  governance: {
+    endGameProposal: OnlineProposal | null;
+    kickProposal: OnlineProposal | null;
   };
 };

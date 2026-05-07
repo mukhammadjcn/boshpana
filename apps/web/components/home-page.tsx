@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { getAuthToken } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { LoadingState } from "@/components/loading-state";
 
 const GAMES = [
   {
@@ -83,11 +84,8 @@ export function HomePage() {
 
   if (redirecting) {
     return (
-      <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-          {t("yuklanmoqda")}
-        </div>
+      <main>
+        <LoadingState label={t("yuklanmoqda")} />
       </main>
     );
   }

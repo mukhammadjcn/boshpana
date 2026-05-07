@@ -1,6 +1,8 @@
 import { BunkerCardType, BunkerDifficulty, BunkerPhase, RoomStatus } from "@prisma/client";
 
 import type { LocalizedText } from "../../lib/localized-content";
+import type { ChatMessage } from "../../services/chat-service";
+import type { OnlineGovernanceState } from "../../services/online-governance-service";
 
 export const CARD_TYPES = [
   BunkerCardType.PROFESSION,
@@ -11,6 +13,13 @@ export const CARD_TYPES = [
   BunkerCardType.FACT
 ] as const;
 
+export const BUNKER_INTRO_DURATION_SECONDS = 120;
+export const BUNKER_ONLINE_INTRO_DURATION_SECONDS = 15;
+export const BUNKER_ONLINE_REVEAL_DURATION_SECONDS = 20;
+export const BUNKER_PITCH_DURATION_SECONDS = 120;
+export const BUNKER_VOTING_DURATION_SECONDS = 45;
+export const BUNKER_ONLINE_ROUND_RESULT_DURATION_SECONDS = 6;
+
 export type BunkerPublicState = {
   room: {
     id: string;
@@ -19,6 +28,7 @@ export type BunkerPublicState = {
     round: number;
     winnerTarget: number;
     maxPlayers: number;
+    isAdult: boolean;
   };
   game: {
     phase: BunkerPhase;
@@ -55,6 +65,7 @@ export type BunkerPublicState = {
     name: string;
     isHost: boolean;
     isAlive: boolean;
+    readyAt: string | null;
     online: boolean;
     seatOrder: number;
     visibleCards: Partial<Record<string, LocalizedText>>;
@@ -65,4 +76,8 @@ export type BunkerPublicState = {
     total: number;
     submittedByMe: boolean;
   };
+  chat: {
+    messages: ChatMessage[];
+  };
+  governance: OnlineGovernanceState;
 };

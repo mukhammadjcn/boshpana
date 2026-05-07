@@ -47,7 +47,7 @@ services:
       TELEGRAM_WEB_APP_NAME: ${NEXT_PUBLIC_TELEGRAM_WEB_APP_NAME:-}
       TELEGRAM_WEB_APP_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       TELEGRAM_AUTH_MAX_AGE_SECONDS: ${TELEGRAM_AUTH_MAX_AGE_SECONDS:-86400}
-      ROOM_CREATION_LIMIT_PER_30D: ${ROOM_CREATION_LIMIT_PER_30D:-10}
+      ROOM_CREATION_LIMIT_PER_30D: ${ROOM_CREATION_LIMIT_PER_30D:-100}
       # Local-only: enables /api/auth/dev-login (bypasses Telegram bot).
       # The prod compose file does NOT set this, so the route stays
       # un-mounted in production.

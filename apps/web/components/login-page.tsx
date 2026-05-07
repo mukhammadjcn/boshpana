@@ -149,12 +149,6 @@ export function LoginPage() {
           </a>
           <div className="flex items-center gap-2">
             <LanguageSwitcher variant="select" />
-            <a
-              href="/"
-              className="rounded-xl border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary"
-            >
-              ← {t("landing")}
-            </a>
           </div>
         </div>
       </header>

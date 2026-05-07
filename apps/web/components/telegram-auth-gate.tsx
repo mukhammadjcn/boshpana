@@ -9,6 +9,7 @@ import {
   setAuthToken,
   setAuthUser,
 } from "@/lib/auth";
+import { LoadingState } from "@/components/loading-state";
 import { useI18n } from "@/lib/i18n";
 import {
   bootstrapTelegramWebApp,
@@ -173,12 +174,15 @@ export function TelegramAuthGate() {
         <p className="text-xs font-medium uppercase tracking-[0.3em] text-brand">
           Jamoaviy.uz
         </p>
-        <div className="mt-3 flex items-center gap-2 text-sm text-ink-secondary">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-          {stage.kind === "outside"
-            ? t("telegram_aniqlanmadi_sayt_sahifasiga_yonaltirilmoqda")
-            : stage.message}
-        </div>
+        <LoadingState
+          label={
+            stage.kind === "outside"
+              ? t("telegram_aniqlanmadi_sayt_sahifasiga_yonaltirilmoqda")
+              : stage.message
+          }
+          fullScreen={false}
+          className="mt-3"
+        />
       </main>
     );
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import {
   FormEvent,
@@ -8,40 +8,66 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState
+  useState,
 } from "react";
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
-import { LobbyShareActions } from "@/components/lobby-share-actions";
+import { LoadingState } from "@/components/loading-state";
 import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { useI18n } from "@/lib/i18n";
 import {
   getLocalizedText,
   type LocalizedText,
-  type SupportedLanguage
+  type SupportedLanguage,
 } from "@/lib/localized-content";
 import { HostControls } from "./bunker-host-controls";
 import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
-import {
-  tgHaptic,
-  tgHapticNotify
-} from "@/lib/telegram";
+import { tgHaptic, tgHapticNotify } from "@/lib/telegram";
 import { VotePanel } from "./bunker-vote-panel";
 import { useGameAudio } from "./use-bunker-audio";
 import { apiRequest } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
-import type { BunkerCardType, BunkerPhase, BunkerRoomState } from "./bunker-types";
+import type {
+  BunkerCardType,
+  BunkerPhase,
+  BunkerRoomState,
+} from "./bunker-types";
 import { useGameStore } from "./use-bunker-store";
 import { pushToast } from "@/store/useToastStore";
 import {
   RealtimeConnectionFeedback,
-  useRealtimeConnectionRecovery
+  useRealtimeConnectionRecovery,
 } from "../shared/realtime-connection-feedback";
+import { OnlineChat } from "../shared/online-chat";
+import { OnlineGovernanceModal } from "../shared/online-governance-modal";
+import { RoomLeaveButton } from "../shared/room-leave-button";
+import {
+  JoinWithNicknameRoomState,
+  KickedFromRoomState,
+  LoginPromptRoomState,
+  UnavailableRoomState,
+} from "../shared/game-entry-states";
+import type { RoomVisibility } from "@/lib/types";
+import { BunkerLobby } from "./bunker-lobby";
+import {
+  BunkerCardRevealModal,
+  BunkerDisasterIntroModal,
+  BunkerEliminationModal,
+  BunkerMyCardsSheet,
+  BunkerRevealChoiceModal,
+  BunkerSituationModal,
+  BunkerWinnerModal,
+} from "./bunker-overlays";
+
+const BUNKER_ONLINE_MODAL_TIMINGS_MS = {
+  intro: 12000,
+  situation: 9000,
+} as const;
 
 // Disaster banner mapping. Image filenames in /public are tied to the
 // seeded disaster names — keep this in sync with data.md when new
@@ -56,7 +82,7 @@ const disasterImage: Record<string, string> = {
   "Zombi apokalipsisi": "/bunker/disasters/zombi-apokalipsisi.webp",
   "Demografik kollaps": "/bunker/adult/demografik-banner.webp",
   "Jinsiy tanlash epidemiyasi": "/bunker/adult/jinsiy-banner.webp",
-  "Narkotik urushi": "/bunker/adult/narkotik-banner.webp"
+  "Narkotik urushi": "/bunker/adult/narkotik-banner.webp",
 };
 
 const cardLabels: Record<BunkerCardType, string> = {
@@ -65,7 +91,7 @@ const cardLabels: Record<BunkerCardType, string> = {
   CHARACTER: "Xarakter",
   SKILL: "Ko‘nikma",
   BAGGAGE: "Bagaj",
-  FACT: "Fakt"
+  FACT: "Fakt",
 };
 
 const cardOrder: BunkerCardType[] = [
@@ -74,7 +100,7 @@ const cardOrder: BunkerCardType[] = [
   "CHARACTER",
   "SKILL",
   "BAGGAGE",
-  "FACT"
+  "FACT",
 ];
 
 const phaseHelp: Record<BunkerPhase, string> = {
@@ -84,12 +110,14 @@ const phaseHelp: Record<BunkerPhase, string> = {
   ROUND_PITCH: "Pitch — 2 daqiqa",
   ROUND_COMPLETE: "Round yakuni",
   VOTING: "Ovoz berish",
-  FINISHED: "Yakun"
+  FINISHED: "Yakun",
 };
 
 type BunkerExperienceProps = {
   roomCode: string;
   view: "room" | "game";
+  uiVariant?: "friends" | "online";
+  visibility?: RoomVisibility;
 };
 
 type Announcement = {
@@ -100,16 +128,25 @@ type Announcement = {
 
 function localizeCardMap(
   cards: Partial<Record<string, LocalizedText>>,
-  language: SupportedLanguage
+  language: SupportedLanguage,
 ): Partial<Record<string, string>> {
   return Object.fromEntries(
-    Object.entries(cards).map(([key, value]) => [key, getLocalizedText(value, language)])
+    Object.entries(cards).map(([key, value]) => [
+      key,
+      getLocalizedText(value, language),
+    ]),
   );
 }
 
-export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
+export function BunkerExperience({
+  roomCode,
+  view,
+  uiVariant = "friends",
+  visibility = "PRIVATE",
+}: BunkerExperienceProps) {
   const router = useRouter();
   const { language, t } = useI18n();
+  const isOnlineVariant = uiVariant === "online";
   const normalizedRoomCode = roomCode.toUpperCase();
   const [sessionId, setSessionId] = useState("");
   const [joinName, setJoinName] = useState("");
@@ -121,7 +158,6 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     const cached = useGameStore.getState().roomState;
     return !cached || cached.room.code !== normalizedRoomCode;
   });
-  const [origin, setOrigin] = useState("");
   const [socketConnected, setSocketConnected] = useState(true);
   const [introOpen, setIntroOpen] = useState(false);
   const [situationOpen, setSituationOpen] = useState(false);
@@ -134,6 +170,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [kickedModalOpen, setKickedModalOpen] = useState(false);
+  const [dismissedKickProposalId, setDismissedKickProposalId] = useState<
+    string | null
+  >(null);
   const [kickTarget, setKickTarget] = useState<{
     id: string;
     name: string;
@@ -159,7 +198,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const seenCancelledModalRef = useRef<Set<string>>(new Set());
   const playersRef = useRef<
     Array<
-      Omit<BunkerRoomState["players"][number], "visibleCards" | "revealedCards"> & {
+      Omit<
+        BunkerRoomState["players"][number],
+        "visibleCards" | "revealedCards"
+      > & {
         visibleCards: Partial<Record<string, string>>;
         revealedCards: Partial<Record<string, string>>;
       }
@@ -196,7 +238,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const refreshState = useCallback(() => {
     if (!sessionId) return;
     void apiRequest<BunkerRoomState>(
-      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`,
     )
       .then((state) => {
         setRoomState(state);
@@ -215,10 +257,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     refreshState();
   }, [refreshState, sessionId]);
 
-  // Init session + origin
+  // Init session
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
-    setOrigin(window.location.origin);
   }, []);
 
   // Detect kicked player
@@ -280,7 +321,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     void (async () => {
       try {
         const state = await apiRequest<BunkerRoomState>(
-          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`,
         );
         if (active) setRoomState(state);
       } catch (nextError) {
@@ -395,7 +436,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     roomCode,
     sessionId,
     setError,
-    setRoomState
+    setRoomState,
   ]);
 
   // Auto-route based on status
@@ -413,6 +454,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   useEffect(() => {
     if (roomState?.game.phase === "INTRO") setIntroOpen(true);
   }, [roomState?.game.phase]);
+
+  useEffect(() => {
+    if (!isOnlineVariant || !introOpen) return;
+    const timer = window.setTimeout(() => {
+      setIntroOpen(false);
+    }, BUNKER_ONLINE_MODAL_TIMINGS_MS.intro);
+    return () => window.clearTimeout(timer);
+  }, [introOpen, isOnlineVariant]);
 
   // Open situation overlay when new situation appears
   useEffect(() => {
@@ -432,7 +481,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     roomCode,
     roomState?.game.roundNumber,
     roomState?.game.situation,
-    roomState?.room.status
+    roomState?.room.status,
   ]);
 
   const closeSituation = useCallback(() => {
@@ -449,13 +498,21 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     return () => window.clearTimeout(timer);
   }, [situationClosing]);
 
+  useEffect(() => {
+    if (!isOnlineVariant || !situationOpen || situationClosing) return;
+    const timer = window.setTimeout(() => {
+      setSituationClosing(true);
+    }, BUNKER_ONLINE_MODAL_TIMINGS_MS.situation);
+    return () => window.clearTimeout(timer);
+  }, [isOnlineVariant, situationClosing, situationOpen]);
+
   // Keep latest players in a ref so announcement effects can read names
   // without re-running on every socket update.
   useEffect(() => {
     playersRef.current = (roomState?.players ?? []).map((player) => ({
       ...player,
       visibleCards: localizeCardMap(player.visibleCards, language),
-      revealedCards: localizeCardMap(player.revealedCards, language)
+      revealedCards: localizeCardMap(player.revealedCards, language),
     }));
   }, [language, roomState?.players]);
 
@@ -486,10 +543,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     const newCardValue = player.revealedCards?.[cardType] ?? "";
     if (!newCardValue) return;
 
-    const olderCards: Array<{ type: BunkerCardType; value: string }> = Object
-      .entries(player.revealedCards ?? {})
-      .filter(([t, v]) => t !== cardType && !!v)
-      .map(([t, v]) => ({ type: t as BunkerCardType, value: v as string }));
+    const olderCards: Array<{ type: BunkerCardType; value: string }> =
+      Object.entries(player.revealedCards ?? {})
+        .filter(([t, v]) => t !== cardType && !!v)
+        .map(([t, v]) => ({ type: t as BunkerCardType, value: v as string }));
 
     seenRevealAnnouncementRef.current.add(key);
     tgHaptic("light");
@@ -498,13 +555,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       playerName: player.name,
       newCardType: cardType,
       newCardValue,
-      olderCards
+      olderCards,
     });
   }, [
     roomState?.game.lastRevealedCardType,
     roomState?.game.lastRevealedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me?.id
+    roomState?.me?.id,
   ]);
 
   // Elimination announcement — only re-fires when the actual elimination changes.
@@ -514,7 +571,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     if (seenElimAnnouncementRef.current.has(key)) return;
 
     const player = playersRef.current.find(
-      (p) => p.id === roomState.game.lastEliminatedPlayerId
+      (p) => p.id === roomState.game.lastEliminatedPlayerId,
     );
     if (!player) return;
 
@@ -531,14 +588,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       key,
       title: t("name_oyindan_chiqdi", { name: player.name }),
       description: t(
-        "Bu o'yinchi endi ovoz bera olmaydi, lekin kuzatishda davom etadi."
-      )
+        "Bu o'yinchi endi ovoz bera olmaydi, lekin kuzatishda davom etadi.",
+      ),
     });
   }, [
     t,
     roomState?.game.lastEliminatedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me?.id
+    roomState?.me?.id,
   ]);
 
   // Auto-clear announcement after a fixed delay; runs only when the
@@ -565,7 +622,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   }, [
     roomState?.game.lastEliminatedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me?.id
+    roomState?.me?.id,
   ]);
 
   // Open the "game over" modal once per finished game for every participant —
@@ -579,11 +636,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     if (seenWinnerModalRef.current.has(key)) return;
     seenWinnerModalRef.current.add(key);
     setWinnerModalOpen(true);
-  }, [
-    roomState?.room.status,
-    roomState?.room.code,
-    roomState?.me?.id
-  ]);
+  }, [roomState?.room.status, roomState?.room.code, roomState?.me?.id]);
 
   // Lobby vaqtida host xonani tugatib yuborsa room CANCELLED bo'ladi va
   // o'yin umuman boshlanmaydi. Har bir ishtirokchiga "o'yin yaratilmadi"
@@ -591,6 +644,10 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   useEffect(() => {
     if (roomState?.room.status !== "CANCELLED") return;
     if (!roomState.me) return;
+    if (roomState.me.isHost) {
+      router.replace("/dashboard" as Route);
+      return;
+    }
     const code = roomState.room.code;
     const meId = roomState.me.id;
     const key = `cancelled-${code}-${meId}`;
@@ -598,9 +655,11 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     seenCancelledModalRef.current.add(key);
     setCancelledModalOpen(true);
   }, [
+    router,
     roomState?.room.status,
     roomState?.room.code,
-    roomState?.me?.id
+    roomState?.me?.id,
+    roomState?.me?.isHost,
   ]);
 
   // Audio
@@ -617,7 +676,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     roomState?.game.lastRevealedCardType,
     roomState?.game.lastRevealedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me
+    roomState?.me,
   ]);
 
   const meEliminationKey = useMemo(() => {
@@ -632,7 +691,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   }, [
     roomState?.game.lastEliminatedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me
+    roomState?.me,
   ]);
 
   const situationKey = useMemo(() => {
@@ -648,14 +707,14 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     situationRound: roomState?.game.roundNumber ?? null,
     votingActive: roomState?.game.phase === "VOTING",
     meRevealKey,
-    meEliminationKey
+    meEliminationKey,
   });
 
   // Helpers
   async function joinWithName(name: string) {
     await apiRequest(`/api/rooms/${roomCode}/join`, {
       method: "POST",
-      body: JSON.stringify({ name, sessionId })
+      body: JSON.stringify({ name, sessionId }),
     });
     const socket = getSocket();
     socket.emit("join_room", { roomCode, sessionId });
@@ -681,18 +740,13 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     socket.emit(event, { roomCode, sessionId, ...(payload ?? {}) });
   }
 
-  const inviteUrl = roomState ? `${origin || ""}/room/${roomState.room.code}` : "";
-  const {
-    browserOnline,
-    showRecoveryModal,
-    retryNow,
-    reloadPage
-  } = useRealtimeConnectionRecovery({
-    enabled: !!sessionId,
-    connected: socketConnected,
-    onReconnect: reconnectSocket,
-    onRefreshState: refreshState
-  });
+  const { browserOnline, showRecoveryModal, retryNow, reloadPage } =
+    useRealtimeConnectionRecovery({
+      enabled: !!sessionId,
+      connected: socketConnected,
+      onReconnect: reconnectSocket,
+      onRefreshState: refreshState,
+    });
   const connectionFeedback = (
     <RealtimeConnectionFeedback
       connected={socketConnected}
@@ -708,23 +762,27 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   const me = roomState?.me;
   const game = roomState?.game;
   const closingConfirmation =
-    !!room &&
-    room.status !== "FINISHED" &&
-    room.status !== "CANCELLED";
+    !!room && room.status !== "FINISHED" && room.status !== "CANCELLED";
   const players = roomState?.players ?? [];
+  const meReady =
+    !!me && players.some((player) => player.id === me.id && !!player.readyAt);
   const localizedPlayers = useMemo(
     () =>
       players.map((player) => ({
         ...player,
         visibleCards: localizeCardMap(player.visibleCards, language),
-        revealedCards: localizeCardMap(player.revealedCards, language)
+        revealedCards: localizeCardMap(player.revealedCards, language),
       })),
-    [language, players]
+    [language, players],
   );
   const alivePlayers = players.filter((p) => p.isAlive);
   const currentTurnPlayer = players.find(
-    (p) => p.id === game?.currentTurnPlayerId
+    (p) => p.id === game?.currentTurnPlayerId,
   );
+  const activeGovernanceProposal =
+    roomState?.governance.kickProposal?.id === dismissedKickProposalId
+      ? null
+      : (roomState?.governance.kickProposal ?? null);
   const localizedDisasterName = game?.disaster
     ? getLocalizedText(game.disaster.name, language)
     : "";
@@ -741,7 +799,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       type,
       label: t(cardLabels[type]),
       value: getLocalizedText(me.cards[type], language),
-      isRevealed: me.revealed.includes(type)
+      isRevealed: me.revealed.includes(type),
     }));
   }, [language, me, t]);
   const myVisibleCards = useMemo(
@@ -749,9 +807,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       Object.fromEntries(
         myCards
           .filter((card) => card.isRevealed)
-          .map((card) => [card.type, card.value])
+          .map((card) => [card.type, card.value]),
       ) as Partial<Record<BunkerCardType, string>>,
-    [myCards]
+    [myCards],
   );
   const isFinished = roomState?.room.status === "FINISHED";
   const displayPlayers = useMemo(() => {
@@ -762,19 +820,33 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     return [
       {
         ...selfPlayer,
-        visibleCards: isFinished ? selfPlayer.visibleCards : myVisibleCards
+        visibleCards: isFinished ? selfPlayer.visibleCards : myVisibleCards,
       },
-      ...others
+      ...others,
     ];
   }, [isFinished, localizedPlayers, me, myVisibleCards]);
 
   const revealOptions = useMemo(
     () =>
       myCards.filter(
-        (c) => c.type !== "PROFESSION" && !me?.revealed.includes(c.type)
+        (c) => c.type !== "PROFESSION" && !me?.revealed.includes(c.type),
       ),
-    [me?.revealed, myCards]
+    [me?.revealed, myCards],
   );
+  const revealModalContent = useMemo(() => {
+    if (!revealModal) return null;
+    return {
+      animationKey: `${revealModal.playerId}-${revealModal.newCardType}`,
+      playerName: revealModal.playerName,
+      cardLabel: t(cardLabels[revealModal.newCardType]),
+      newCardValue: revealModal.newCardValue,
+      olderCards: revealModal.olderCards.map((card) => ({
+        type: card.type,
+        label: t(cardLabels[card.type]),
+        value: card.value,
+      })),
+    };
+  }, [revealModal, t]);
 
   const isMyRevealTurn =
     !!me &&
@@ -791,7 +863,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
     (p) =>
       p.isAlive &&
       p.id !== game?.currentTurnPlayerId &&
-      p.revealedCount < roundRevealTarget
+      p.revealedCount < roundRevealTarget,
   );
 
   // After resolveVoting we land back in ROUND_COMPLETE but with an
@@ -839,12 +911,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   if (!roomState || !room || !game) {
     if (loading) {
       return (
-        <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
+        <main>
           <TelegramChrome backHref="/dashboard" />
-          <div className="flex items-center gap-2 text-sm">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-            {t("room_yuklanmoqda")}
-          </div>
+          <LoadingState label={t("room_yuklanmoqda")} />
         </main>
       );
     }
@@ -854,246 +923,67 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
   if (!me) {
     if (kickedModalOpen) {
       return (
-        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="w-full max-w-md rounded-3xl border border-bad/40 bg-bg-surface p-6 text-center shadow-pop">
-              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-bad/40 bg-bad/10 text-2xl text-bad">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-              </div>
-              <h3 className="mt-4 text-xl font-bold text-ink-primary">
-                {t("sizni_oyindan_chiqarishdi")}
-              </h3>
-              <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                {t("host_sizni_oyindan_chiqarib_yubordi_f51a")}
-              </p>
-              <button
-                type="button"
-                onClick={() => router.push("/dashboard")}
-                className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-              >
-                {t("bosh_sahifa")}
-              </button>
-            </div>
-          </div>
-        </main>
+        <KickedFromRoomState onGoHome={() => router.push("/dashboard")} />
       );
     }
 
     if (room.status !== "LOBBY") {
-      const finished = room.status === "FINISHED" || room.status === "CANCELLED";
+      const finished =
+        room.status === "FINISHED" || room.status === "CANCELLED";
       return (
-        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
-          <div className="mx-auto max-w-md pt-6">
-            <p
-              className={`text-xs font-medium uppercase tracking-wider ${finished ? "text-bad" : "text-warn"}`}
-            >
-              {finished ? t("yopiq") : t("boshlangan")}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold">
-              {finished
-                ? t("bu_oyin_yakunlangan")
-                : t("bu_oyin_allaqachon_boshlangan")}
-            </h1>
-            <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              {finished
-                ? t("yangi_oyin_yarating_yoki_ochiq_e3ed")
-                : t("oyin_boshlanganidan_keyin_yangi_oyinchi_7a2b")}
-            </p>
-
-            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-              <p className="text-xs text-ink-muted">{t("room_code")}</p>
-              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
-                {roomCode}
-              </p>
-            </div>
-
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              {t("bosh_sahifa")}
-            </button>
-          </div>
-        </main>
+        <UnavailableRoomState
+          roomCode={roomCode}
+          finished={finished}
+          startedDescriptionKey="oyin_boshlanganidan_keyin_yangi_oyinchi_7a2b"
+          onGoHome={() => router.push("/dashboard")}
+        />
       );
     }
 
     if (!getAuthToken()) {
       const loginHref = `/login?redirect=${encodeURIComponent(`/room/${roomCode}`)}`;
       return (
-        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
-          <div className="mx-auto max-w-md pt-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("taklif")}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold">
-              {t("roomga_kirish_uchun_tizimga_kiring")}
-            </h1>
-            <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              {t("roomga_qoshilish_uchun_bot_orqali_123f")}
-            </p>
-
-            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-              <p className="text-xs text-ink-muted">{t("room_code")}</p>
-              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
-                {roomCode}
-              </p>
-            </div>
-
-            <a
-              href={loginHref}
-              className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              <span aria-hidden>✈</span>
-              {t("telegramda_kirish")}
-            </a>
-          </div>
-        </main>
+        <LoginPromptRoomState
+          roomCode={roomCode}
+          pretitleKey="taklif"
+          loginHref={loginHref}
+        />
       );
     }
 
     return (
-      <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
-        <div className="mx-auto max-w-md pt-6">
-          <p className="text-xs font-medium uppercase tracking-wider text-brand">
-            {t("taklif")}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold">
-            {t("roomga_kirish_uchun_nickname_yozing")}
-          </h1>
-
-          <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-            <p className="text-xs text-ink-muted">{t("room_code")}</p>
-            <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.3em]">
-              {roomCode}
-            </p>
-          </div>
-
-          <form onSubmit={handleJoin} className="mt-5 grid gap-3">
-            <input
-              value={joinName}
-              onChange={(e) => setJoinName(e.target.value)}
-              required
-              maxLength={20}
-              className="h-14 rounded-2xl border border-line-strong bg-bg-surface px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-              placeholder={t("nickname")}
-            />
-            <button className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]">
-              {t("roomga_kirish")}
-            </button>
-          </form>
-          {error ? (
-            <p className="mt-3 rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
-              {error}
-            </p>
-          ) : null}
-        </div>
-      </main>
+      <JoinWithNicknameRoomState
+        roomCode={roomCode}
+        pretitleKey="taklif"
+        joinName={joinName}
+        error={error}
+        onJoinNameChange={setJoinName}
+        onSubmit={handleJoin}
+      />
     );
   }
 
   // ─── LOBBY VIEW ──────────────────────────────────────────────
   if (room.status === "LOBBY") {
     return (
-      <main className="min-h-screen bg-bg-base text-ink-primary">
-        {connectionFeedback}
-        <div className="mx-auto max-w-xl px-5 pt-safe pb-32">
-          <header className="flex items-center justify-between py-3">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="-ml-2 flex h-10 items-center gap-1.5 rounded-xl px-2 text-sm text-ink-secondary"
-            >
-              <span aria-hidden>←</span> {t("bosh_sahifa")}
-            </button>
-            <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary">
-              {t("lobby")}
-            </span>
-          </header>
-
-          <section className="mt-2 rounded-3xl border border-line-subtle bg-bg-surface p-5">
-            <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("room_code")}
-            </p>
-            <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em]">
-              {room.code}
-            </p>
-            <p className="mt-2 text-sm text-ink-secondary">
-              {t("players_maxplayers_oyinchi_finish_winnertarget_fefe", {
-                players: players.length,
-                maxPlayers: room.maxPlayers,
-                winnerTarget: room.winnerTarget
-              })}
-            </p>
-
-            {me.isHost ? (
-              <div className="mt-4 grid gap-2">
-                <LobbyShareActions
-                  roomCode={room.code}
-                  inviteUrl={inviteUrl}
-                  gameLabel="Bunker"
-                />
-              </div>
-            ) : null}
-          </section>
-
-          <section className="mt-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-base font-semibold">{t("oyinchilar")}</h2>
-              <p className="text-xs text-ink-muted">
-                {t("kamida_3_kishi_count_ta_fcb6", {
-                  count: alivePlayers.length
-                })}
-              </p>
-            </div>
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {players.map((p) => (
-                <PlayerCard
-                  key={p.id}
-                  name={p.name}
-                  isHost={p.isHost}
-                  isAlive={p.isAlive}
-                  online={p.online}
-                  showPresence
-                  revealedCards={{}}
-                  isMe={p.id === me.id}
-                  variant="tile"
-                  onKick={
-                    me.isHost && p.id !== me.id
-                      ? () => setKickTarget({ id: p.id, name: p.name })
-                      : undefined
-                  }
-                />
-              ))}
-            </ul>
-          </section>
-
-          {!me.isHost ? (
-            <>
-              <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
-                {t("host_oyinni_boshlashini_kuting")}
-              </p>
-              <button
-                type="button"
-                onClick={() => setLeaveConfirmOpen(true)}
-                className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.99]"
-              >
-                {t("roomdan_chiqish")}
-              </button>
-            </>
-          ) : null}
-
-          {error ? (
-            <p className="mt-4 rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
-              {error}
-            </p>
-          ) : null}
-        </div>
-
-        {me.isHost ? (
+      <>
+        <BunkerLobby
+          room={room}
+          players={players}
+          me={me}
+          roomState={roomState}
+          visibility={visibility}
+          uiVariant={uiVariant}
+          meReady={meReady}
+          alivePlayersCount={alivePlayers.length}
+          connectionFeedback={connectionFeedback}
+          error={error}
+          onLeaveRoom={() => setLeaveConfirmOpen(true)}
+          onSendChat={(text) => emit("chat:send", { text })}
+          onToggleReady={() => emit("toggle_ready")}
+          onRequestKickPlayer={(player) => setKickTarget(player)}
+        />
+        {me.isHost && !isOnlineVariant ? (
           <div className="fixed inset-x-0 bottom-0 border-t border-line-subtle bg-bg-base/95 px-5 pb-safe pt-3 backdrop-blur">
             <div className="mx-auto max-w-xl">
               <HostControls
@@ -1150,21 +1040,49 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         <ConfirmModal
           open={!!kickTarget}
           title={
-            kickTarget ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name }) : ""
+            kickTarget
+              ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name })
+              : ""
           }
-          description={t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")}
-          confirmLabel={t("chiqarish")}
+          description={
+            isOnlineVariant
+              ? t("name_ni_oyindan_chiqarishga_rozi_bolasizmi", {
+                  name: kickTarget?.name ?? t("oyinchi_2"),
+                })
+              : t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")
+          }
+          confirmLabel={
+            isOnlineVariant ? t("kick_uchun_ovoz_boshlash") : t("chiqarish")
+          }
           cancelLabel={t("bekor_qilish")}
           tone="danger"
           onConfirm={() => {
             if (kickTarget) {
-              emit("kick_player", { targetPlayerId: kickTarget.id });
+              emit(
+                isOnlineVariant ? "online:request_kick_vote" : "kick_player",
+                { targetPlayerId: kickTarget.id },
+              );
             }
             setKickTarget(null);
           }}
           onClose={() => setKickTarget(null)}
         />
-      </main>
+        <OnlineGovernanceModal
+          proposal={activeGovernanceProposal}
+          mePlayerId={me.id}
+          onClose={() =>
+            setDismissedKickProposalId(activeGovernanceProposal?.id ?? null)
+          }
+          onApprove={(proposalId) => {
+            setDismissedKickProposalId(proposalId);
+            emit("online:vote_kick", { proposalId, approve: true });
+          }}
+          onReject={(proposalId) => {
+            setDismissedKickProposalId(proposalId);
+            emit("online:vote_kick", { proposalId, approve: false });
+          }}
+        />
+      </>
     );
   }
 
@@ -1178,14 +1096,12 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       {connectionFeedback}
       {/* Sticky header */}
       <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
-        <div className="mx-auto flex max-w-xl items-center justify-between gap-2 px-4 pt-safe pb-2.5">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 pt-safe pb-2.5">
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
               {t("round")}{" "}
-              {room.status === "FINISHED"
-                ? "—"
-                : Math.max(room.round, 1)}{" "}
-              · {room.code}
+              {room.status === "FINISHED" ? "—" : Math.max(room.round, 1)} ·{" "}
+              {room.code}
             </p>
             <p
               key={`${game.phase}-${game.currentTurnPlayerId ?? "_"}`}
@@ -1207,20 +1123,28 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             <Timer seconds={game.remainingSeconds} />
             <button
               onClick={toggleAudio}
-              aria-label={audioEnabled ? t("ovozni_ochirish") : t("ovozni_yoqish")}
+              aria-label={
+                audioEnabled ? t("ovozni_ochirish") : t("ovozni_yoqish")
+              }
               className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-surface text-ink-secondary"
             >
               {audioEnabled ? "🔊" : "🔇"}
             </button>
+            {room.status !== "FINISHED" && (isOnlineVariant || !me.isHost) ? (
+              <RoomLeaveButton onClick={() => setLeaveConfirmOpen(true)} />
+            ) : null}
           </div>
         </div>
       </header>
 
       <div
-        className="mx-auto max-w-xl px-4 pt-3"
+        className="mx-auto max-w-2xl px-4 pt-3"
         style={{
           paddingBottom:
-            Math.max(bottomBarHeight, me.isHost ? 240 : 140) + 24
+            Math.max(
+              bottomBarHeight,
+              me.isHost && !isOnlineVariant ? 240 : 140,
+            ) + 24,
         }}
       >
         {/* Disaster + situation summary */}
@@ -1238,7 +1162,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
                   {t("fojea")}
                 </p>
-                <p className="mt-0.5 text-base font-semibold">{localizedDisasterName}</p>
+                <p className="mt-0.5 text-base font-semibold">
+                  {localizedDisasterName}
+                </p>
               </button>
             ) : null}
 
@@ -1254,10 +1180,12 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               >
                 <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
                   {t("round_roundnumber_vaziyati", {
-                    roundNumber: game.roundNumber
+                    roundNumber: game.roundNumber,
                   })}
                 </p>
-                <p className="mt-1 text-sm leading-6 text-ink-primary">{localizedSituationText}</p>
+                <p className="mt-1 text-sm leading-6 text-ink-primary">
+                  {localizedSituationText}
+                </p>
               </button>
             ) : null}
           </div>
@@ -1270,7 +1198,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             </p>
             <p className="mt-1 text-base font-semibold">
               {t("yutganlar_names", {
-                names: winners.map((p) => p.name).join(", ") || t("hech_kim_qolmadi")
+                names:
+                  winners.map((p) => p.name).join(", ") ||
+                  t("hech_kim_qolmadi"),
               })}
             </p>
           </section>
@@ -1285,7 +1215,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             <p className="text-xs text-ink-muted">
               {t("tirik_alive_total", {
                 alive: alivePlayers.length,
-                total: players.length
+                total: players.length,
               })}
             </p>
           </div>
@@ -1300,8 +1230,17 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                 revealedCards={p.visibleCards}
                 isCurrentTurn={p.id === game.currentTurnPlayerId}
                 gameOver={room.status === "FINISHED"}
+                onReport={
+                  isOnlineVariant &&
+                  room.status === "PLAYING" &&
+                  p.id !== me.id &&
+                  p.isAlive
+                    ? () => setKickTarget({ id: p.id, name: p.name })
+                    : undefined
+                }
                 onKick={
                   me.isHost &&
+                  !isOnlineVariant &&
                   room.status === "PLAYING" &&
                   p.isAlive &&
                   !p.isHost
@@ -1325,8 +1264,8 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         ref={setBottomBarNode}
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 backdrop-blur"
       >
-        <div className="mx-auto max-w-xl px-4 pt-3 pb-safe">
-          {me.isHost && room.status !== "FINISHED" ? (
+        <div className="mx-auto max-w-2xl px-4 pt-3 pb-safe">
+          {me.isHost && room.status !== "FINISHED" && !isOnlineVariant ? (
             <div className="mb-2">
               <HostControls
                 isHost={me.isHost}
@@ -1339,7 +1278,9 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
                   room.status === "PLAYING" && game.phase === "ROUND_PITCH"
                 }
                 advanceTurnLabel={
-                  hasMoreRevealPlayers ? "Keyingi o'yinchi" : "Pitchni yakunlash"
+                  hasMoreRevealPlayers
+                    ? "Keyingi o'yinchi"
+                    : "Pitchni yakunlash"
                 }
                 canStartVoting={
                   room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
@@ -1380,199 +1321,77 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
               {t("bosh_sahifaga_qaytish")}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={openMyCards}
-              className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
+            <div
+              className={`grid gap-2 ${isOnlineVariant ? "grid-cols-2" : "grid-cols-1"}`}
             >
-              <div>
-                <p className="text-xs text-ink-muted">{t("mening_kartalarim")}</p>
-                <p className="text-sm font-semibold">
-                  {t("count_6_ochilgan", { count: myRevealedCount })}
-                  {!me.isAlive ? ` · ${t("chiqqansiz")}` : ""}
-                </p>
-              </div>
-              <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-                {t("korish")}
-              </span>
-            </button>
+              {isOnlineVariant ? (
+                <OnlineChat
+                  meId={me.id}
+                  messages={roomState.chat.messages}
+                  onSend={(text) => emit("chat:send", { text })}
+                  floating={false}
+                  highlightedPlayerId={
+                    game.phase === "ROUND_PITCH"
+                      ? game.currentTurnPlayerId
+                      : null
+                  }
+                  triggerClassName="h-14"
+                />
+              ) : null}
+              <button
+                type="button"
+                onClick={openMyCards}
+                className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
+              >
+                <div>
+                  <p className="text-xs text-ink-muted">
+                    {t("mening_kartalarim")}
+                  </p>
+                  <p className="text-sm font-semibold">
+                    {t("count_6_ochilgan", { count: myRevealedCount })}
+                    {!me.isAlive ? ` · ${t("chiqqansiz")}` : ""}
+                  </p>
+                </div>
+                <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
+                  {t("korish")}
+                </span>
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* My cards bottom sheet */}
-      {myCardsOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className={`fixed inset-0 z-50 flex flex-col justify-end bg-bg-overlay backdrop-blur-sm ${
-            myCardsClosing ? "animate-overlay-out" : "animate-overlay-in"
-          }`}
-        >
-          <div className="absolute inset-0" onClick={closeMyCards} />
-          <div
-            className={`relative z-10 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-line-subtle bg-bg-surface px-5 pt-4 pb-safe ${
-              myCardsClosing ? "animate-sheet-out" : "animate-sheet-in"
-            }`}
-          >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong" />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-brand">
-                  {t("mening_kartalarim")}
-                </p>
-                <h2 className="mt-0.5 text-lg font-semibold">
-                  {t("count_6_ochilgan", { count: myRevealedCount })}
-                </h2>
-              </div>
-              <button
-                onClick={closeMyCards}
-                className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-elevated"
-              >
-                ×
-              </button>
-            </div>
+      <BunkerMyCardsSheet
+        open={myCardsOpen}
+        closing={myCardsClosing}
+        revealedCount={myRevealedCount}
+        cards={myCards}
+        onClose={closeMyCards}
+      />
 
-            <div className="mt-4 grid gap-2">
-              {myCards.map((card) => (
-                <div
-                  key={card.type}
-                  className={`rounded-2xl border p-3 ${
-                    card.isRevealed
-                      ? "border-brand/30 bg-brand-soft"
-                      : "border-line-subtle bg-bg-base"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                      {card.label}
-                    </p>
-                    {card.isRevealed ? (
-                      <span className="rounded-full bg-brand/20 px-2 py-0.5 text-[10px] font-semibold text-brand">
-                        {t("ochiq")}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-[10px] font-semibold text-ink-muted">
-                        {t("yashirin")}
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1.5 text-sm text-ink-primary">{card.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <BunkerDisasterIntroModal
+        open={introOpen && !!game.disaster}
+        imageSrc={game.disaster ? disasterImage[game.disaster.name.uz] : undefined}
+        title={localizedDisasterName}
+        description={localizedDisasterDescription}
+        onClose={() => setIntroOpen(false)}
+      />
 
-      {/* Disaster intro overlay */}
-      {introOpen && game.disaster ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-40 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center"
-        >
-          <div className="absolute inset-0" />
-          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-line-subtle bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border">
-            <div className="mx-auto mt-3 mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
-            {disasterImage[game.disaster.name.uz] ? (
-              // Banner image — sits flush to the modal edges so the
-              // imagery feels cinematic. Bottom gradient ensures the
-              // "Fojea" pill stays legible against bright artwork.
-              <div className="relative aspect-[16/10] w-full overflow-hidden">
-                <Image
-                  src={disasterImage[game.disaster.name.uz]}
-                  alt={localizedDisasterName}
-                  fill
-                  sizes="(max-width: 640px) 100vw, 448px"
-                  className="object-cover"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-bg-surface via-bg-surface/40 to-transparent" />
-              </div>
-            ) : null}
-            <div className="px-5 pb-5 pt-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-brand">
-                {t("fojea")}
-              </p>
-              <h2 className="mt-1 text-2xl font-bold">{localizedDisasterName}</h2>
-              <p className="mt-3 text-sm leading-7 text-ink-secondary">{localizedDisasterDescription}</p>
-              <div className="mt-5 grid gap-2">
-                <button
-                  onClick={() => setIntroOpen(false)}
-                  className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-                >
-                  {t("tushundim")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Situation overlay */}
-      {situationOpen && game.situation ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className={`fixed inset-0 z-40 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center ${
-            situationClosing ? "animate-overlay-out" : "animate-overlay-in"
-          }`}
-        >
-          <div className="absolute inset-0" />
-          <div className={`relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border ${
-            situationClosing ? "animate-sheet-out" : "animate-sheet-in"
-          }`}>
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
-            <p className="text-xs font-medium uppercase tracking-wider text-warn">
-              {t("round_roundnumber_vaziyati", {
-                roundNumber: game.roundNumber
-              })}
-            </p>
-            <p className="mt-3 text-base leading-7 text-ink-primary">{localizedSituationText}</p>
-            <button
-              onClick={closeSituation}
-              className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              {t("roundga_kirish")}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <BunkerSituationModal
+        open={situationOpen && !!game.situation}
+        closing={situationClosing}
+        roundNumber={game.roundNumber}
+        text={localizedSituationText}
+        onClose={closeSituation}
+      />
 
       {/* Reveal overlay */}
-      {shouldShowRevealOverlay ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-40 flex items-end justify-center bg-bg-overlay backdrop-blur-sm sm:items-center"
-        >
-          <div className="relative z-10 max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl border-t border-line-subtle bg-bg-surface px-5 pt-4 pb-safe shadow-pop sm:rounded-3xl sm:border">
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
-            <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("sizning_navbatingiz")}
-            </p>
-            <h2 className="mt-1 text-2xl font-bold">{t("bitta_kartani_tanlang")}</h2>
-            <p className="mt-2 text-sm leading-6 text-ink-secondary">
-              {t("tanlaganingizdan_keyin_2_daqiqada_nega_18e0")}
-            </p>
-            <div className="mt-4 grid gap-2">
-              {revealOptions.map((card) => (
-                <button
-                  key={card.type}
-                  onClick={() => emit("reveal_card", { cardType: card.type })}
-                  className="rounded-2xl border border-line-subtle bg-bg-base p-4 text-left transition active:scale-[0.99]"
-                >
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                    {card.label}
-                  </p>
-                  <p className="mt-1 text-base text-ink-primary">{card.value}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <BunkerRevealChoiceModal
+        open={shouldShowRevealOverlay}
+        seconds={game.remainingSeconds}
+        options={revealOptions}
+        onReveal={(cardType) => emit("reveal_card", { cardType })}
+      />
 
       {/* Voting — only shown to alive players */}
       {game.phase === "VOTING" && me.isAlive ? (
@@ -1583,7 +1402,7 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
             id: p.id,
             name: p.name,
             isAlive: p.isAlive,
-            visibleCards: p.visibleCards
+            visibleCards: p.visibleCards,
           }))}
           meId={me.id}
           tiebreakCandidateIds={game.tiebreakCandidateIds}
@@ -1595,148 +1414,18 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         />
       ) : null}
 
-      {/* Self-elimination modal */}
-      {eliminatedModalOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-md sm:items-center"
-        >
-          <div className="absolute inset-0" />
-          <div
-            className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-bad/40 bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%), linear-gradient(180deg, rgba(239,68,68,0.04) 0%, rgba(11,13,18,0) 60%)"
-            }}
-          >
-            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
+      <BunkerEliminationModal
+        open={eliminatedModalOpen}
+        onClose={() => setEliminatedModalOpen(false)}
+      />
 
-            <div className="px-6 pt-6 text-center">
-              <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-bad/30 bg-bad/10">
-                <svg
-                  width="38"
-                  height="38"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-bad"
-                  aria-hidden
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="15" y1="9" x2="9" y2="15" />
-                  <line x1="9" y1="9" x2="15" y2="15" />
-                </svg>
-              </div>
-              <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-bad">
-                {t("eliminatsiya")}
-              </p>
-              <h2 className="mt-2 text-2xl font-bold text-ink-primary">
-                {t("siz_bunkerdan_chiqarildingiz")}
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                {t("sizning_kartalaringiz_endi_hammaga_ochiq_44da")}
-              </p>
-            </div>
-
-            <div className="px-5 pt-5 pb-5">
-              <button
-                onClick={() => setEliminatedModalOpen(false)}
-                className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98]"
-              >
-                {t("kuzatishda_davom_etish")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Winner modal — suppressed while the self-elimination modal is
-          open, so a final-round cut shows "Siz bunkerdan chiqarildingiz"
-          first and only reveals "O'yin tugadi" after the player
-          acknowledges. Once `eliminatedModalOpen` flips to false, this
-          condition flips to true on the next render. */}
-      {winnerModalOpen && !eliminatedModalOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-md sm:items-center"
-        >
-          <div className="absolute inset-0" />
-          <div
-            className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-brand/40 bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 50% 0%, rgba(244,168,58,0.28), transparent 55%), linear-gradient(180deg, rgba(34,197,94,0.06) 0%, rgba(11,13,18,0) 70%)"
-            }}
-          >
-            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
-
-            <div className="px-6 pt-6 text-center">
-              <div
-                className={`mx-auto grid h-20 w-20 place-items-center rounded-full border ${me.isAlive ? "border-brand/40 bg-brand/15" : "border-bad/40 bg-bad/15"}`}
-              >
-                <svg
-                  width="40"
-                  height="40"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={me.isAlive ? "text-brand" : "text-bad"}
-                  aria-hidden
-                >
-                  <path d="M8 21h8" />
-                  <path d="M12 17v4" />
-                  <path d="M7 4h10v5a5 5 0 0 1-10 0V4z" />
-                  <path d="M17 4h3v3a3 3 0 0 1-3 3" />
-                  <path d="M7 4H4v3a3 3 0 0 0 3 3" />
-                </svg>
-              </div>
-              <p
-                className={`mt-4 text-xs font-medium uppercase tracking-[0.25em] ${me.isAlive ? "text-brand" : "text-bad"}`}
-              >
-                {me.isAlive ? t("galaba") : t("oyin_tugadi")}
-              </p>
-              <h2 className="mt-2 text-2xl font-bold text-ink-primary">
-                {me.isAlive
-                  ? t("siz_bunkerda_omon_qoldingiz")
-                  : t("bu_safar_omad_yor_bolmadi")}
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                {me.isAlive
-                  ? t("tabriklaymiz_insoniyatning_kelajagini_siz_tiklaysiz")
-                  : t("siz_oyindan_chiqib_ketgansiz_lekin_f036")}
-                {winners.length > 0
-                  ? ` ${t("bunkerda_qolganlar")} ${winners
-                      .map((w) => w.name)
-                      .join(", ")}.`
-                  : ` ${t("bunkerda_hech_kim_qolmadi")}`}
-              </p>
-            </div>
-
-            <div className="grid gap-2 px-5 pt-5 pb-5">
-              <button
-                onClick={() => setWinnerModalOpen(false)}
-                className="flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-              >
-                {t("natijani_korish")}
-              </button>
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="flex h-12 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-elevated text-sm font-semibold text-ink-primary"
-              >
-                {t("bosh_sahifa")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <BunkerWinnerModal
+        open={winnerModalOpen && !eliminatedModalOpen}
+        isAlive={me.isAlive}
+        winnerNames={winners.map((winner) => winner.name)}
+        onClose={() => setWinnerModalOpen(false)}
+        onGoHome={() => router.push("/dashboard")}
+      />
 
       <ConfirmModal
         open={endGameConfirmOpen}
@@ -1755,15 +1444,33 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
       <ConfirmModal
         open={!!kickTarget}
         title={
-          kickTarget ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name }) : ""
+          kickTarget
+            ? t(
+                isOnlineVariant
+                  ? "name_ni_chiqarish_2"
+                  : "name_ni_oyindan_chiqarish",
+                { name: kickTarget.name },
+              )
+            : ""
         }
-        description={t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")}
-        confirmLabel={t("chiqarish")}
+        description={
+          isOnlineVariant
+            ? t("name_ni_oyindan_chiqarishga_rozi_bolasizmi", {
+                name: kickTarget?.name ?? t("oyinchi_2"),
+              })
+            : t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")
+        }
+        confirmLabel={
+          isOnlineVariant ? t("kick_uchun_ovoz_boshlash") : t("chiqarish")
+        }
         cancelLabel={t("bekor_qilish")}
         tone="danger"
         onConfirm={() => {
           if (kickTarget) {
-            emit("kick_player", { targetPlayerId: kickTarget.id });
+            emit(
+              isOnlineVariant ? "online:request_kick_vote" : "kick_player",
+              { targetPlayerId: kickTarget.id },
+            );
           }
           setKickTarget(null);
         }}
@@ -1785,14 +1492,32 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         }}
         onClose={() => setLeaveConfirmOpen(false)}
       />
+      <OnlineGovernanceModal
+        proposal={activeGovernanceProposal}
+        mePlayerId={me.id}
+        onClose={() =>
+          setDismissedKickProposalId(activeGovernanceProposal?.id ?? null)
+        }
+        onApprove={(proposalId) => {
+          setDismissedKickProposalId(proposalId);
+          emit("online:vote_kick", { proposalId, approve: true });
+        }}
+        onReject={(proposalId) => {
+          setDismissedKickProposalId(proposalId);
+          emit("online:vote_kick", { proposalId, approve: false });
+        }}
+      />
 
       {/* Lobby cancellation modal — host tugatdi, o'yin umuman bo'lmadi.
           Shared with Mafia via the CancelledRoomModal component. */}
       <CancelledRoomModal
         open={cancelledModalOpen}
         onDismiss={() => {
-          setCancelledModalOpen(false);
-          router.push("/dashboard");
+          if (typeof window !== "undefined") {
+            window.location.replace("/dashboard");
+            return;
+          }
+          router.replace("/dashboard" as Route);
         }}
       />
 
@@ -1810,100 +1535,15 @@ export function BunkerExperience({ roomCode, view }: BunkerExperienceProps) {
         </div>
       ) : null}
 
-      {/* Card reveal modal — shows whose card just opened, with the new
-          card highlighted and older reveals as smaller chips. */}
-      {revealModal ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="w-full max-w-md rounded-3xl border border-line-strong bg-bg-surface p-5 shadow-pop"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-              {t("karta_ochildi")}
-            </p>
-            <h3 className="mt-1 text-xl font-bold text-ink-primary">
-              {revealModal.playerName}
-            </h3>
-
-            <div
-              className="mt-5"
-              style={{ perspective: 1200 }}
-              key={`${revealModal.playerId}-${revealModal.newCardType}`}
-            >
-              <div
-                className="animate-card-flip relative grid"
-                style={{ transformStyle: "preserve-3d" }}
-              >
-                {/* Back of the card — visible during the first ~120ms
-                    while the flip animation is delayed. */}
-                <div
-                  className="col-start-1 row-start-1 grid place-items-center rounded-2xl border border-line-strong bg-bg-elevated p-4"
-                  style={{
-                    backfaceVisibility: "hidden",
-                    WebkitBackfaceVisibility: "hidden",
-                    transform: "rotateY(180deg)"
-                  } as React.CSSProperties}
-                >
-                  <span className="text-4xl font-bold text-ink-muted">?</span>
-                </div>
-                {/* Front — the actual revealed value. Same grid cell, so
-                    both faces share dimensions. */}
-                <div
-                  className="col-start-1 row-start-1 rounded-2xl border border-brand/40 bg-brand-soft/40 p-4"
-                  style={{
-                    backfaceVisibility: "hidden",
-                    WebkitBackfaceVisibility: "hidden"
-                  } as React.CSSProperties}
-                >
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
-                    {t("label_yangi", {
-                      label: t(cardLabels[revealModal.newCardType])
-                    })}
-                  </p>
-                  <p className="mt-2 text-base font-semibold leading-7 text-ink-primary">
-                    {revealModal.newCardValue}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {revealModal.olderCards.length > 0 ? (
-              <div className="mt-4">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
-                  {t("avval_ochilganlar")}
-                </p>
-                <ul className="mt-2 grid gap-2">
-                  {revealModal.olderCards.map((c) => (
-                    <li
-                      key={c.type}
-                      className="rounded-xl border border-line-subtle bg-bg-base/60 px-3 py-2"
-                    >
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
-                        {t(cardLabels[c.type])}
-                      </p>
-                      <p className="mt-0.5 text-sm leading-6 text-ink-secondary">
-                        {c.value}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={() => setRevealModal(null)}
-              className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              {t("tushundim")}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <BunkerCardRevealModal
+        open={!!revealModalContent}
+        animationKey={revealModalContent?.animationKey ?? ""}
+        playerName={revealModalContent?.playerName ?? ""}
+        cardLabel={revealModalContent?.cardLabel ?? ""}
+        newCardValue={revealModalContent?.newCardValue ?? ""}
+        olderCards={revealModalContent?.olderCards ?? []}
+        onClose={() => setRevealModal(null)}
+      />
     </main>
   );
 }

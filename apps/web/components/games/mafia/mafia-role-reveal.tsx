@@ -13,6 +13,7 @@ type Props = {
   state: MafiaPublicState;
   onConfirm: () => void;
   confirmPending?: boolean;
+  headerAction?: React.ReactNode;
 };
 
 const HIDE_AFTER_MS = 3000;
@@ -25,7 +26,8 @@ const HIDE_AFTER_MS = 3000;
 export function MafiaRoleReveal({
   state,
   onConfirm,
-  confirmPending = false
+  confirmPending = false,
+  headerAction
 }: Props) {
   const { t } = useI18n();
   const me = state.me;
@@ -63,9 +65,12 @@ export function MafiaRoleReveal({
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
             {t("rol_tarqatildi")}
           </p>
-          <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
-            {state.room.code}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 font-mono text-xs">
+              {state.room.code}
+            </span>
+            {headerAction}
+          </div>
         </header>
 
         <section className="mt-2 flex-1 pb-10">

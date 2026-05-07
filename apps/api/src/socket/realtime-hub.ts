@@ -3,6 +3,13 @@ import { Server, Socket } from "socket.io";
 
 import { GameRegistry } from "../games/registry";
 import { prisma } from "../lib/prisma";
+import { chatService } from "../services/chat-service";
+import { hostTransferService } from "../services/host-transfer-service";
+import {
+  OnlineGovernanceActionService,
+  type CreatorChangedPayload,
+  type OnlineGovernanceActionResult
+} from "../services/online-governance-action-service";
 
 type SocketActionPayload = {
   roomCode: string;
@@ -24,11 +31,17 @@ export class RealtimeHub {
   // re-attaches a new socket within the window, the timer is cancelled.
   private readonly offlineTimers = new Map<string, NodeJS.Timeout>();
   private static readonly OFFLINE_GRACE_MS = 3000;
+  private readonly hostTransferTimers = new Map<string, NodeJS.Timeout>();
+  private static readonly HOST_TRANSFER_GRACE_MS = 30_000;
 
   constructor(
     private readonly io: Server,
     private readonly games: GameRegistry
-  ) {}
+  ) {
+    this.onlineGovernanceActions = new OnlineGovernanceActionService(games);
+  }
+
+  private readonly onlineGovernanceActions: OnlineGovernanceActionService;
 
   // Bunker-specific shortcut. Bunker has the richer per-phase action
   // surface (reveal_card, advance_turn, etc.) that doesn't apply to
@@ -83,6 +96,11 @@ export class RealtimeHub {
                 previousSessionId,
                 socket.id
               );
+              this.scheduleHostTransfer(
+                previousRoomCode,
+                previousSessionId,
+                socket.id
+              );
             }
           }
 
@@ -93,6 +111,10 @@ export class RealtimeHub {
           // client just (re)attached, so the previous disconnect was a
           // transient blip we shouldn't surface to other players.
           this.cancelOfflineTimer(
+            socket.data.roomCode,
+            socket.data.sessionId
+          );
+          this.cancelHostTransferTimer(
             socket.data.roomCode,
             socket.data.sessionId
           );
@@ -120,6 +142,7 @@ export class RealtimeHub {
         // retries every 2s) doesn't trigger a visible online → offline →
         // online flicker for everyone watching the lobby.
         this.scheduleOfflineTransition(roomCode, sessionId, socket.id);
+        this.scheduleHostTransfer(roomCode, sessionId, socket.id);
       });
 
       socket.on("start_game", async (payload: SocketActionPayload) => {
@@ -244,13 +267,139 @@ export class RealtimeHub {
         await this.handleAction(socket, async () => {
           const service = await this.serviceForRoom(payload.roomCode);
           if (!service) throw new Error("Room topilmadi.");
-          await service.leaveRoom({
+          const result = await service.leaveRoom({
+            code: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          const creatorChanged = this.extractCreatorChangedPayload(result);
+          if (creatorChanged) {
+            this.emitCreatorChanged(creatorChanged);
+          }
+          await this.broadcastRoomState(payload.roomCode);
+        });
+      });
+
+      socket.on("toggle_ready", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const service = await this.serviceForRoom(payload.roomCode);
+          if (!service || !("toggleReady" in service)) {
+            throw new Error("Bu xona tayyor holatini qo'llamaydi.");
+          }
+          await service.toggleReady({
             code: payload.roomCode,
             sessionId: payload.sessionId
           });
           await this.broadcastRoomState(payload.roomCode);
         });
       });
+
+      socket.on(
+        "chat:send",
+        async (payload: SocketActionPayload & { text: string }) => {
+          await this.handleAction(socket, async () => {
+            const service = await this.serviceForRoom(payload.roomCode);
+            if (!service) throw new Error("Room topilmadi.");
+
+            const prepared = await service.getRoomStateForBroadcast(
+              payload.roomCode.toUpperCase()
+            );
+            const state = prepared.perSession(payload.sessionId) as {
+              me: { id: string; name: string } | null;
+            };
+            if (!state.me) {
+              throw new Error("Chatga yozish uchun avval roomga kiring.");
+            }
+
+            const text = payload.text.replace(/\s+/g, " ").trim();
+            if (!text) {
+              throw new Error("Xabar bo'sh bo'lishi mumkin emas.");
+            }
+            if (text.length > 300) {
+              throw new Error("Xabar 300 ta belgidan oshmasligi kerak.");
+            }
+
+            const message = chatService.createMessage({
+              senderId: state.me.id,
+              senderName: state.me.name,
+              text
+            });
+            await chatService.appendMessage(payload.roomCode, message);
+            await this.broadcastRoomState(payload.roomCode);
+          });
+        }
+      );
+
+      socket.on("online:request_end_game_vote", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const result = await this.onlineGovernanceActions.requestEndGameVote({
+            roomCode: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          this.emitCreatorChangedFromResult(result);
+          await this.broadcastRoomState(result.roomCode);
+        });
+      });
+
+      socket.on(
+        "online:vote_end_game",
+        async (
+          payload: SocketActionPayload & {
+            proposalId: string;
+            approve: boolean;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const result = await this.onlineGovernanceActions.voteEndGame({
+              roomCode: payload.roomCode,
+              sessionId: payload.sessionId,
+              proposalId: payload.proposalId,
+              approve: payload.approve
+            });
+            this.emitCreatorChangedFromResult(result);
+            await this.broadcastRoomState(result.roomCode);
+          });
+        }
+      );
+
+      socket.on(
+        "online:request_kick_vote",
+        async (
+          payload: SocketActionPayload & {
+            targetPlayerId: string;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const result = await this.onlineGovernanceActions.requestKickVote({
+              roomCode: payload.roomCode,
+              sessionId: payload.sessionId,
+              targetPlayerId: payload.targetPlayerId,
+            });
+            this.emitCreatorChangedFromResult(result);
+            await this.broadcastRoomState(result.roomCode);
+          });
+        }
+      );
+
+      socket.on(
+        "online:vote_kick",
+        async (
+          payload: SocketActionPayload & {
+            proposalId: string;
+            approve: boolean;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const result = await this.onlineGovernanceActions.voteKick({
+              roomCode: payload.roomCode,
+              sessionId: payload.sessionId,
+              proposalId: payload.proposalId,
+              approve: payload.approve
+            });
+            this.emitCreatorChangedFromResult(result);
+            await this.broadcastRoomState(result.roomCode);
+          });
+        }
+      );
 
       // ── Mafia-spetsifik eventlar ─────────────────────────────────
       // Player taps "Tasdiqlash" on the role-reveal screen. We forward
@@ -490,6 +639,86 @@ export class RealtimeHub {
       clearTimeout(timer);
       this.offlineTimers.delete(key);
     }
+  }
+
+  private scheduleHostTransfer(
+    roomCode: string,
+    sessionId: string,
+    excludeSocketId: string
+  ) {
+    const key = this.offlineTimerKey(roomCode, sessionId);
+    const existing = this.hostTransferTimers.get(key);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(async () => {
+      this.hostTransferTimers.delete(key);
+      const stillConnected = await this.hasOtherSocketForSession(
+        roomCode,
+        sessionId,
+        excludeSocketId
+      );
+      if (stillConnected) return;
+
+      const transfer = await hostTransferService.transferOnlineRoomHost({
+        roomCode,
+        expectedHostSessionId: sessionId
+      });
+
+      if (!transfer) {
+        return;
+      }
+
+      if (transfer.kind === "no_successor") {
+        const service = await this.serviceForRoom(transfer.roomCode);
+        await service?.endGame({
+          code: transfer.roomCode,
+          sessionId: transfer.previousHostSessionId
+        });
+        await this.broadcastRoomState(transfer.roomCode);
+        return;
+      }
+
+      if (transfer.kind !== "transferred") {
+        return;
+      }
+
+      this.emitCreatorChanged({
+        roomCode: transfer.roomCode,
+        previousHostSessionId: transfer.previousHostSessionId,
+        nextHostSessionId: transfer.nextHostSessionId,
+        nextHostPlayerId: transfer.nextHostPlayerId
+      });
+      await this.broadcastRoomState(roomCode);
+    }, RealtimeHub.HOST_TRANSFER_GRACE_MS);
+
+    this.hostTransferTimers.set(key, timer);
+  }
+
+  private cancelHostTransferTimer(roomCode: string, sessionId: string) {
+    const key = this.offlineTimerKey(roomCode, sessionId);
+    const timer = this.hostTransferTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      this.hostTransferTimers.delete(key);
+    }
+  }
+
+  private emitCreatorChanged(payload: CreatorChangedPayload) {
+    this.io.to(payload.roomCode.toUpperCase()).emit("creator_changed", payload);
+  }
+
+  private emitCreatorChangedFromResult(result: OnlineGovernanceActionResult) {
+    if (result.creatorChanged) {
+      this.emitCreatorChanged(result.creatorChanged);
+    }
+  }
+
+  private extractCreatorChangedPayload(value: unknown): CreatorChangedPayload | null {
+    if (!value || typeof value !== "object" || !("creatorChanged" in value)) {
+      return null;
+    }
+    const payload = (value as { creatorChanged?: CreatorChangedPayload | null }).creatorChanged;
+    return payload ?? null;
   }
 
   // True when any socket OTHER than `excludeSocketId` (the one currently

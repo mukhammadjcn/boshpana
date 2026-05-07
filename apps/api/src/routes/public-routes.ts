@@ -1,10 +1,12 @@
-import { BunkerCardType, GameType } from "@prisma/client";
+import { BunkerCardType, GameType, RoomMode, RoomVisibility } from "@prisma/client";
 import { FastifyInstance } from "fastify";
 
 import { requireAuth } from "../lib/auth-decorator";
 import { env } from "../lib/env";
 import { prisma } from "../lib/prisma";
+import { findActiveRoomForUser } from "../services/active-room-service";
 import { countHostedRoomsLast30d } from "../services/auth-service";
+import { MatchmakingService } from "../services/matchmaking-service";
 import { GameRegistry } from "../games/registry";
 
 type RouteDeps = {
@@ -12,6 +14,8 @@ type RouteDeps = {
 };
 
 export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps) {
+  const matchmaking = new MatchmakingService(deps.games);
+
   app.get("/health", async () => ({ ok: true }));
 
   app.post<{
@@ -19,6 +23,12 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
       gameType?: GameType;
       hostName: string;
       sessionId: string;
+      // Online flow only — defaults preserve Friends behavior.
+      mode?: RoomMode;
+      visibility?: RoomVisibility;
+      // Lets the client retry after the user picks "Start new game" in the
+      // active-room modal — we leave the existing room before creating.
+      confirmLeaveExisting?: boolean;
       // Bunker-only fields (ignored for Mafia)
       winnerTarget?: number;
       isAdult?: boolean;
@@ -35,6 +45,25 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
     async (request, reply) => {
       try {
         const user = request.authUser!;
+        const body = request.body;
+        const mode = body.mode ?? RoomMode.FRIENDS;
+        const gameType = body.gameType ?? GameType.BUNKER;
+
+        // 1 user = 1 active room. Friends preserves the existing implicit
+        // behavior; only ONLINE rooms gate behind this check so the
+        // friends-mode flow stays exactly as it was.
+        if (mode === RoomMode.ONLINE) {
+          const active = await enforceSingleActiveRoom(
+            user.id,
+            body.confirmLeaveExisting,
+            body.sessionId,
+            deps.games,
+          );
+          if (active.kind === "blocked") {
+            return reply.status(409).send(active.payload);
+          }
+        }
+
         const recentCount = await countHostedRoomsLast30d(user.id);
         if (recentCount >= env.roomCreationLimit) {
           return reply.status(429).send({
@@ -42,8 +71,30 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
           });
         }
 
-        const body = request.body;
-        const gameType = body.gameType ?? GameType.BUNKER;
+        if (mode === RoomMode.ONLINE) {
+          const visibility = body.visibility ?? RoomVisibility.PRIVATE;
+          if (gameType === GameType.MAFIA) {
+            const result = await deps.games.onlineMafia.createRoom({
+              hostName: body.hostName,
+              sessionId: body.sessionId,
+              hostUserId: user.id,
+              visibility,
+              mafiaCount: body.mafiaCount,
+              hasSheriff: body.hasSheriff,
+              hasDoctor: body.hasDoctor,
+            });
+            return reply.send(result);
+          }
+          const result = await deps.games.onlineBunker.createRoom({
+            hostName: body.hostName,
+            sessionId: body.sessionId,
+            hostUserId: user.id,
+            visibility,
+            winnerTarget: body.winnerTarget,
+            isAdult: body.isAdult,
+          });
+          return reply.send(result);
+        }
 
         if (gameType === GameType.MAFIA) {
           const result = await deps.games.mafia.createRoom({
@@ -74,10 +125,51 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
   );
 
   app.post<{
+    Body: {
+      gameType: GameType;
+      hostName: string;
+      sessionId: string;
+      isAdult?: boolean;
+      confirmLeaveExisting?: boolean;
+    };
+  }>(
+    "/api/rooms/matchmake",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      try {
+        const user = request.authUser!;
+        const body = request.body;
+
+        const active = await enforceSingleActiveRoom(
+          user.id,
+          body.confirmLeaveExisting,
+          body.sessionId,
+          deps.games,
+        );
+        if (active.kind === "blocked") {
+          return reply.status(409).send(active.payload);
+        }
+
+        const result = await matchmaking.findOrCreatePublicRoom({
+          gameType: body.gameType,
+          hostName: body.hostName,
+          sessionId: body.sessionId,
+          hostUserId: user.id,
+          isAdult: body.isAdult,
+        });
+        return reply.send(result);
+      } catch (error) {
+        return reply.status(400).send({ message: (error as Error).message });
+      }
+    },
+  );
+
+  app.post<{
     Params: { code: string };
     Body: {
       name: string;
       sessionId: string;
+      confirmLeaveExisting?: boolean;
     };
   }>(
     "/api/rooms/:code/join",
@@ -87,10 +179,22 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
         const code = request.params.code.toUpperCase();
         const room = await prisma.room.findUnique({
           where: { code },
-          select: { gameType: true }
+          select: { gameType: true, mode: true }
         });
         if (!room) {
           return reply.status(404).send({ message: "Xona topilmadi." });
+        }
+        if (room.mode === RoomMode.ONLINE) {
+          const active = await enforceSingleActiveRoom(
+            request.authUser!.id,
+            request.body.confirmLeaveExisting,
+            request.body.sessionId,
+            deps.games,
+            code,
+          );
+          if (active.kind === "blocked") {
+            return reply.status(409).send(active.payload);
+          }
         }
         const service = deps.games.for(room.gameType);
         const result = await service.joinRoom({
@@ -107,13 +211,20 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
 
   // Lightweight, game-agnostic room metadata. The frontend room/game pages
   // call this first so they can route to the correct per-game experience
-  // (Bunker / Mafia / ...) before fetching the full game state.
+  // (Bunker / Mafia / ...) before fetching the full game state. `mode`
+  // and `visibility` let the router pick the online vs friends UI.
   app.get<{ Params: { code: string } }>(
     "/api/rooms/:code/info",
     async (request, reply) => {
       const room = await prisma.room.findUnique({
         where: { code: request.params.code.toUpperCase() },
-        select: { code: true, gameType: true, status: true }
+        select: {
+          code: true,
+          gameType: true,
+          status: true,
+          mode: true,
+          visibility: true,
+        },
       });
       if (!room) {
         return reply.status(404).send({ message: "Xona topilmadi." });
@@ -146,4 +257,77 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
   app.get("/api/meta/card-types", async () => ({
     items: BunkerCardType
   }));
+}
+
+// Enforces "1 user = 1 active room" for online flows. If the user already
+// has a LOBBY/PLAYING room and `confirmLeave` is false, returns a blocked
+// envelope the route will turn into 409 + ACTIVE_ROOM_EXISTS so the
+// client can show the "Continue or start new?" modal. With confirmLeave,
+// the existing room is left first via the per-game leaveRoom action and
+// the caller proceeds with create/matchmake.
+async function enforceSingleActiveRoom(
+  userId: string,
+  confirmLeave: boolean | undefined,
+  sessionId: string,
+  games: GameRegistry,
+  allowedRoomCode?: string,
+): Promise<
+  | { kind: "ok" }
+  | {
+      kind: "blocked";
+      payload: {
+        code: "ACTIVE_ROOM_EXISTS";
+        message: string;
+        activeRoom: NonNullable<Awaited<ReturnType<typeof findActiveRoomForUser>>>;
+      };
+    }
+> {
+  const active = await findActiveRoomForUser(userId);
+  if (!active) return { kind: "ok" };
+  if (allowedRoomCode && active.code === allowedRoomCode.toUpperCase()) {
+    return { kind: "ok" };
+  }
+
+  if (!confirmLeave) {
+    return {
+      kind: "blocked",
+      payload: {
+        code: "ACTIVE_ROOM_EXISTS",
+        message: "Sizning aktiv o'yiningiz bor.",
+        activeRoom: active,
+      },
+    };
+  }
+
+  // User confirmed — leave the existing room before proceeding. Best-effort:
+  // if the leave fails (e.g. room was just cleaned up) we still let the
+  // create/matchmake go through.
+  try {
+    const service = games.for(active.gameType);
+    const activeSessionId =
+      (await findActiveRoomSessionId(userId, active.code)) ?? sessionId;
+    await service.leaveRoom({ code: active.code, sessionId: activeSessionId });
+    const broadcaster = service as typeof service & {
+      broadcastState?: (roomCode: string) => Promise<void>;
+    };
+    await broadcaster.broadcastState?.(active.code);
+  } catch {
+    // ignore
+  }
+  return { kind: "ok" };
+}
+
+async function findActiveRoomSessionId(
+  userId: string,
+  roomCode: string
+): Promise<string | null> {
+  const player = await prisma.player.findFirst({
+    where: {
+      userId,
+      room: { code: roomCode.toUpperCase() }
+    },
+    select: { sessionId: true },
+    orderBy: { joinedAt: "desc" }
+  });
+  return player?.sessionId ?? null;
 }

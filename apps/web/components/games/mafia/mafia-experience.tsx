@@ -1,7 +1,6 @@
 "use client";
 
 import type { Route } from "next";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   FormEvent,
@@ -15,7 +14,7 @@ import {
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
-import { LobbyShareActions } from "@/components/lobby-share-actions";
+import { LoadingState } from "@/components/loading-state";
 import { RoomExpiredState } from "@/components/room-expired-state";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { apiRequest } from "@/lib/api";
@@ -24,19 +23,32 @@ import { useI18n } from "@/lib/i18n";
 import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
 import { pushToast } from "@/store/useToastStore";
+import type { RoomVisibility } from "@/lib/types";
 import {
   RealtimeConnectionFeedback,
   useRealtimeConnectionRecovery,
 } from "../shared/realtime-connection-feedback";
+import {
+  JoinWithNicknameRoomState,
+  KickedFromRoomState,
+  LoginPromptRoomState,
+  UnavailableRoomState,
+} from "../shared/game-entry-states";
+import { OnlineChat } from "../shared/online-chat";
+import { OnlineGovernanceModal } from "../shared/online-governance-modal";
+import { RoomLeaveButton } from "../shared/room-leave-button";
+import { MafiaHostDock, MafiaPlayerDock } from "./mafia-docks";
+import { MafiaLobby } from "./mafia-lobby";
+import {
+  MafiaPhaseIntroModal,
+  MafiaRoleReminderModal,
+  MafiaSelfEliminationModal,
+} from "./mafia-overlays";
 
 import { MafiaDay } from "./mafia-day";
 import { MafiaFinished } from "./mafia-finished";
 import { MafiaNight } from "./mafia-night";
 import { MafiaNightResult } from "./mafia-night-result";
-import {
-  getMafiaRoleMeta,
-  MafiaRoleCardContent,
-} from "./mafia-role-card-content";
 import { MafiaRoleReveal } from "./mafia-role-reveal";
 import type { MafiaPublicState } from "./mafia-types";
 import { useMafiaAudio } from "./use-mafia-audio";
@@ -44,6 +56,8 @@ import { useMafiaAudio } from "./use-mafia-audio";
 type MafiaExperienceProps = {
   roomCode: string;
   view: "room" | "game";
+  uiVariant?: "friends" | "online";
+  visibility?: RoomVisibility;
 };
 
 const MAFIA_MODAL_TIMINGS_MS = {
@@ -51,9 +65,9 @@ const MAFIA_MODAL_TIMINGS_MS = {
   roleReminder: 2000,
   dayResultAutoShow: 5000,
   phaseIntro: {
-    night: 5000,
-    day: 5000,
-    tiebreak: 3000,
+    night: 9000,
+    day: 9000,
+    tiebreak: 6000,
   },
 } as const;
 
@@ -62,7 +76,12 @@ const MAFIA_MODAL_TIMINGS_MS = {
 // commits — for now we render a placeholder once room.status flips to
 // PLAYING / FINISHED so the host's "Start" still has somewhere to
 // land while the rest of the screens are built.
-export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
+export function MafiaExperience({
+  roomCode,
+  view,
+  uiVariant = "friends",
+  visibility = "PRIVATE",
+}: MafiaExperienceProps) {
   const router = useRouter();
   const { t } = useI18n();
   const normalizedRoomCode = roomCode.toUpperCase();
@@ -83,6 +102,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   const [roleModalVisible, setRoleModalVisible] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [kickedModalOpen, setKickedModalOpen] = useState(false);
+  const [dismissedKickProposalId, setDismissedKickProposalId] = useState<
+    string | null
+  >(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [showFinalResults, setShowFinalResults] = useState(false);
   const [phaseIntro, setPhaseIntro] = useState<{
@@ -537,64 +559,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       : null,
   });
 
-  const selfEliminationModal = eliminatedModalOpen ? (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay backdrop-blur-md sm:items-center"
-    >
-      <div className="absolute inset-0" />
-      <div
-        className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-bad/40 bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%), linear-gradient(180deg, rgba(239,68,68,0.04) 0%, rgba(11,13,18,0) 60%)",
-        }}
-      >
-        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
-
-        <div className="px-6 pt-6 text-center">
-          <div className="mx-auto grid h-20 w-20 place-items-center rounded-full border border-bad/30 bg-bad/10">
-            <svg
-              width="38"
-              height="38"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-bad"
-              aria-hidden
-            >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="15" y1="9" x2="9" y2="15" />
-              <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-          </div>
-          <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-bad">
-            {t("eliminatsiya")}
-          </p>
-          <h2 className="mt-2 text-2xl font-bold text-ink-primary">
-            {t("siz_oyindan_chiqdingiz")}
-          </h2>
-          <p className="mt-3 text-sm leading-7 text-ink-secondary">
-            {t("siz_endi_bu_raundda_qatnasha_df26")}
-          </p>
-        </div>
-
-        <div className="px-5 pt-5 pb-5">
-          <button
-            onClick={() => setEliminatedModalOpen(false)}
-            className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98]"
-          >
-            {t("kuzatishda_davom_etish")}
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
-  const myRoleMeta = getMafiaRoleMeta(roomState?.me?.role ?? null);
+  const selfEliminationModal = (
+    <MafiaSelfEliminationModal
+      open={eliminatedModalOpen}
+      onClose={() => setEliminatedModalOpen(false)}
+    />
+  );
   const showRoleReminder =
     roomState?.room.status === "PLAYING" &&
     roomState?.game.phase !== "ASSIGN_ROLES" &&
@@ -615,17 +585,13 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
     roomState?.game.phase === "DAY_RESULT" &&
     !!roomState?.game.winner;
   const isPending = (actionKey: string) => pendingAction === actionKey;
-  const {
-    browserOnline,
-    showRecoveryModal,
-    retryNow,
-    reloadPage,
-  } = useRealtimeConnectionRecovery({
-    enabled: !!sessionId,
-    connected: socketConnected,
-    onReconnect: reconnectSocket,
-    onRefreshState: refreshState,
-  });
+  const { browserOnline, showRecoveryModal, retryNow, reloadPage } =
+    useRealtimeConnectionRecovery({
+      enabled: !!sessionId,
+      connected: socketConnected,
+      onReconnect: reconnectSocket,
+      onRefreshState: refreshState,
+    });
   const connectionFeedback = (
     <RealtimeConnectionFeedback
       connected={socketConnected}
@@ -635,121 +601,22 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       onReloadPage={reloadPage}
     />
   );
-  const roleReminderModal =
-    roleModalVisible && roomState?.me?.role && myRoleMeta ? (
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={`fixed inset-0 z-50 flex items-end justify-center bg-bg-overlay/90 backdrop-blur-md transition duration-200 sm:items-center ${
-          roleModalOpen ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <div
-          className="absolute inset-0"
-          onClick={() => setRoleModalOpen(false)}
-        />
-        <div
-          className={`relative z-10 w-full max-w-xl px-5 transition duration-200 sm:px-0 ${
-            roleModalOpen
-              ? "translate-y-0 scale-100 opacity-100"
-              : "translate-y-3 scale-[0.98] opacity-0"
-          }`}
-        >
-          <div
-            className="overflow-hidden rounded-3xl border border-line-strong bg-bg-surface shadow-pop"
-            style={{ backgroundImage: myRoleMeta.bgGradient }}
-          >
-            <MafiaRoleCardContent state={roomState} className="py-10" />
-          </div>
-        </div>
-      </div>
-    ) : null;
-  const phaseIntroArt = phaseIntro
-    ? phaseIntro.kind === "night"
-      ? "/mafia/night-banner.webp"
-      : phaseIntro.kind === "day"
-        ? "/mafia/day-banner.webp"
-        : null
-    : null;
-  const phaseIntroModal = phaseIntro ? (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-bg-overlay/90 px-5 backdrop-blur-md"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(247,181,79,0.16),transparent_40%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.06),transparent_35%)]" />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-line-strong bg-bg-surface text-center shadow-pop">
-        {phaseIntroArt ? (
-          <div className="relative">
-            <div className="relative aspect-[4/3] w-full">
-              <Image
-                src={phaseIntroArt}
-                alt={
-                  phaseIntro.kind === "night"
-                    ? t("tun_boshlanmoqda")
-                    : phaseIntro.kind === "tiebreak"
-                      ? t("qayta_ovoz_boshlanmoqda")
-                      : t("kun_boshlanmoqda")
-                }
-                fill
-                sizes="(max-width: 640px) 90vw, 420px"
-                className="object-cover"
-              />
-            </div>
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg-surface/85 via-transparent to-transparent" />
-          </div>
-        ) : null}
-        <div className="px-6 pb-7 pt-5">
-          {phaseIntro.kind === "tiebreak" ? (
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-brand/35 bg-brand/12 text-brand">
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M12 3v18" />
-                <path d="M7 8h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8" />
-              </svg>
-            </div>
-          ) : null}
-          <p className="text-xs font-medium uppercase tracking-[0.28em] text-brand">
-            {phaseIntro.kind === "night"
-              ? t("tun_boshlanmoqda")
-              : phaseIntro.kind === "tiebreak"
-                ? t("qayta_ovoz_boshlanmoqda")
-                : t("kun_boshlanmoqda")}
-          </p>
-          {/* <h2 className="mt-3 text-3xl font-bold text-ink-primary">
-            {phaseIntro.kind === "night"
-              ? t("tun_yaqin")
-              : phaseIntro.kind === "tiebreak"
-                ? t("ovozlar_teng_boldi")
-                : t("kun_yorishdi")}
-          </h2> */}
-          <p className="mt-3 text-sm leading-7 text-ink-secondary">
-            {phaseIntro.kind === "night"
-              ? t("tun_yaqin_tavsifi")
-              : phaseIntro.kind === "tiebreak"
-                ? meIsTiebreakCandidate && !allAliveAreTied
-                  ? t("siz_qayta_ovoz_nomzodisiz")
-                  : t("ovozlar_teng_boldi_qayta_ovoz_bering")
-                : t("kun_yorishdi_tavsifi")}
-          </p>
-          <p className="mt-5 text-xs text-ink-muted">
-            {phaseIntro.kind === "tiebreak"
-              ? t("jarayon_3_soniyadan_keyin_davom_etadi")
-              : t("jarayon_5_soniyadan_keyin_davom_etadi")}
-          </p>
-        </div>
-      </div>
-    </div>
+  const roleReminderModal = roomState ? (
+    <MafiaRoleReminderModal
+      visible={roleModalVisible}
+      open={roleModalOpen}
+      state={roomState}
+      onClose={() => setRoleModalOpen(false)}
+    />
   ) : null;
+  const phaseIntroModal = (
+    <MafiaPhaseIntroModal
+      phaseIntro={phaseIntro}
+      meIsTiebreakCandidate={meIsTiebreakCandidate}
+      allAliveAreTied={allAliveAreTied}
+      onClose={() => setPhaseIntro(null)}
+    />
+  );
   const playingEndGameModal = (
     <ConfirmModal
       open={endGameConfirmOpen}
@@ -767,9 +634,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center text-sm text-ink-muted">
+      <main>
         <TelegramChrome backHref="/dashboard" />
-        {t("yuklanmoqda_2")}
+        <LoadingState label={t("yuklanmoqda_2")} />
       </main>
     );
   }
@@ -779,6 +646,60 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   }
 
   const { room, players, me, game } = roomState;
+  const activeGovernanceProposal =
+    roomState.governance.kickProposal?.id === dismissedKickProposalId
+      ? null
+      : roomState.governance.kickProposal;
+  const onlineChatFloating =
+    uiVariant === "online" && me ? (
+      <OnlineChat
+        meId={me.id}
+        messages={roomState.chat.messages}
+        onSend={(text) => emit("chat:send", { text })}
+        bottomOffsetPx={
+          room.status === "LOBBY" ||
+          game.phase === "ASSIGN_ROLES" ||
+          game.phase === "NIGHT_RESULT" ||
+          ((game.phase === "DAY_DISCUSSION" || game.phase === "DAY_RESULT") &&
+            room.status === "PLAYING")
+            ? 110
+            : 16
+        }
+      />
+    ) : null;
+  const onlineChatAction =
+    uiVariant === "online" && me ? (
+      <OnlineChat
+        meId={me.id}
+        messages={roomState.chat.messages}
+        onSend={(text) => emit("chat:send", { text })}
+        floating={false}
+      />
+    ) : null;
+  const onlineHeaderAction =
+    me &&
+    room.status === "PLAYING" &&
+    (uiVariant === "online" || !me.isHost) ? (
+      <RoomLeaveButton onClick={() => setLeaveConfirmOpen(true)} />
+    ) : null;
+  const onlineGovernanceModal =
+    uiVariant === "online" && me ? (
+      <OnlineGovernanceModal
+        proposal={activeGovernanceProposal}
+        mePlayerId={me.id}
+        onClose={() =>
+          setDismissedKickProposalId(activeGovernanceProposal?.id ?? null)
+        }
+        onApprove={(proposalId) => {
+          setDismissedKickProposalId(proposalId);
+          emit("online:vote_kick", { proposalId, approve: true });
+        }}
+        onReject={(proposalId) => {
+          setDismissedKickProposalId(proposalId);
+          emit("online:vote_kick", { proposalId, approve: false });
+        }}
+      />
+    ) : null;
 
   // Visitor (link recipient) hasn't joined yet — surface the right
   // call-to-action depending on room status and auth state. Mirrors
@@ -786,32 +707,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
   if (!me) {
     if (kickedModalOpen) {
       return (
-        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay px-4 backdrop-blur-md"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="w-full max-w-md rounded-3xl border border-bad/40 bg-bg-surface p-6 text-center shadow-pop">
-              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-bad/40 bg-bad/10 text-2xl text-bad">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-              </div>
-              <h3 className="mt-4 text-xl font-bold text-ink-primary">
-                {t("sizni_oyindan_chiqarishdi")}
-              </h3>
-              <p className="mt-3 text-sm leading-7 text-ink-secondary">
-                {t("host_sizni_oyindan_chiqarib_yubordi_f51a")}
-              </p>
-              <button
-                type="button"
-                onClick={() => router.push("/dashboard" as Route)}
-                className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-              >
-                {t("bosh_sahifa")}
-              </button>
-            </div>
-          </div>
-        </main>
+        <KickedFromRoomState
+          onGoHome={() => router.push("/dashboard" as Route)}
+        />
       );
     }
 
@@ -819,111 +717,43 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       const finished =
         room.status === "FINISHED" || room.status === "CANCELLED";
       return (
-        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
-          <TelegramChrome backHref="/dashboard" />
-          <div className="mx-auto max-w-md pt-6">
-            <p
-              className={`text-xs font-medium uppercase tracking-wider ${
-                finished ? "text-bad" : "text-warn"
-              }`}
-            >
-              {finished ? t("yopiq") : t("boshlangan")}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold">
-              {finished
-                ? t("bu_oyin_yakunlangan")
-                : t("bu_oyin_allaqachon_boshlangan")}
-            </h1>
-            <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              {finished
-                ? t("yangi_oyin_yarating_yoki_ochiq_e3ed")
-                : t("oyin_boshlanganidan_keyin_yangi_oyinchi_6d01")}
-            </p>
-            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-              <p className="text-xs text-ink-muted">{t("room_code")}</p>
-              <p className="mt-1 font-mono text-2xl font-semibold uppercase tracking-[0.34em]">
-                #{roomCode}
-              </p>
-            </div>
-            <button
-              onClick={() => router.push("/dashboard" as Route)}
-              className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              {t("bosh_sahifa")}
-            </button>
-          </div>
-        </main>
+        <UnavailableRoomState
+          roomCode={roomCode}
+          finished={finished}
+          startedDescriptionKey="oyin_boshlanganidan_keyin_yangi_oyinchi_6d01"
+          onGoHome={() => router.push("/dashboard" as Route)}
+          backHref="/dashboard"
+          prefixHash
+          trackingClassName="tracking-[0.34em]"
+        />
       );
     }
 
     if (!getAuthToken()) {
       const loginHref = `/login?redirect=${encodeURIComponent(`/room/${roomCode}`)}`;
       return (
-        <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
-          <TelegramChrome backHref="/dashboard" />
-          <div className="mx-auto max-w-md pt-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("taklif_mafia")}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold">
-              {t("roomga_kirish_uchun_tizimga_kiring")}
-            </h1>
-            <p className="mt-3 text-sm leading-7 text-ink-secondary">
-              {t("roomga_qoshilish_uchun_bot_orqali_123f")}
-            </p>
-            <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-              <p className="text-xs text-ink-muted">{t("room_code")}</p>
-              <p className="mt-1 font-mono text-2xl font-semibold uppercase tracking-[0.34em]">
-                #{roomCode}
-              </p>
-            </div>
-            <a
-              href={loginHref}
-              className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              <span aria-hidden>✈</span>
-              {t("telegramda_kirish")}
-            </a>
-          </div>
-        </main>
+        <LoginPromptRoomState
+          roomCode={roomCode}
+          pretitleKey="taklif_mafia"
+          loginHref={loginHref}
+          backHref="/dashboard"
+          prefixHash
+          trackingClassName="tracking-[0.34em]"
+        />
       );
     }
 
     return (
-      <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
-        <div className="mx-auto max-w-md pt-6">
-          <p className="text-xs font-medium uppercase tracking-wider text-brand">
-            {t("taklif_mafia")}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold">
-            {t("roomga_kirish_uchun_nickname_yozing")}
-          </h1>
-          <div className="mt-5 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-            <p className="text-xs text-ink-muted">{t("room_code")}</p>
-            <p className="mt-1 font-mono text-2xl font-semibold uppercase tracking-[0.34em]">
-              #{roomCode}
-            </p>
-          </div>
-          <form onSubmit={handleJoin} className="mt-5 grid gap-3">
-            <input
-              value={joinName}
-              onChange={(e) => setJoinName(e.target.value)}
-              required
-              maxLength={20}
-              className="h-14 rounded-2xl border border-line-strong bg-bg-surface px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
-              placeholder={t("nickname")}
-            />
-            <button className="flex h-14 items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]">
-              {t("roomga_kirish")}
-            </button>
-          </form>
-          {error ? (
-            <p className="mt-3 rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
-              {error}
-            </p>
-          ) : null}
-        </div>
-      </main>
+      <JoinWithNicknameRoomState
+        roomCode={roomCode}
+        pretitleKey="taklif_mafia"
+        joinName={joinName}
+        error={error}
+        onJoinNameChange={setJoinName}
+        onSubmit={handleJoin}
+        prefixHash
+        trackingClassName="tracking-[0.34em]"
+      />
     );
   }
 
@@ -935,18 +765,28 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           backHref="/dashboard"
           closingConfirmation={closingConfirmation}
         />
-        <Lobby
+        <MafiaLobby
           room={room}
           game={game}
           players={players}
           me={me}
+          visibility={visibility}
           connectionFeedback={connectionFeedback}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
           startGamePending={isPending("lobby:start_game")}
+          readyPending={isPending("lobby:toggle_ready")}
+          uiVariant={uiVariant}
           onStartGame={() => emitWithPending("lobby:start_game", "start_game")}
-          onLeaveRoom={() => setLeaveConfirmOpen(true)}
+          onToggleReady={() =>
+            emitWithPending("lobby:toggle_ready", "toggle_ready")
+          }
+          onLeaveRoom={() => {
+            setLeaveConfirmOpen(true);
+          }}
           onRequestKickPlayer={(player) => setKickTarget(player)}
           onRequestEndGame={() => setEndGameConfirmOpen(true)}
         />
+        {onlineGovernanceModal}
         <ConfirmModal
           open={endGameConfirmOpen}
           title={t("roomni_ochirishni_tasdiqlang")}
@@ -964,16 +804,36 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           open={!!kickTarget}
           title={
             kickTarget
-              ? t("name_ni_chiqarish_2", { name: kickTarget.name })
+              ? t(
+                  uiVariant === "online"
+                    ? "name_ni_chiqarish_2"
+                    : "name_ni_chiqarish_2",
+                  { name: kickTarget.name },
+                )
               : ""
           }
-          description={t("bu_oyinchi_roomdan_chiqarib_yuboriladi_e248")}
-          confirmLabel={t("chiqarish")}
+          description={
+            uiVariant === "online"
+              ? t("name_ni_oyindan_chiqarishga_rozi_bolasizmi", {
+                  name: kickTarget?.name ?? t("oyinchi_2"),
+                })
+              : t("bu_oyinchi_roomdan_chiqarib_yuboriladi_e248")
+          }
+          confirmLabel={
+            uiVariant === "online"
+              ? t("kick_uchun_ovoz_boshlash")
+              : t("chiqarish")
+          }
           cancelLabel={t("bekor_qilish")}
           tone="danger"
           onConfirm={() => {
             if (kickTarget) {
-              emit("kick_player", { targetPlayerId: kickTarget.id });
+              emit(
+                uiVariant === "online"
+                  ? "online:request_kick_vote"
+                  : "kick_player",
+                { targetPlayerId: kickTarget.id },
+              );
             }
             setKickTarget(null);
           }}
@@ -1010,12 +870,16 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         <MafiaRoleReveal
           state={roomState}
           confirmPending={isPending("mafia:confirm_role")}
+          headerAction={onlineHeaderAction}
           onConfirm={() =>
             emitWithPending("mafia:confirm_role", "mafia:confirm_role")
           }
         />
         <MafiaHostDock
           state={roomState}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
+          suppressPrimaryAction={uiVariant === "online"}
+          showManagementHeader={uiVariant !== "online"}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1041,6 +905,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <MafiaPlayerDock
           state={roomState}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1060,6 +925,7 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           }
         />
         {playingEndGameModal}
+        {onlineGovernanceModal}
         {selfEliminationModal}
         {phaseIntroModal}
         {connectionFeedback}
@@ -1078,6 +944,18 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <MafiaNight
           state={roomState}
+          headerAction={onlineHeaderAction}
+          onReportPlayer={
+            uiVariant === "online" && me.isAlive
+              ? (targetPlayerId) => {
+                  const target = players.find(
+                    (player) => player.id === targetPlayerId,
+                  );
+                  if (!target) return;
+                  setKickTarget({ id: target.id, name: target.name });
+                }
+              : undefined
+          }
           submitPending={isPending("mafia:submit_night_action")}
           confirmNightPending={isPending("mafia:confirm_night_action")}
           onConfirmNight={() =>
@@ -1095,7 +973,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             )
           }
         />
+        {onlineChatFloating}
         {playingEndGameModal}
+        {onlineGovernanceModal}
         {selfEliminationModal}
         {roleReminderModal}
         {phaseIntroModal}
@@ -1112,9 +992,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           backHref="/dashboard"
           closingConfirmation={closingConfirmation}
         />
-        <MafiaNightResult state={roomState} />
+        <MafiaNightResult state={roomState} headerAction={onlineHeaderAction} />
         <MafiaHostDock
           state={roomState}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
+          suppressPrimaryAction={uiVariant === "online"}
+          showManagementHeader={uiVariant !== "online"}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1139,9 +1022,11 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           }
         />
         {playingEndGameModal}
+        {onlineGovernanceModal}
         {selfEliminationModal}
         <MafiaPlayerDock
           state={roomState}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1199,6 +1084,18 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         />
         <MafiaDay
           state={roomState}
+          headerAction={onlineHeaderAction}
+          onReportPlayer={
+            uiVariant === "online" && me.isAlive
+              ? (targetPlayerId) => {
+                  const target = players.find(
+                    (player) => player.id === targetPlayerId,
+                  );
+                  if (!target) return;
+                  setKickTarget({ id: target.id, name: target.name });
+                }
+              : undefined
+          }
           voteSubmitPending={isPending("mafia:submit_day_vote")}
           confirmVotePending={isPending("mafia:confirm_day_vote")}
           onConfirmVote={() =>
@@ -1214,6 +1111,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         {game.phase === "DAY_VOTE" || game.phase === "DAY_TIEBREAK" ? null : (
           <MafiaHostDock
             state={roomState}
+            chatAction={uiVariant === "online" ? onlineChatAction : null}
+            suppressPrimaryAction={uiVariant === "online"}
+            showManagementHeader={uiVariant !== "online"}
             showRoleReminder={showRoleReminder}
             showVoteConfirmAction={showVoteConfirmAction}
             showNightSelectionStatus={showNightSelectionStatus}
@@ -1228,7 +1128,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             onEndGame={() => setEndGameConfirmOpen(true)}
             onOpenRole={() => setRoleModalOpen(true)}
             onConfirmVote={() =>
-              emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
+              emitWithPending(
+                "mafia:confirm_day_vote",
+                "mafia:confirm_day_vote",
+              )
             }
             onConfirmNight={() =>
               emitWithPending(
@@ -1239,10 +1142,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
           />
         )}
         {playingEndGameModal}
+        {onlineGovernanceModal}
         {selfEliminationModal}
         {game.phase === "DAY_VOTE" || game.phase === "DAY_TIEBREAK" ? null : (
           <MafiaPlayerDock
             state={roomState}
+            chatAction={uiVariant === "online" ? onlineChatAction : null}
             showRoleReminder={showRoleReminder}
             showVoteConfirmAction={showVoteConfirmAction}
             showNightSelectionStatus={showNightSelectionStatus}
@@ -1252,7 +1157,10 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
             onViewResults={() => setShowFinalResults(true)}
             onOpenRole={() => setRoleModalOpen(true)}
             onConfirmVote={() =>
-              emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
+              emitWithPending(
+                "mafia:confirm_day_vote",
+                "mafia:confirm_day_vote",
+              )
             }
             onConfirmNight={() =>
               emitWithPending(
@@ -1281,12 +1189,16 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
       <>
         <TelegramChrome backHref="/dashboard" />
         <MafiaFinished state={roomState} />
+        {onlineGovernanceModal}
         {selfEliminationModal}
         <CancelledRoomModal
           open={cancelledModalOpen}
           onDismiss={() => {
-            setCancelledModalOpen(false);
-            router.push("/dashboard" as Route);
+            if (typeof window !== "undefined") {
+              window.location.replace("/dashboard");
+              return;
+            }
+            router.replace("/dashboard" as Route);
           }}
         />
         {connectionFeedback}
@@ -1307,9 +1219,12 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
           <header className="flex items-center justify-between py-3">
             <p className="text-sm font-semibold">{t("mafia_2")}</p>
-            <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 text-xs text-ink-secondary">
-              {room.code}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 text-xs text-ink-secondary">
+                {room.code}
+              </span>
+              {onlineHeaderAction}
+            </div>
           </header>
 
           <section className="mt-6 grid gap-4 rounded-2xl border border-dashed border-line-strong bg-bg-surface p-6 text-center">
@@ -1352,574 +1267,9 @@ export function MafiaExperience({ roomCode, view }: MafiaExperienceProps) {
         }}
         onClose={() => setEndGameConfirmOpen(false)}
       />
+      {onlineGovernanceModal}
       {selfEliminationModal}
       {connectionFeedback}
     </>
-  );
-}
-
-function MafiaHostDock({
-  state,
-  showRoleReminder,
-  showVoteConfirmAction,
-  showNightSelectionStatus,
-  showResultsAction,
-  primaryPending,
-  confirmVotePending,
-  confirmNightPending,
-  onViewResults,
-  onAdvancePhase,
-  onEndGame,
-  onOpenRole,
-  onConfirmVote,
-  onConfirmNight,
-}: {
-  state: MafiaPublicState;
-  showRoleReminder: boolean;
-  showVoteConfirmAction: boolean;
-  showNightSelectionStatus: boolean;
-  showResultsAction: boolean;
-  primaryPending: boolean;
-  confirmVotePending: boolean;
-  confirmNightPending: boolean;
-  onViewResults: () => void;
-  onAdvancePhase: () => void;
-  onEndGame: () => void;
-  onOpenRole: () => void;
-  onConfirmVote: () => void;
-  onConfirmNight: () => void;
-}) {
-  const { t } = useI18n();
-  const me = state.me;
-  if (!me?.isHost || state.room.status !== "PLAYING") return null;
-  if (state.game.phase === "ASSIGN_ROLES" && !me.roleConfirmed) return null;
-
-  const primaryLabel = getMafiaHostPrimaryLabel(state);
-  const primaryDisabled =
-    state.game.phase === "ASSIGN_ROLES" &&
-    state.game.roleConfirmations.confirmed < state.game.roleConfirmations.total;
-  const confirmDisabled =
-    !state.votes.myTargetPlayerId || state.votes.confirmedByMe;
-  const nightConfirmDisabled =
-    !state.me?.pendingNightTargetId || state.night.confirmedByMe;
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-      <div className="mx-auto max-w-2xl rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-medium text-ink-muted">
-            {t("host_paneli")}
-          </p>
-          <button
-            type="button"
-            onClick={onEndGame}
-            className="text-xs font-medium text-bad transition active:scale-[0.98]"
-          >
-            {t("oyinni_tugatish")}
-          </button>
-        </div>
-        {primaryLabel ? (
-          <div
-            className={`grid gap-2 ${
-              showRoleReminder
-                ? "grid-cols-[minmax(0,1fr)_auto]"
-                : "grid-cols-1"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={onAdvancePhase}
-              disabled={primaryDisabled || primaryPending}
-              className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-            >
-              {primaryPending ? (
-                <span className="inline-flex items-center gap-2">
-                  <Spinner />
-                  {t("yuborilmoqda")}
-                </span>
-              ) : (
-                t(primaryLabel)
-              )}
-            </button>
-            {showRoleReminder ? (
-              <button
-                type="button"
-                onClick={onOpenRole}
-                className="flex h-12 min-w-[132px] items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
-              >
-                {t("mening_kartam")}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {!primaryLabel && showResultsAction ? (
-          <div
-            className={`mt-2 grid gap-2 ${
-              showRoleReminder
-                ? "grid-cols-[minmax(0,1fr)_auto]"
-                : "grid-cols-1"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={onViewResults}
-              className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-            >
-              {t("oyin_natijalarini_korish")}
-            </button>
-            {showRoleReminder ? (
-              <button
-                type="button"
-                onClick={onOpenRole}
-                className="flex h-12 min-w-[132px] items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
-              >
-                {t("mening_kartam")}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {!primaryLabel &&
-        !showResultsAction &&
-        (showVoteConfirmAction ||
-          showNightSelectionStatus ||
-          showRoleReminder) ? (
-          <div
-            className={`mt-2 grid gap-2 ${
-              (showVoteConfirmAction || showNightSelectionStatus) &&
-              showRoleReminder
-                ? "grid-cols-[minmax(0,1fr)_auto]"
-                : "grid-cols-1"
-            }`}
-          >
-            {showVoteConfirmAction ? (
-              <button
-                type="button"
-                onClick={onConfirmVote}
-                disabled={confirmDisabled || confirmVotePending}
-                className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-              >
-                {confirmVotePending ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Spinner />
-                    {t("yuborilmoqda")}
-                  </span>
-                ) : state.votes.confirmedByMe ? (
-                  t("tasdiqlandi")
-                ) : (
-                  t("ovozni_tasdiqlash")
-                )}
-              </button>
-            ) : showNightSelectionStatus ? (
-              <button
-                type="button"
-                onClick={onConfirmNight}
-                disabled={nightConfirmDisabled || confirmNightPending}
-                className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-              >
-                {confirmNightPending ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Spinner />
-                    {t("yuborilmoqda")}
-                  </span>
-                ) : state.night.confirmedByMe ? (
-                  t("tasdiqlandi")
-                ) : state.me?.pendingNightTargetId ? (
-                  t("tungi_qarorni_tasdiqlash")
-                ) : (
-                  t("nishonni_tanlang")
-                )}
-              </button>
-            ) : null}
-            {showRoleReminder ? (
-              <button
-                type="button"
-                onClick={onOpenRole}
-                className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98] ${
-                  showVoteConfirmAction || showNightSelectionStatus
-                    ? "min-w-[132px]"
-                    : "w-full"
-                }`}
-              >
-                {t("mening_kartam")}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function MafiaPlayerDock({
-  state,
-  showRoleReminder,
-  showVoteConfirmAction,
-  showNightSelectionStatus,
-  showResultsAction,
-  confirmVotePending,
-  confirmNightPending,
-  onViewResults,
-  onOpenRole,
-  onConfirmVote,
-  onConfirmNight,
-}: {
-  state: MafiaPublicState;
-  showRoleReminder: boolean;
-  showVoteConfirmAction: boolean;
-  showNightSelectionStatus: boolean;
-  showResultsAction: boolean;
-  confirmVotePending: boolean;
-  confirmNightPending: boolean;
-  onViewResults: () => void;
-  onOpenRole: () => void;
-  onConfirmVote: () => void;
-  onConfirmNight: () => void;
-}) {
-  const { t } = useI18n();
-  const me = state.me;
-  if (!me || me.isHost || !showRoleReminder) return null;
-
-  const confirmDisabled =
-    !state.votes.myTargetPlayerId || state.votes.confirmedByMe;
-  const nightConfirmDisabled =
-    !state.me?.pendingNightTargetId || state.night.confirmedByMe;
-
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-      <div
-        className={`mx-auto grid max-w-2xl gap-2 ${
-          showVoteConfirmAction || showNightSelectionStatus || showResultsAction
-            ? "grid-cols-[minmax(0,1fr)_auto]"
-            : "grid-cols-1"
-        }`}
-      >
-        {showResultsAction ? (
-          <button
-            type="button"
-            onClick={onViewResults}
-            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-          >
-            {t("oyin_natijalarini_korish")}
-          </button>
-        ) : showVoteConfirmAction ? (
-          <button
-            type="button"
-            onClick={onConfirmVote}
-            disabled={confirmDisabled || confirmVotePending}
-            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-          >
-            {confirmVotePending ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner />
-                {t("yuborilmoqda")}
-              </span>
-            ) : state.votes.confirmedByMe ? (
-              t("tasdiqlandi")
-            ) : (
-              t("ovozni_tasdiqlash")
-            )}
-          </button>
-        ) : showNightSelectionStatus ? (
-          <button
-            type="button"
-            onClick={onConfirmNight}
-            disabled={nightConfirmDisabled || confirmNightPending}
-            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-          >
-            {confirmNightPending ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner />
-                {t("yuborilmoqda")}
-              </span>
-            ) : state.night.confirmedByMe ? (
-              t("tasdiqlandi")
-            ) : state.me?.pendingNightTargetId ? (
-              t("tungi_qarorni_tasdiqlash")
-            ) : (
-              t("nishonni_tanlang")
-            )}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={onOpenRole}
-          className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98] ${
-            showVoteConfirmAction || showNightSelectionStatus
-              ? "min-w-[132px]"
-              : "w-full"
-          }`}
-        >
-          {t("mening_kartam")}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function getMafiaHostPrimaryLabel(
-  state: MafiaPublicState | null,
-): string | null {
-  if (!state?.me?.isHost || state.room.status !== "PLAYING") return null;
-  if (state.game.phase === "DAY_RESULT" && state.game.winner) return null;
-  switch (state.game.phase) {
-    case "ASSIGN_ROLES":
-      return "tunni_boshlash";
-    case "NIGHT_RESULT":
-      return "kunni_boshlash";
-    case "DAY_DISCUSSION":
-      return "ovoz_berishni_boshlash";
-    case "DAY_RESULT":
-      return "keyingi_tunni_boshlash";
-    default:
-      return null;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Lobby view
-// ─────────────────────────────────────────────────────────────────────
-
-function Lobby({
-  room,
-  game,
-  players,
-  me,
-  connectionFeedback,
-  startGamePending,
-  onStartGame,
-  onLeaveRoom,
-  onRequestKickPlayer,
-  onRequestEndGame,
-}: {
-  room: MafiaPublicState["room"];
-  game: MafiaPublicState["game"];
-  players: MafiaPublicState["players"];
-  me: MafiaPublicState["me"];
-  connectionFeedback: ReactNode;
-  startGamePending: boolean;
-  onStartGame: () => void;
-  onLeaveRoom: () => void;
-  onRequestKickPlayer: (player: { id: string; name: string }) => void;
-  onRequestEndGame: () => void;
-}) {
-  const router = useRouter();
-  const { t } = useI18n();
-  const config = game.config;
-  const specialRoles =
-    config.mafiaCount +
-    (config.hasSheriff ? 1 : 0) +
-    (config.hasDoctor ? 1 : 0);
-  const minPlayers = specialRoles + 1;
-  const canStart = players.length >= minPlayers;
-  const inviteUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/room/${room.code}`
-      : "";
-
-  return (
-    <main className="min-h-screen bg-bg-base text-ink-primary pb-32">
-      <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
-        <header className="flex items-center justify-between py-3 lg:py-5">
-          <button
-            type="button"
-            onClick={() => router.push("/dashboard" as Route)}
-            className="flex items-center gap-1 text-sm font-medium text-ink-secondary"
-          >
-            ← {t("bosh_sahifa")}
-          </button>
-          <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 text-xs">
-            {t("lobby")}
-          </span>
-        </header>
-
-        {/* Room code card */}
-        <section className="mt-2 rounded-3xl border border-line-subtle bg-bg-surface p-5">
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {t("room_code")}
-          </p>
-          <p className="mt-1 font-mono text-3xl font-bold tracking-[0.4em]">
-            {room.code}
-          </p>
-          <p className="mt-2 text-xs text-ink-muted">
-            {t("players_maxplayers_oyinchi", {
-              players: players.length,
-              maxPlayers: room.maxPlayers,
-            })}
-          </p>
-
-          <LobbyShareActions
-            roomCode={room.code}
-            inviteUrl={inviteUrl}
-            gameLabel="Mafia"
-          />
-        </section>
-
-        {/* Composition preview */}
-        <section className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            {t("tarkib")}
-          </p>
-          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-            <CompositionChip label="Mafia" value={config.mafiaCount} />
-            <CompositionChip
-              label={t("komisar_2")}
-              value={config.hasSheriff ? 1 : 0}
-            />
-            <CompositionChip
-              label={t("doktor_2")}
-              value={config.hasDoctor ? 1 : 0}
-            />
-            <CompositionChip
-              label={t("aholi")}
-              value={Math.max(0, room.maxPlayers - specialRoles)}
-            />
-          </div>
-        </section>
-
-        {/* Players list */}
-        <section className="mt-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-base font-semibold">{t("oyinchilar")}</h2>
-            <p className="text-xs text-ink-muted">
-              {t("kamida_minplayers_kishi_readycount_ta_6b25", {
-                minPlayers,
-                readyCount: Math.min(players.length, minPlayers),
-              })}
-            </p>
-          </div>
-          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {players.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-3"
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-xs font-semibold uppercase text-brand">
-                  {p.name.slice(0, 2)}
-                </span>
-                <div className="flex-1 leading-tight">
-                  <p className="text-sm font-semibold">{p.name}</p>
-                  <p className="text-[11px] text-ink-muted">
-                    {me?.id === p.id
-                      ? t("siz_2")
-                      : p.online
-                        ? t("oyinchi_2")
-                        : t("tarmoqda_emas")}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                    p.online
-                      ? "bg-ok/15 text-ok"
-                      : "bg-bg-elevated text-ink-muted"
-                  }`}
-                >
-                  ● {p.online ? t("onlayn") : t("offlayn")}
-                </span>
-                {me?.isHost && p.id !== me.id && room.status === "LOBBY" ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onRequestKickPlayer({ id: p.id, name: p.name })
-                    }
-                    aria-label={t("name_ni_chiqarish", { name: p.name })}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <path d="M18 6L6 18" />
-                      <path d="M6 6l12 12" />
-                    </svg>
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {!me?.isHost ? (
-          <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center text-sm text-ink-secondary">
-            {t("host_oyinni_boshlashini_kuting_2")}
-          </p>
-        ) : null}
-      </div>
-
-      {/* Sticky bottom bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-        <div className="mx-auto max-w-2xl">
-          {me?.isHost ? (
-            <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-              <p className="mb-2 text-xs font-medium text-ink-muted">
-                {t("host_paneli")}
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={onStartGame}
-                  disabled={!canStart || startGamePending}
-                  className="flex h-12 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-                >
-                  {startGamePending ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Spinner />
-                      {t("yuborilmoqda")}
-                    </span>
-                  ) : canStart ? (
-                    t("oyinni_boshlash")
-                  ) : (
-                    t("count_ta_oyinchi_kerak", { count: minPlayers })
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={onRequestEndGame}
-                  className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
-                >
-                  {t("roomni_ochirish")}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-              <button
-                type="button"
-                onClick={onLeaveRoom}
-                className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad"
-              >
-                {t("roomdan_chiqish")}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {connectionFeedback}
-    </main>
-  );
-}
-
-function CompositionChip({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-line-strong bg-bg-base px-3 py-2">
-      <span className="text-ink-muted">{label}</span>
-      <span className="font-mono font-semibold text-ink-primary">{value}</span>
-    </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <span
-      aria-hidden
-      className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent opacity-80"
-    />
   );
 }

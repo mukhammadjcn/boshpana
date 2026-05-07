@@ -19,10 +19,12 @@ type Props = {
     action: MafiaNightActionType,
     targetPlayerId: string | null
   ) => void;
+  onReportPlayer?: (playerId: string) => void;
   submitPending?: boolean;
   confirmNightPending?: boolean;
   onConfirmNight?: () => void;
   onOpenRole?: () => void;
+  headerAction?: React.ReactNode;
 };
 
 type NightTone = "bad" | "warn" | "ok" | "muted";
@@ -93,10 +95,12 @@ function getRoleHeader(
 export function MafiaNight({
   state,
   onSubmit,
+  onReportPlayer,
   submitPending = false,
   confirmNightPending = false,
   onConfirmNight,
-  onOpenRole
+  onOpenRole,
+  headerAction
 }: Props) {
   const router = useRouter();
   const { t } = useI18n();
@@ -156,6 +160,7 @@ export function MafiaNight({
             {state.room.code}
           </span>
         }
+        headerAction={headerAction}
         footer={
           <div className="grid gap-2">
             <button
@@ -228,11 +233,14 @@ export function MafiaNight({
             {state.night.confirmations.confirmed} / {state.night.confirmations.total}
           </span>
         }
+        headerAction={headerAction}
       >
         <SpectatorPanel
           players={players}
           title={t("siz_olgansiz")}
           subtitle={t("tomoshabin_sifatida_tunni_kuzating_kimlar_1d03")}
+          onReportPlayer={onReportPlayer}
+          mePlayerId={me.id}
         />
       </GameActionModal>
     );
@@ -264,6 +272,7 @@ export function MafiaNight({
           {header.title}
         </span>
       }
+      headerAction={headerAction}
       footer={
         <div
           className={`grid gap-2 ${
@@ -310,6 +319,7 @@ export function MafiaNight({
           state={state}
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
+          onReportPlayer={onReportPlayer}
           submitPending={submitPending}
           tone="bad"
         />
@@ -319,6 +329,7 @@ export function MafiaNight({
           state={state}
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
+          onReportPlayer={onReportPlayer}
           submitPending={submitPending}
         />
       ) : null}
@@ -327,6 +338,7 @@ export function MafiaNight({
           state={state}
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
+          onReportPlayer={onReportPlayer}
           submitPending={submitPending}
           tone="ok"
         />
@@ -336,6 +348,7 @@ export function MafiaNight({
           state={state}
           aliveTargets={aliveTargets}
           onSubmit={onSubmit}
+          onReportPlayer={onReportPlayer}
           submitPending={submitPending}
           tone="muted"
         />
@@ -360,12 +373,14 @@ function MafiaView({
   state,
   aliveTargets,
   onSubmit,
+  onReportPlayer,
   submitPending = false,
   tone,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
+  onReportPlayer?: (playerId: string) => void;
   submitPending?: boolean;
   tone: NightTone;
 }) {
@@ -413,6 +428,8 @@ function MafiaView({
         targets={aliveTargets}
         selectedId={myTarget}
         onPick={(id) => onSubmit("MAFIA_KILL", id)}
+        onReportPlayer={onReportPlayer}
+        mePlayerId={me.id}
         excludeIds={[me.id, ...me.mafiaTeammates]}
         disabled={locked}
         submitPending={submitPending}
@@ -430,11 +447,13 @@ function SheriffView({
   state,
   aliveTargets,
   onSubmit,
+  onReportPlayer,
   submitPending = false
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
+  onReportPlayer?: (playerId: string) => void;
   submitPending?: boolean;
 }) {
   const { t } = useI18n();
@@ -499,6 +518,8 @@ function SheriffView({
         onPick={(id) =>
           onSubmit(mode === "CHECK" ? "SHERIFF_CHECK" : "SHERIFF_SHOOT", id)
         }
+        onReportPlayer={onReportPlayer}
+        mePlayerId={me.id}
         excludeIds={[me.id]}
         disabled={locked}
         submitPending={submitPending}
@@ -516,12 +537,14 @@ function DoctorView({
   state,
   aliveTargets,
   onSubmit,
+  onReportPlayer,
   submitPending = false,
   tone,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
+  onReportPlayer?: (playerId: string) => void;
   submitPending?: boolean;
   tone: NightTone;
 }) {
@@ -544,6 +567,8 @@ function DoctorView({
         targets={aliveTargets}
         selectedId={me.pendingNightTargetId}
         onPick={(id) => onSubmit("DOCTOR_HEAL", id)}
+        onReportPlayer={onReportPlayer}
+        mePlayerId={me.id}
         excludeIds={excludeIds}
         disabled={locked}
         submitPending={submitPending}
@@ -561,12 +586,14 @@ function CitizenView({
   state,
   aliveTargets,
   onSubmit,
+  onReportPlayer,
   submitPending = false,
   tone,
 }: {
   state: MafiaPublicState;
   aliveTargets: MafiaPublicState["players"];
   onSubmit: Props["onSubmit"];
+  onReportPlayer?: (playerId: string) => void;
   submitPending?: boolean;
   tone: NightTone;
 }) {
@@ -589,6 +616,8 @@ function CitizenView({
       targets={aliveTargets}
       selectedId={me.pendingNightTargetId}
       onPick={(id) => onSubmit(action, id)}
+      onReportPlayer={onReportPlayer}
+      mePlayerId={me.id}
       excludeIds={[me.id]}
       disabled={locked}
       submitPending={submitPending}
@@ -606,6 +635,8 @@ function TargetGrid({
   targets,
   selectedId,
   onPick,
+  onReportPlayer,
+  mePlayerId,
   excludeIds,
   disabled = false,
   submitPending = false,
@@ -615,6 +646,8 @@ function TargetGrid({
   targets: MafiaPublicState["players"];
   selectedId: string | null;
   onPick: (id: string) => void;
+  onReportPlayer?: (playerId: string) => void;
+  mePlayerId?: string;
   excludeIds: string[];
   disabled?: boolean;
   submitPending?: boolean;
@@ -689,10 +722,14 @@ function SpectatorPanel({
   players,
   title,
   subtitle,
+  onReportPlayer,
+  mePlayerId,
 }: {
   players: MafiaPublicState["players"];
   title: string;
   subtitle: string;
+  onReportPlayer?: (playerId: string) => void;
+  mePlayerId?: string;
 }) {
   const { t } = useI18n();
   return (
@@ -707,9 +744,19 @@ function SpectatorPanel({
         {players.map((player) => (
           <div
             key={player.id}
-            className="flex items-center justify-between rounded-2xl border border-line-subtle bg-bg-base/60 px-3 py-2"
+            className="flex items-center gap-3 rounded-2xl border border-line-subtle bg-bg-base/60 px-3 py-2"
           >
-            <span className="truncate text-sm font-medium">{player.name}</span>
+            {onReportPlayer && player.id !== mePlayerId ? (
+              <button
+                type="button"
+                onClick={() => onReportPlayer(player.id)}
+                aria-label={t("kick_uchun_ovoz_boshlash")}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-warn/30 bg-warn/10 text-[10px] text-warn transition active:scale-[0.98]"
+              >
+                !
+              </button>
+            ) : null}
+            <span className="flex-1 truncate text-sm font-medium">{player.name}</span>
             <span
               className={`text-[11px] font-medium uppercase tracking-wider ${
                 player.isAlive ? "text-ok" : "text-bad"

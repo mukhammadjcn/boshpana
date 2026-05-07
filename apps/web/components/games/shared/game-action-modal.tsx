@@ -20,6 +20,7 @@ type GameActionModalProps = {
   secondsLeft?: number | null;
   timerVariant?: "default" | "warning" | "danger" | "muted";
   badge?: ReactNode;
+  headerAction?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
 };
@@ -31,6 +32,7 @@ export function GameActionModal({
   secondsLeft,
   timerVariant = "default",
   badge,
+  headerAction,
   children,
   footer
 }: GameActionModalProps) {
@@ -47,6 +49,7 @@ export function GameActionModal({
             <Timer seconds={secondsLeft} variant={timerVariant} />
           ) : null}
           {badge ? badge : null}
+          {headerAction ? headerAction : null}
         </div>
         <div className="px-5 pb-3 pt-2 text-base font-semibold leading-snug text-ink-primary">
           {helper}
