@@ -11,10 +11,12 @@ import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 type Props = {
   state: MafiaPublicState;
   onSubmitVote: (targetPlayerId: string) => void;
+  onReportPlayer?: (playerId: string) => void;
   voteSubmitPending?: boolean;
   confirmVotePending?: boolean;
   onConfirmVote?: () => void;
   onOpenRole?: () => void;
+  headerAction?: React.ReactNode;
 };
 
 function getRoleLabel(
@@ -34,29 +36,33 @@ function getRoleLabel(
 export function MafiaDay({
   state,
   onSubmitVote,
+  onReportPlayer,
   voteSubmitPending = false,
   confirmVotePending = false,
   onConfirmVote,
-  onOpenRole
+  onOpenRole,
+  headerAction
 }: Props) {
   const phase = state.game.phase;
   if (phase === "DAY_DISCUSSION") {
-    return <Discussion state={state} />;
+    return <Discussion state={state} onReportPlayer={onReportPlayer} headerAction={headerAction} />;
   }
   if (phase === "DAY_VOTE" || phase === "DAY_TIEBREAK") {
     return (
       <VoteView
         state={state}
         onSubmitVote={onSubmitVote}
+        onReportPlayer={onReportPlayer}
         voteSubmitPending={voteSubmitPending}
         confirmVotePending={confirmVotePending}
         onConfirmVote={onConfirmVote}
         onOpenRole={onOpenRole}
+        headerAction={headerAction}
       />
     );
   }
   if (phase === "DAY_RESULT") {
-    return <ResultView state={state} />;
+    return <ResultView state={state} headerAction={headerAction} />;
   }
   return null;
 }
@@ -71,6 +77,7 @@ function DayShell({
   remaining,
   accentTone = "warn",
   badge,
+  headerAction,
   children,
 }: {
   title: string;
@@ -78,6 +85,7 @@ function DayShell({
   remaining: number;
   accentTone?: "brand" | "warn" | "bad";
   badge?: string;
+  headerAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const timerVariant =
@@ -108,6 +116,7 @@ function DayShell({
                   #{badge}
                 </span>
               ) : null}
+              {headerAction}
             </div>
           </div>
           <p className="mt-4 text-lg font-semibold leading-snug text-ink-primary sm:text-2xl">
@@ -125,7 +134,15 @@ function DayShell({
 // DAY_DISCUSSION — 4-minute talk window; host can skip to vote
 // ─────────────────────────────────────────────────────────────────────
 
-function Discussion({ state }: { state: MafiaPublicState }) {
+function Discussion({
+  state,
+  onReportPlayer,
+  headerAction,
+}: {
+  state: MafiaPublicState;
+  onReportPlayer?: (playerId: string) => void;
+  headerAction?: React.ReactNode;
+}) {
   const { t } = useI18n();
   const { game, players, me } = state;
   const aliveCount = players.filter((p) => p.isAlive).length;
@@ -137,6 +154,7 @@ function Discussion({ state }: { state: MafiaPublicState }) {
       remaining={game.remainingSeconds}
       accentTone="warn"
       badge={state.room.code}
+      headerAction={headerAction}
     >
       <section className="grid gap-3 rounded-3xl border border-line-subtle bg-bg-surface p-5 text-center">
         <MafiaSituationArt src="/mafia/talk.webp" alt={t("muhokama")} />
@@ -156,6 +174,16 @@ function Discussion({ state }: { state: MafiaPublicState }) {
               key={p.id}
               className="flex items-center gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-3"
             >
+              {onReportPlayer && p.id !== me?.id ? (
+                <button
+                  type="button"
+                  onClick={() => onReportPlayer(p.id)}
+                  aria-label={t("kick_uchun_ovoz_boshlash")}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-warn/30 bg-warn/10 text-[10px] text-warn transition active:scale-[0.98]"
+                >
+                  !
+                </button>
+              ) : null}
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-soft text-xs font-semibold uppercase text-brand">
                 {p.name.slice(0, 2)}
               </span>
@@ -183,17 +211,21 @@ function Discussion({ state }: { state: MafiaPublicState }) {
 function VoteView({
   state,
   onSubmitVote,
+  onReportPlayer,
   voteSubmitPending = false,
   confirmVotePending = false,
   onConfirmVote,
-  onOpenRole
+  onOpenRole,
+  headerAction
 }: {
   state: MafiaPublicState;
   onSubmitVote: (targetPlayerId: string) => void;
+  onReportPlayer?: (playerId: string) => void;
   voteSubmitPending?: boolean;
   confirmVotePending?: boolean;
   onConfirmVote?: () => void;
   onOpenRole?: () => void;
+  headerAction?: React.ReactNode;
 }) {
   const { t } = useI18n();
   const { game, players, me, votes } = state;
@@ -301,6 +333,7 @@ function VoteView({
           {votes.confirmations.confirmed} / {votes.confirmations.total}
         </span>
       }
+      headerAction={headerAction}
       footer={
         me?.isAlive ? (
           <div
@@ -473,7 +506,13 @@ function VoteView({
 // DAY_RESULT — eliminated player + role reveal
 // ─────────────────────────────────────────────────────────────────────
 
-function ResultView({ state }: { state: MafiaPublicState }) {
+function ResultView({
+  state,
+  headerAction,
+}: {
+  state: MafiaPublicState;
+  headerAction?: React.ReactNode;
+}) {
   const { t } = useI18n();
   const { game, players } = state;
   const eliminated = players.find((p) => p.id === game.lastEliminatedPlayerId);
@@ -489,6 +528,7 @@ function ResultView({ state }: { state: MafiaPublicState }) {
       remaining={game.remainingSeconds}
       accentTone="bad"
       badge={state.room.code}
+      headerAction={headerAction}
     >
       {eliminated && role ? (
         <div className="grid gap-3 rounded-3xl border border-bad/30 bg-bad/10 p-6 text-center animate-fade-in">

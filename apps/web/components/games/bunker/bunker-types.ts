@@ -1,5 +1,20 @@
 import type { RoomStatus } from "@/lib/types";
 import type { LocalizedText } from "@/lib/localized-content";
+import type { OnlineChatMessage } from "../shared/online-chat";
+
+export type OnlineProposal = {
+  id: string;
+  kind: "END_GAME" | "KICK";
+  proposerPlayerId: string;
+  proposerName: string;
+  targetPlayerId: string | null;
+  targetName: string | null;
+  eligiblePlayerIds: string[];
+  approvals: string[];
+  rejections: string[];
+  createdAt: string;
+  majority: number;
+};
 
 export type BunkerPhase =
   | "LOBBY"
@@ -72,5 +87,12 @@ export type BunkerRoomState = {
   votes: {
     total: number;
     submittedByMe: boolean;
+  };
+  chat: {
+    messages: OnlineChatMessage[];
+  };
+  governance: {
+    endGameProposal: OnlineProposal | null;
+    kickProposal: OnlineProposal | null;
   };
 };

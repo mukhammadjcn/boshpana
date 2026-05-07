@@ -3,7 +3,9 @@ import { Server, Socket } from "socket.io";
 
 import { GameRegistry } from "../games/registry";
 import { prisma } from "../lib/prisma";
+import { chatService } from "../services/chat-service";
 import { hostTransferService } from "../services/host-transfer-service";
+import { onlineGovernanceService } from "../services/online-governance-service";
 
 type SocketActionPayload = {
   roomCode: string;
@@ -289,6 +291,198 @@ export class RealtimeHub {
           await this.broadcastRoomState(payload.roomCode);
         });
       });
+
+      socket.on(
+        "chat:send",
+        async (payload: SocketActionPayload & { text: string }) => {
+          await this.handleAction(socket, async () => {
+            const service = await this.serviceForRoom(payload.roomCode);
+            if (!service) throw new Error("Room topilmadi.");
+
+            const prepared = await service.getRoomStateForBroadcast(
+              payload.roomCode.toUpperCase()
+            );
+            const state = prepared.perSession(payload.sessionId) as {
+              me: { id: string; name: string } | null;
+            };
+            if (!state.me) {
+              throw new Error("Chatga yozish uchun avval roomga kiring.");
+            }
+
+            const text = payload.text.replace(/\s+/g, " ").trim();
+            if (!text) {
+              throw new Error("Xabar bo'sh bo'lishi mumkin emas.");
+            }
+            if (text.length > 300) {
+              throw new Error("Xabar 300 ta belgidan oshmasligi kerak.");
+            }
+
+            const message = chatService.createMessage({
+              senderId: state.me.id,
+              senderName: state.me.name,
+              text
+            });
+            await chatService.appendMessage(payload.roomCode, message);
+            await this.broadcastRoomState(payload.roomCode);
+          });
+        }
+      );
+
+      socket.on("online:request_end_game_vote", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const room = await prisma.room.findUnique({
+            where: { code: payload.roomCode.toUpperCase() },
+            include: { players: true }
+          });
+          if (!room) throw new Error("Room topilmadi.");
+          if (room.mode !== "ONLINE") {
+            throw new Error("Bu amal faqat online o'yinda ishlaydi.");
+          }
+          const me = room.players.find((player) => player.sessionId === payload.sessionId);
+          if (!me) throw new Error("O'yinchi topilmadi.");
+          const eligiblePlayerIds =
+            room.status === "LOBBY"
+              ? room.players.map((player) => player.id)
+              : room.players.filter((player) => player.isAlive).map((player) => player.id);
+          await onlineGovernanceService.createProposal({
+            roomCode: room.code,
+            kind: "END_GAME",
+            proposerPlayerId: me.id,
+            proposerName: me.name,
+            eligiblePlayerIds
+          });
+          await this.broadcastRoomState(room.code);
+        });
+      });
+
+      socket.on(
+        "online:vote_end_game",
+        async (
+          payload: SocketActionPayload & {
+            proposalId: string;
+            approve: boolean;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const room = await prisma.room.findUnique({
+              where: { code: payload.roomCode.toUpperCase() },
+              include: { players: true }
+            });
+            if (!room) throw new Error("Room topilmadi.");
+            const me = room.players.find((player) => player.sessionId === payload.sessionId);
+            if (!me) throw new Error("O'yinchi topilmadi.");
+
+            const result = await onlineGovernanceService.vote({
+              roomCode: room.code,
+              kind: "END_GAME",
+              proposalId: payload.proposalId,
+              playerId: me.id,
+              approve: payload.approve
+            });
+
+            if (result.status === "passed") {
+              const service = await this.serviceForRoom(room.code);
+              if (!service) throw new Error("Room topilmadi.");
+              await service.endGame({
+                code: room.code,
+                sessionId: room.hostSessionId
+              });
+            }
+
+            await this.broadcastRoomState(room.code);
+          });
+        }
+      );
+
+      socket.on(
+        "online:request_kick_vote",
+        async (
+          payload: SocketActionPayload & {
+            targetPlayerId: string;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const room = await prisma.room.findUnique({
+              where: { code: payload.roomCode.toUpperCase() },
+              include: { players: true }
+            });
+            if (!room) throw new Error("Room topilmadi.");
+            if (room.mode !== "ONLINE") {
+              throw new Error("Kick ovozi faqat online roomlarda ishlaydi.");
+            }
+
+            const me = room.players.find((player) => player.sessionId === payload.sessionId);
+            const target = room.players.find((player) => player.id === payload.targetPlayerId);
+            if (!me || !target) throw new Error("O'yinchi topilmadi.");
+            if (me.id === target.id) throw new Error("O'zingizga kick ovozi ocholmaysiz.");
+            if (room.status === "PLAYING") {
+              if (!me.isAlive) throw new Error("Faqat tirik o'yinchi kick ovozini boshlay oladi.");
+              if (!target.isAlive) throw new Error("Bu o'yinchi allaqachon o'yindan chiqqan.");
+            }
+
+            await onlineGovernanceService.createProposal({
+              roomCode: room.code,
+              kind: "KICK",
+              proposerPlayerId: me.id,
+              proposerName: me.name,
+              targetPlayerId: target.id,
+              targetName: target.name,
+              eligiblePlayerIds:
+                room.status === "LOBBY"
+                  ? room.players.map((player) => player.id)
+                  : room.players
+                      .filter((player) => player.isAlive)
+                      .map((player) => player.id)
+            });
+            await this.broadcastRoomState(room.code);
+          });
+        }
+      );
+
+      socket.on(
+        "online:vote_kick",
+        async (
+          payload: SocketActionPayload & {
+            proposalId: string;
+            approve: boolean;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const room = await prisma.room.findUnique({
+              where: { code: payload.roomCode.toUpperCase() },
+              include: { players: true }
+            });
+            if (!room) throw new Error("Room topilmadi.");
+            const me = room.players.find((player) => player.sessionId === payload.sessionId);
+            if (!me) throw new Error("O'yinchi topilmadi.");
+
+            const result = await onlineGovernanceService.vote({
+              roomCode: room.code,
+              kind: "KICK",
+              proposalId: payload.proposalId,
+              playerId: me.id,
+              approve: payload.approve
+            });
+
+            if (result.status === "passed" && result.proposal.targetPlayerId) {
+              const service = await this.serviceForRoom(room.code);
+              if (!service || !("leaveRoom" in service)) {
+                throw new Error("Room topilmadi.");
+              }
+              const target = room.players.find(
+                (player) => player.id === result.proposal.targetPlayerId
+              );
+              if (!target) throw new Error("Kick qilinadigan o'yinchi topilmadi.");
+              await service.leaveRoom({
+                code: room.code,
+                sessionId: target.sessionId
+              });
+            }
+
+            await this.broadcastRoomState(room.code);
+          });
+        }
+      );
 
       // ── Mafia-spetsifik eventlar ─────────────────────────────────
       // Player taps "Tasdiqlash" on the role-reveal screen. We forward

@@ -3,7 +3,7 @@
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-
+import Image from "next/image";
 import { apiRequest } from "@/lib/api";
 import { getAuthUser } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -19,6 +19,7 @@ import {
   parseActiveRoomConflict,
   type ActiveRoomSummary,
 } from "../shared/online-room-utils";
+import { JoinRoomModal } from "@/components/join-room-modal";
 
 type CreateResponse = {
   roomCode: string;
@@ -40,11 +41,17 @@ const winnerOptions = [
   { value: 3, label: "3_kishi_label", hint: "yumshoq_hint" },
 ];
 
+const rules = [
+  "bunker_qoida_1",
+  "bunker_qoida_2",
+  "bunker_qoida_3",
+  "bunker_qoida_4",
+];
+
 export function OnlineBunkerCreate() {
   const router = useRouter();
   const { t } = useI18n();
-  const [visibility, setVisibility] =
-    useState<OnlineVisibilityTab>("PRIVATE");
+  const [visibility, setVisibility] = useState<OnlineVisibilityTab>("PRIVATE");
   const [hostName, setHostName] = useState("");
   const [winnerTarget, setWinnerTarget] = useState(2);
   const [isAdult, setIsAdult] = useState(false);
@@ -52,6 +59,7 @@ export function OnlineBunkerCreate() {
   const [error, setError] = useState<string | null>(null);
   const [activeRoom, setActiveRoom] = useState<ActiveRoomSummary | null>(null);
   const [retryIntent, setRetryIntent] = useState<RetryIntent>(null);
+  const [joinOpen, setJoinOpen] = useState(false);
 
   useEffect(() => {
     const authUser = getAuthUser();
@@ -105,24 +113,30 @@ export function OnlineBunkerCreate() {
     }
   }
 
-  async function submitMatchmake(poolAdult: boolean, confirmLeaveExisting = false) {
+  async function submitMatchmake(
+    poolAdult: boolean,
+    confirmLeaveExisting = false,
+  ) {
     setSubmitting(true);
     setError(null);
     const sessionId = getOrCreateSessionId();
 
     try {
-      const response = await apiRequest<MatchmakeResponse>("/api/rooms/matchmake", {
-        method: "POST",
-        body: JSON.stringify(
-          buildMatchmakeBody({
-            gameType: "BUNKER",
-            hostName,
-            sessionId,
-            isAdult: poolAdult,
-            confirmLeaveExisting,
-          }),
-        ),
-      });
+      const response = await apiRequest<MatchmakeResponse>(
+        "/api/rooms/matchmake",
+        {
+          method: "POST",
+          body: JSON.stringify(
+            buildMatchmakeBody({
+              gameType: "BUNKER",
+              hostName,
+              sessionId,
+              isAdult: poolAdult,
+              confirmLeaveExisting,
+            }),
+          ),
+        },
+      );
       router.push(`/room/${response.roomCode}` as Route);
     } catch (nextError) {
       const conflict = parseActiveRoomConflict(nextError);
@@ -156,17 +170,43 @@ export function OnlineBunkerCreate() {
 
   return (
     <>
-      <section className="mt-4 flex-1 pb-10">
-        <div className="rounded-3xl border border-line-subtle bg-bg-surface p-5">
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {t("tab_online")}
+      <section className="mt-2 flex-1 pb-10 lg:mt-6">
+        {/* Game banner — same artwork as the dashboard card so the
+                    detail page feels like a continuation, not a separate
+                    context. Aspect ratio kept landscape for desktop weight. */}
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-line-subtle bg-bg-surface">
+          <Image
+            src="/bunker/banner.webp"
+            alt={t("bunker_banner")}
+            fill
+            sizes="(max-width: 768px) 100vw, 672px"
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-bg-base/80 via-bg-base/10 to-transparent" />
+        </div>
+
+        <h1 className="mt-5 text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
+          {t("bunker_kim_omon_qoladi")}
+        </h1>
+        <p className="mt-2 text-sm text-ink-secondary">
+          {t("3_16_oyinchi_30_60_d1dc")}
+        </p>
+
+        <div className="mt-6 grid gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+            {t("qoidalar")}
           </p>
-          <h2 className="mt-2 text-2xl font-bold text-ink-primary">
-            {t("online_bunker_sarlavha")}
-          </h2>
-          <p className="mt-3 text-sm leading-7 text-ink-secondary">
-            {t("online_bunker_tavsif")}
-          </p>
+          <ul className="grid gap-2 text-sm text-ink-secondary">
+            {rules.map((rule, index) => (
+              <li key={index} className="flex gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
+                  {index + 1}
+                </span>
+                <span>{t(rule)}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <OnlineVisibilityTabs value={visibility} onChange={setVisibility} />
@@ -176,7 +216,7 @@ export function OnlineBunkerCreate() {
             onSubmit={handleCreate}
             className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
           >
-            <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+            <p className="text-xs font-medium uppercase tracking-wider text-brand">
               {t("private_lobby_tavsifi")}
             </p>
 
@@ -257,7 +297,7 @@ export function OnlineBunkerCreate() {
                 >
                   <span className="text-sm font-semibold">18+</span>
                   <span className="text-[11px] text-ink-muted">
-                    {t("faqat_kattalar_uchun_tavsif")}
+                    {t("aralash_kartalar_tavsif")}
                   </span>
                 </button>
               </div>
@@ -272,14 +312,22 @@ export function OnlineBunkerCreate() {
             <button
               type="submit"
               disabled={submitting || !hostName.trim()}
-              className="flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+              className="flex h-14 w-full items-center justify-center rounded-xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
             >
               {submitting ? t("yuborilmoqda") : t("private_lobby_yaratish")}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setJoinOpen(true)}
+              className="flex h-14 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-base font-semibold text-ink-primary transition active:scale-[0.98]"
+            >
+              {t("kod_orqali_qoshilish")}
             </button>
           </form>
         ) : (
           <div className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+            <p className="text-xs font-medium uppercase tracking-wider text-brand">
               {t("public_lobby_tavsifi")}
             </p>
 
@@ -297,23 +345,25 @@ export function OnlineBunkerCreate() {
               />
             </label>
 
-            <button
-              type="button"
-              disabled={submitting || !hostName.trim()}
-              onClick={() => void submitMatchmake(false)}
-              className="flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-            >
-              {submitting ? t("yuborilmoqda") : t("public_normal_qoshilish")}
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={submitting || !hostName.trim()}
+                onClick={() => void submitMatchmake(false)}
+                className="flex h-14 w-full items-center justify-center rounded-xl bg-brand px-4 text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {submitting ? t("yuborilmoqda") : t("public_normal_qoshilish")}
+              </button>
 
-            <button
-              type="button"
-              disabled={submitting || !hostName.trim()}
-              onClick={() => void submitMatchmake(true)}
-              className="flex h-14 w-full items-center justify-center rounded-2xl border border-line-strong bg-bg-base text-base font-semibold text-ink-primary transition active:scale-[0.98] disabled:opacity-50"
-            >
-              {t("public_18_qoshilish")}
-            </button>
+              <button
+                type="button"
+                disabled={submitting || !hostName.trim()}
+                onClick={() => void submitMatchmake(true)}
+                className="flex h-14 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-base px-4 text-base font-semibold text-ink-primary transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {t("public_18_qoshilish")}
+              </button>
+            </div>
 
             {error ? (
               <p className="rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
@@ -336,6 +386,8 @@ export function OnlineBunkerCreate() {
           void handleRetryWithLeave();
         }}
       />
+
+      <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />
     </>
   );
 }

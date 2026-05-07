@@ -28,6 +28,7 @@ type PlayerCardProps = {
   showPresence?: boolean;
   isReady?: boolean;
   onKick?: () => void;
+  onReport?: () => void;
 };
 
 export function PlayerCard({
@@ -42,12 +43,14 @@ export function PlayerCard({
   online,
   showPresence = false,
   isReady = false,
-  onKick
+  onKick,
+  onReport
 }: PlayerCardProps) {
   const { t } = useI18n();
   const entries = Object.entries(revealedCards).filter(([, value]) => value);
   const initials = getInitials(name);
   const canKick = !!onKick && isAlive && !isHost;
+  const canReport = !!onReport && isAlive;
 
   // After the game ends, recolor cards: winners (alive) green, losers
   // (eliminated) red. Mid-game uses neutral / red-on-eliminated styling.
@@ -88,7 +91,7 @@ export function PlayerCard({
                     : t("oyinchi_2")}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
             {showPresence ? (
               <>
                 <PresenceDot online={!!online} />
@@ -101,6 +104,16 @@ export function PlayerCard({
                 gameOver={gameOver}
               />
             )}
+            {canReport ? (
+              <button
+                type="button"
+                onClick={onReport}
+                aria-label={t("kick_uchun_ovoz_boshlash")}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-warn/30 bg-warn/10 text-warn transition active:scale-95"
+              >
+                !
+              </button>
+            ) : null}
             {canKick ? (
               <button
                 type="button"
@@ -133,12 +146,24 @@ export function PlayerCard({
   return (
     <div className={`rounded-2xl border transition ${containerTone}`}>
       <div className="flex items-center gap-3 p-3">
-        <Avatar
-          initials={initials}
-          isHost={isHost}
-          isAlive={isAlive}
-          gameOver={gameOver}
-        />
+        <div className="relative shrink-0">
+          <Avatar
+            initials={initials}
+            isHost={isHost}
+            isAlive={isAlive}
+            gameOver={gameOver}
+          />
+          {canReport ? (
+            <button
+              type="button"
+              onClick={onReport}
+              aria-label={t("kick_uchun_ovoz_boshlash")}
+              className="absolute -top-1 -left-1 grid h-5 w-5 place-items-center rounded-full border border-warn/40 bg-warn/15 text-[10px] text-warn"
+            >
+              !
+            </button>
+          ) : null}
+        </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-base font-semibold text-ink-primary">

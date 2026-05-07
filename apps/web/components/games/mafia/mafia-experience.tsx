@@ -29,6 +29,8 @@ import {
   RealtimeConnectionFeedback,
   useRealtimeConnectionRecovery,
 } from "../shared/realtime-connection-feedback";
+import { OnlineChat } from "../shared/online-chat";
+import { OnlineGovernanceModal } from "../shared/online-governance-modal";
 
 import { MafiaDay } from "./mafia-day";
 import { MafiaFinished } from "./mafia-finished";
@@ -91,6 +93,9 @@ export function MafiaExperience({
   const [roleModalVisible, setRoleModalVisible] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [kickedModalOpen, setKickedModalOpen] = useState(false);
+  const [dismissedKickProposalId, setDismissedKickProposalId] = useState<
+    string | null
+  >(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [showFinalResults, setShowFinalResults] = useState(false);
   const [phaseIntro, setPhaseIntro] = useState<{
@@ -623,17 +628,13 @@ export function MafiaExperience({
     roomState?.game.phase === "DAY_RESULT" &&
     !!roomState?.game.winner;
   const isPending = (actionKey: string) => pendingAction === actionKey;
-  const {
-    browserOnline,
-    showRecoveryModal,
-    retryNow,
-    reloadPage,
-  } = useRealtimeConnectionRecovery({
-    enabled: !!sessionId,
-    connected: socketConnected,
-    onReconnect: reconnectSocket,
-    onRefreshState: refreshState,
-  });
+  const { browserOnline, showRecoveryModal, retryNow, reloadPage } =
+    useRealtimeConnectionRecovery({
+      enabled: !!sessionId,
+      connected: socketConnected,
+      onReconnect: reconnectSocket,
+      onRefreshState: refreshState,
+    });
   const connectionFeedback = (
     <RealtimeConnectionFeedback
       connected={socketConnected}
@@ -751,10 +752,7 @@ export function MafiaExperience({
           </p>
           <p className="mt-5 text-xs text-ink-muted">
             {t("jarayon_seconds_soniyadan_keyin_davom_etadi", {
-              seconds:
-                phaseIntro.kind === "tiebreak"
-                  ? 6
-                  : 9
+              seconds: phaseIntro.kind === "tiebreak" ? 6 : 9,
             })}
           </p>
           <button
@@ -797,6 +795,65 @@ export function MafiaExperience({
   }
 
   const { room, players, me, game } = roomState;
+  const activeGovernanceProposal =
+    roomState.governance.kickProposal?.id === dismissedKickProposalId
+      ? null
+      : roomState.governance.kickProposal;
+  const onlineChatFloating =
+    uiVariant === "online" && me ? (
+      <OnlineChat
+        meId={me.id}
+        messages={roomState.chat.messages}
+        onSend={(text) => emit("chat:send", { text })}
+        bottomOffsetPx={
+          room.status === "LOBBY" ||
+          game.phase === "ASSIGN_ROLES" ||
+          game.phase === "NIGHT_RESULT" ||
+          ((game.phase === "DAY_DISCUSSION" || game.phase === "DAY_RESULT") &&
+            room.status === "PLAYING")
+            ? 110
+            : 16
+        }
+      />
+    ) : null;
+  const onlineChatAction =
+    uiVariant === "online" && me ? (
+      <OnlineChat
+        meId={me.id}
+        messages={roomState.chat.messages}
+        onSend={(text) => emit("chat:send", { text })}
+        floating={false}
+      />
+    ) : null;
+  const onlineHeaderAction =
+    uiVariant === "online" && me && room.status === "PLAYING" ? (
+      <button
+        type="button"
+        onClick={() => setLeaveConfirmOpen(true)}
+        aria-label={t("oyindan_chiqish")}
+        className="inline-flex h-9 min-w-[46px] items-center justify-center rounded-full border border-bad/40 bg-bad/10 px-3 text-bad"
+      >
+        ×
+      </button>
+    ) : null;
+  const onlineGovernanceModal =
+    uiVariant === "online" && me ? (
+      <OnlineGovernanceModal
+        proposal={activeGovernanceProposal}
+        mePlayerId={me.id}
+        onClose={() =>
+          setDismissedKickProposalId(activeGovernanceProposal?.id ?? null)
+        }
+        onApprove={(proposalId) => {
+          setDismissedKickProposalId(proposalId);
+          emit("online:vote_kick", { proposalId, approve: true });
+        }}
+        onReject={(proposalId) => {
+          setDismissedKickProposalId(proposalId);
+          emit("online:vote_kick", { proposalId, approve: false });
+        }}
+      />
+    ) : null;
 
   // Visitor (link recipient) hasn't joined yet — surface the right
   // call-to-action depending on room status and auth state. Mirrors
@@ -812,7 +869,19 @@ export function MafiaExperience({
           >
             <div className="w-full max-w-md rounded-3xl border border-bad/40 bg-bg-surface p-6 text-center shadow-pop">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-bad/40 bg-bad/10 text-2xl text-bad">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6L6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
               </div>
               <h3 className="mt-4 text-xl font-bold text-ink-primary">
                 {t("sizni_oyindan_chiqarishdi")}
@@ -960,15 +1029,21 @@ export function MafiaExperience({
           me={me}
           visibility={visibility}
           connectionFeedback={connectionFeedback}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
           startGamePending={isPending("lobby:start_game")}
           readyPending={isPending("lobby:toggle_ready")}
           uiVariant={uiVariant}
           onStartGame={() => emitWithPending("lobby:start_game", "start_game")}
-          onToggleReady={() => emitWithPending("lobby:toggle_ready", "toggle_ready")}
-          onLeaveRoom={() => setLeaveConfirmOpen(true)}
+          onToggleReady={() =>
+            emitWithPending("lobby:toggle_ready", "toggle_ready")
+          }
+          onLeaveRoom={() => {
+            setLeaveConfirmOpen(true);
+          }}
           onRequestKickPlayer={(player) => setKickTarget(player)}
           onRequestEndGame={() => setEndGameConfirmOpen(true)}
         />
+        {onlineGovernanceModal}
         <ConfirmModal
           open={endGameConfirmOpen}
           title={t("roomni_ochirishni_tasdiqlang")}
@@ -986,16 +1061,36 @@ export function MafiaExperience({
           open={!!kickTarget}
           title={
             kickTarget
-              ? t("name_ni_chiqarish_2", { name: kickTarget.name })
+              ? t(
+                  uiVariant === "online"
+                    ? "name_ni_chiqarish_2"
+                    : "name_ni_chiqarish_2",
+                  { name: kickTarget.name },
+                )
               : ""
           }
-          description={t("bu_oyinchi_roomdan_chiqarib_yuboriladi_e248")}
-          confirmLabel={t("chiqarish")}
+          description={
+            uiVariant === "online"
+              ? t("name_ni_oyindan_chiqarishga_rozi_bolasizmi", {
+                  name: kickTarget?.name ?? t("oyinchi_2"),
+                })
+              : t("bu_oyinchi_roomdan_chiqarib_yuboriladi_e248")
+          }
+          confirmLabel={
+            uiVariant === "online"
+              ? t("kick_uchun_ovoz_boshlash")
+              : t("chiqarish")
+          }
           cancelLabel={t("bekor_qilish")}
           tone="danger"
           onConfirm={() => {
             if (kickTarget) {
-              emit("kick_player", { targetPlayerId: kickTarget.id });
+              emit(
+                uiVariant === "online"
+                  ? "online:request_kick_vote"
+                  : "kick_player",
+                { targetPlayerId: kickTarget.id },
+              );
             }
             setKickTarget(null);
           }}
@@ -1032,13 +1127,16 @@ export function MafiaExperience({
         <MafiaRoleReveal
           state={roomState}
           confirmPending={isPending("mafia:confirm_role")}
+          headerAction={onlineHeaderAction}
           onConfirm={() =>
             emitWithPending("mafia:confirm_role", "mafia:confirm_role")
           }
         />
         <MafiaHostDock
           state={roomState}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
           suppressPrimaryAction={uiVariant === "online"}
+          showManagementHeader={uiVariant !== "online"}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1064,6 +1162,7 @@ export function MafiaExperience({
         />
         <MafiaPlayerDock
           state={roomState}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1083,6 +1182,7 @@ export function MafiaExperience({
           }
         />
         {playingEndGameModal}
+        {onlineGovernanceModal}
         {selfEliminationModal}
         {phaseIntroModal}
         {connectionFeedback}
@@ -1101,6 +1201,13 @@ export function MafiaExperience({
         />
         <MafiaNight
           state={roomState}
+          headerAction={onlineHeaderAction}
+          onReportPlayer={
+            uiVariant === "online" && me.isAlive
+              ? (targetPlayerId) =>
+                  emit("online:request_kick_vote", { targetPlayerId })
+              : undefined
+          }
           submitPending={isPending("mafia:submit_night_action")}
           confirmNightPending={isPending("mafia:confirm_night_action")}
           onConfirmNight={() =>
@@ -1118,7 +1225,9 @@ export function MafiaExperience({
             )
           }
         />
+        {onlineChatFloating}
         {playingEndGameModal}
+        {onlineGovernanceModal}
         {selfEliminationModal}
         {roleReminderModal}
         {phaseIntroModal}
@@ -1135,10 +1244,12 @@ export function MafiaExperience({
           backHref="/dashboard"
           closingConfirmation={closingConfirmation}
         />
-        <MafiaNightResult state={roomState} />
+        <MafiaNightResult state={roomState} headerAction={onlineHeaderAction} />
         <MafiaHostDock
           state={roomState}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
           suppressPrimaryAction={uiVariant === "online"}
+          showManagementHeader={uiVariant !== "online"}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1163,9 +1274,11 @@ export function MafiaExperience({
           }
         />
         {playingEndGameModal}
+        {onlineGovernanceModal}
         {selfEliminationModal}
         <MafiaPlayerDock
           state={roomState}
+          chatAction={uiVariant === "online" ? onlineChatAction : null}
           showRoleReminder={showRoleReminder}
           showVoteConfirmAction={showVoteConfirmAction}
           showNightSelectionStatus={showNightSelectionStatus}
@@ -1223,6 +1336,13 @@ export function MafiaExperience({
         />
         <MafiaDay
           state={roomState}
+          headerAction={onlineHeaderAction}
+          onReportPlayer={
+            uiVariant === "online" && me.isAlive
+              ? (targetPlayerId) =>
+                  emit("online:request_kick_vote", { targetPlayerId })
+              : undefined
+          }
           voteSubmitPending={isPending("mafia:submit_day_vote")}
           confirmVotePending={isPending("mafia:confirm_day_vote")}
           onConfirmVote={() =>
@@ -1238,7 +1358,9 @@ export function MafiaExperience({
         {game.phase === "DAY_VOTE" || game.phase === "DAY_TIEBREAK" ? null : (
           <MafiaHostDock
             state={roomState}
+            chatAction={uiVariant === "online" ? onlineChatAction : null}
             suppressPrimaryAction={uiVariant === "online"}
+            showManagementHeader={uiVariant !== "online"}
             showRoleReminder={showRoleReminder}
             showVoteConfirmAction={showVoteConfirmAction}
             showNightSelectionStatus={showNightSelectionStatus}
@@ -1253,7 +1375,10 @@ export function MafiaExperience({
             onEndGame={() => setEndGameConfirmOpen(true)}
             onOpenRole={() => setRoleModalOpen(true)}
             onConfirmVote={() =>
-              emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
+              emitWithPending(
+                "mafia:confirm_day_vote",
+                "mafia:confirm_day_vote",
+              )
             }
             onConfirmNight={() =>
               emitWithPending(
@@ -1264,10 +1389,12 @@ export function MafiaExperience({
           />
         )}
         {playingEndGameModal}
+        {onlineGovernanceModal}
         {selfEliminationModal}
         {game.phase === "DAY_VOTE" || game.phase === "DAY_TIEBREAK" ? null : (
           <MafiaPlayerDock
             state={roomState}
+            chatAction={uiVariant === "online" ? onlineChatAction : null}
             showRoleReminder={showRoleReminder}
             showVoteConfirmAction={showVoteConfirmAction}
             showNightSelectionStatus={showNightSelectionStatus}
@@ -1277,7 +1404,10 @@ export function MafiaExperience({
             onViewResults={() => setShowFinalResults(true)}
             onOpenRole={() => setRoleModalOpen(true)}
             onConfirmVote={() =>
-              emitWithPending("mafia:confirm_day_vote", "mafia:confirm_day_vote")
+              emitWithPending(
+                "mafia:confirm_day_vote",
+                "mafia:confirm_day_vote",
+              )
             }
             onConfirmNight={() =>
               emitWithPending(
@@ -1306,6 +1436,7 @@ export function MafiaExperience({
       <>
         <TelegramChrome backHref="/dashboard" />
         <MafiaFinished state={roomState} />
+        {onlineGovernanceModal}
         {selfEliminationModal}
         <CancelledRoomModal
           open={cancelledModalOpen}
@@ -1332,9 +1463,12 @@ export function MafiaExperience({
         <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
           <header className="flex items-center justify-between py-3">
             <p className="text-sm font-semibold">{t("mafia_2")}</p>
-            <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 text-xs text-ink-secondary">
-              {room.code}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 text-xs text-ink-secondary">
+                {room.code}
+              </span>
+              {onlineHeaderAction}
+            </div>
           </header>
 
           <section className="mt-6 grid gap-4 rounded-2xl border border-dashed border-line-strong bg-bg-surface p-6 text-center">
@@ -1377,6 +1511,7 @@ export function MafiaExperience({
         }}
         onClose={() => setEndGameConfirmOpen(false)}
       />
+      {onlineGovernanceModal}
       {selfEliminationModal}
       {connectionFeedback}
     </>
@@ -1385,7 +1520,9 @@ export function MafiaExperience({
 
 function MafiaHostDock({
   state,
+  chatAction,
   suppressPrimaryAction = false,
+  showManagementHeader = true,
   showRoleReminder,
   showVoteConfirmAction,
   showNightSelectionStatus,
@@ -1401,7 +1538,9 @@ function MafiaHostDock({
   onConfirmNight,
 }: {
   state: MafiaPublicState;
+  chatAction?: ReactNode;
   suppressPrimaryAction?: boolean;
+  showManagementHeader?: boolean;
   showRoleReminder: boolean;
   showVoteConfirmAction: boolean;
   showNightSelectionStatus: boolean;
@@ -1421,7 +1560,9 @@ function MafiaHostDock({
   if (!me?.isHost || state.room.status !== "PLAYING") return null;
   if (state.game.phase === "ASSIGN_ROLES" && !me.roleConfirmed) return null;
 
-  const primaryLabel = suppressPrimaryAction ? null : getMafiaHostPrimaryLabel(state);
+  const primaryLabel = suppressPrimaryAction
+    ? null
+    : getMafiaHostPrimaryLabel(state);
   const primaryDisabled =
     state.game.phase === "ASSIGN_ROLES" &&
     state.game.roleConfirmations.confirmed < state.game.roleConfirmations.total;
@@ -1429,26 +1570,38 @@ function MafiaHostDock({
     !state.votes.myTargetPlayerId || state.votes.confirmedByMe;
   const nightConfirmDisabled =
     !state.me?.pendingNightTargetId || state.night.confirmedByMe;
+  const roleButton = showRoleReminder ? (
+    <button
+      type="button"
+      onClick={onOpenRole}
+      className="flex h-12 min-w-[148px] items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+    >
+      {t("mening_kartam")}
+    </button>
+  ) : null;
+  const hasDockPair = !!chatAction && !!roleButton;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
       <div className="mx-auto max-w-2xl rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-medium text-ink-muted">
-            {t("host_paneli")}
-          </p>
-          <button
-            type="button"
-            onClick={onEndGame}
-            className="text-xs font-medium text-bad transition active:scale-[0.98]"
-          >
-            {t("oyinni_tugatish")}
-          </button>
-        </div>
+        {showManagementHeader ? (
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-medium text-ink-muted">
+              {t("host_paneli")}
+            </p>
+            <button
+              type="button"
+              onClick={onEndGame}
+              className="text-xs font-medium text-bad transition active:scale-[0.98]"
+            >
+              {t("oyinni_tugatish")}
+            </button>
+          </div>
+        ) : null}
         {primaryLabel ? (
           <div
             className={`grid gap-2 ${
-              showRoleReminder
+              showRoleReminder && !hasDockPair
                 ? "grid-cols-[minmax(0,1fr)_auto]"
                 : "grid-cols-1"
             }`}
@@ -1468,21 +1621,13 @@ function MafiaHostDock({
                 t(primaryLabel)
               )}
             </button>
-            {showRoleReminder ? (
-              <button
-                type="button"
-                onClick={onOpenRole}
-                className="flex h-12 min-w-[132px] items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
-              >
-                {t("mening_kartam")}
-              </button>
-            ) : null}
+            {!hasDockPair ? roleButton : null}
           </div>
         ) : null}
         {!primaryLabel && showResultsAction ? (
           <div
             className={`mt-2 grid gap-2 ${
-              showRoleReminder
+              showRoleReminder && !hasDockPair
                 ? "grid-cols-[minmax(0,1fr)_auto]"
                 : "grid-cols-1"
             }`}
@@ -1494,15 +1639,7 @@ function MafiaHostDock({
             >
               {t("oyin_natijalarini_korish")}
             </button>
-            {showRoleReminder ? (
-              <button
-                type="button"
-                onClick={onOpenRole}
-                className="flex h-12 min-w-[132px] items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
-              >
-                {t("mening_kartam")}
-              </button>
-            ) : null}
+            {!hasDockPair ? roleButton : null}
           </div>
         ) : null}
         {!primaryLabel &&
@@ -1513,7 +1650,8 @@ function MafiaHostDock({
           <div
             className={`mt-2 grid gap-2 ${
               (showVoteConfirmAction || showNightSelectionStatus) &&
-              showRoleReminder
+              showRoleReminder &&
+              !hasDockPair
                 ? "grid-cols-[minmax(0,1fr)_auto]"
                 : "grid-cols-1"
             }`}
@@ -1557,20 +1695,16 @@ function MafiaHostDock({
                 )}
               </button>
             ) : null}
-            {showRoleReminder ? (
-              <button
-                type="button"
-                onClick={onOpenRole}
-                className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-base px-4 text-sm font-semibold text-ink-primary transition active:scale-[0.98] ${
-                  showVoteConfirmAction || showNightSelectionStatus
-                    ? "min-w-[132px]"
-                    : "w-full"
-                }`}
-              >
-                {t("mening_kartam")}
-              </button>
-            ) : null}
+            {!hasDockPair ? roleButton : null}
           </div>
+        ) : null}
+        {hasDockPair ? (
+          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_148px] gap-2">
+            {chatAction}
+            {roleButton}
+          </div>
+        ) : chatAction ? (
+          <div className="mt-2">{chatAction}</div>
         ) : null}
       </div>
     </div>
@@ -1579,6 +1713,7 @@ function MafiaHostDock({
 
 function MafiaPlayerDock({
   state,
+  chatAction,
   showRoleReminder,
   showVoteConfirmAction,
   showNightSelectionStatus,
@@ -1591,6 +1726,7 @@ function MafiaPlayerDock({
   onConfirmNight,
 }: {
   state: MafiaPublicState;
+  chatAction?: ReactNode;
   showRoleReminder: boolean;
   showVoteConfirmAction: boolean;
   showNightSelectionStatus: boolean;
@@ -1610,74 +1746,87 @@ function MafiaPlayerDock({
     !state.votes.myTargetPlayerId || state.votes.confirmedByMe;
   const nightConfirmDisabled =
     !state.me?.pendingNightTargetId || state.night.confirmedByMe;
+  const roleButton = (
+    <button
+      type="button"
+      onClick={onOpenRole}
+      className="flex h-12 min-w-[148px] items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98]"
+    >
+      {t("mening_kartam")}
+    </button>
+  );
+  const hasDockPair = !!chatAction;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-      <div
-        className={`mx-auto grid max-w-2xl gap-2 ${
-          showVoteConfirmAction || showNightSelectionStatus || showResultsAction
-            ? "grid-cols-[minmax(0,1fr)_auto]"
-            : "grid-cols-1"
-        }`}
-      >
-        {showResultsAction ? (
-          <button
-            type="button"
-            onClick={onViewResults}
-            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
-          >
-            {t("oyin_natijalarini_korish")}
-          </button>
-        ) : showVoteConfirmAction ? (
-          <button
-            type="button"
-            onClick={onConfirmVote}
-            disabled={confirmDisabled || confirmVotePending}
-            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-          >
-            {confirmVotePending ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner />
-                {t("yuborilmoqda")}
-              </span>
-            ) : state.votes.confirmedByMe ? (
-              t("tasdiqlandi")
-            ) : (
-              t("ovozni_tasdiqlash")
-            )}
-          </button>
-        ) : showNightSelectionStatus ? (
-          <button
-            type="button"
-            onClick={onConfirmNight}
-            disabled={nightConfirmDisabled || confirmNightPending}
-            className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-          >
-            {confirmNightPending ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner />
-                {t("yuborilmoqda")}
-              </span>
-            ) : state.night.confirmedByMe ? (
-              t("tasdiqlandi")
-            ) : state.me?.pendingNightTargetId ? (
-              t("tungi_qarorni_tasdiqlash")
-            ) : (
-              t("nishonni_tanlang")
-            )}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={onOpenRole}
-          className={`flex h-12 items-center justify-center rounded-2xl border border-line-strong bg-bg-surface px-4 text-sm font-semibold text-ink-primary shadow-pop transition active:scale-[0.98] ${
-            showVoteConfirmAction || showNightSelectionStatus
-              ? "min-w-[132px]"
-              : "w-full"
+      <div className="mx-auto max-w-2xl">
+        <div
+          className={`grid gap-2 ${
+            (showVoteConfirmAction ||
+              showNightSelectionStatus ||
+              showResultsAction) &&
+            !hasDockPair
+              ? "grid-cols-[minmax(0,1fr)_auto]"
+              : "grid-cols-1"
           }`}
         >
-          {t("mening_kartam")}
-        </button>
+          {showResultsAction ? (
+            <button
+              type="button"
+              onClick={onViewResults}
+              className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+            >
+              {t("oyin_natijalarini_korish")}
+            </button>
+          ) : showVoteConfirmAction ? (
+            <button
+              type="button"
+              onClick={onConfirmVote}
+              disabled={confirmDisabled || confirmVotePending}
+              className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+            >
+              {confirmVotePending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner />
+                  {t("yuborilmoqda")}
+                </span>
+              ) : state.votes.confirmedByMe ? (
+                t("tasdiqlandi")
+              ) : (
+                t("ovozni_tasdiqlash")
+              )}
+            </button>
+          ) : showNightSelectionStatus ? (
+            <button
+              type="button"
+              onClick={onConfirmNight}
+              disabled={nightConfirmDisabled || confirmNightPending}
+              className="flex h-12 min-w-0 items-center justify-center rounded-2xl bg-brand px-4 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
+            >
+              {confirmNightPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner />
+                  {t("yuborilmoqda")}
+                </span>
+              ) : state.night.confirmedByMe ? (
+                t("tasdiqlandi")
+              ) : state.me?.pendingNightTargetId ? (
+                t("tungi_qarorni_tasdiqlash")
+              ) : (
+                t("nishonni_tanlang")
+              )}
+            </button>
+          ) : null}
+          {!hasDockPair ? roleButton : null}
+        </div>
+        {hasDockPair ? (
+          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_148px] gap-2">
+            {chatAction}
+            {roleButton}
+          </div>
+        ) : chatAction ? (
+          <div className="mt-2">{chatAction}</div>
+        ) : null}
       </div>
     </div>
   );
@@ -1713,6 +1862,7 @@ function Lobby({
   me,
   visibility,
   connectionFeedback,
+  chatAction,
   startGamePending,
   readyPending,
   uiVariant,
@@ -1728,6 +1878,7 @@ function Lobby({
   me: MafiaPublicState["me"];
   visibility: RoomVisibility;
   connectionFeedback: ReactNode;
+  chatAction: ReactNode;
   startGamePending: boolean;
   readyPending: boolean;
   uiVariant: "friends" | "online";
@@ -1747,7 +1898,8 @@ function Lobby({
   const minPlayers = specialRoles + 1;
   const canStart = players.length >= minPlayers;
   const readyCount = players.filter((player) => !!player.readyAt).length;
-  const meReady = !!me && players.some((player) => player.id === me.id && !!player.readyAt);
+  const meReady =
+    !!me && players.some((player) => player.id === me.id && !!player.readyAt);
   const inviteUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/room/${room.code}`
@@ -1755,7 +1907,7 @@ function Lobby({
   const showShareActions = uiVariant === "friends" || visibility === "PRIVATE";
 
   return (
-    <main className="min-h-screen bg-bg-base text-ink-primary pb-32">
+    <main className="min-h-screen bg-bg-base pb-[13.5rem] text-ink-primary sm:pb-[14.5rem]">
       <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
         <header className="flex items-center justify-between py-3 lg:py-5">
           <button
@@ -1765,9 +1917,35 @@ function Lobby({
           >
             ← {t("bosh_sahifa")}
           </button>
-          <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1 text-xs">
-            {t("lobby")}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1.5 text-xs">
+              {t("lobby")}
+            </span>
+            {uiVariant === "online" ? (
+              <button
+                type="button"
+                onClick={onLeaveRoom}
+                aria-label={t("roomdan_chiqish")}
+                className="flex h-[30px] items-center justify-center gap-1 rounded-full border border-bad/40 bg-bad/10 px-3 text-xs font-semibold text-bad"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <path d="M16 17l5-5-5-5" />
+                  <path d="M21 12H9" />
+                </svg>
+              </button>
+            ) : null}
+          </div>
         </header>
 
         {/* Room code card */}
@@ -1833,7 +2011,7 @@ function Lobby({
             <p className="text-xs text-ink-muted">
               {t("kamida_minplayers_kishi_readycount_ta_6b25", {
                 minPlayers,
-                readyCount: Math.min(players.length, minPlayers),
+                readyCount,
               })}
             </p>
           </div>
@@ -1856,21 +2034,26 @@ function Lobby({
                         : t("tarmoqda_emas")}
                   </p>
                 </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                    p.online
-                      ? "bg-ok/15 text-ok"
-                      : "bg-bg-elevated text-ink-muted"
-                  }`}
-                >
-                  ● {p.online ? t("onlayn") : t("offlayn")}
-                </span>
-                {p.readyAt ? (
-                  <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
-                    {t("tayyor")}
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                      p.online
+                        ? "bg-ok/15 text-ok"
+                        : "bg-bg-elevated text-ink-muted"
+                    }`}
+                  >
+                    ● {p.online ? t("onlayn") : t("offlayn")}
                   </span>
-                ) : null}
-                {me?.isHost && p.id !== me.id && room.status === "LOBBY" ? (
+                  {p.readyAt ? (
+                    <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
+                      {t("tayyor")}
+                    </span>
+                  ) : null}
+                </div>
+                {me?.isHost &&
+                uiVariant !== "online" &&
+                p.id !== me.id &&
+                room.status === "LOBBY" ? (
                   <button
                     type="button"
                     onClick={() =>
@@ -1901,40 +2084,28 @@ function Lobby({
         </section>
 
         {uiVariant === "online" ? (
-          <div className="mt-6 grid gap-2">
+          <div className="mt-6 grid gap-3">
             <p className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center text-sm text-ink-secondary">
               {me?.isHost
                 ? t("online_lobbida_hamma_tayyor_bolsa_7195")
                 : t("online_oyinda_barcha_tayy_9f6b")}
             </p>
-            {!me?.isHost ? (
-              <>
-                <button
-                  type="button"
-                  disabled={!canStart || readyPending}
-                  onClick={onToggleReady}
-                  className={`flex h-12 w-full items-center justify-center rounded-2xl px-4 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
-                    meReady
-                      ? "border border-brand/30 bg-brand-soft text-brand"
-                      : "bg-brand text-bg-base"
-                  }`}
-                >
-                  {readyPending
-                    ? t("yuborilmoqda")
-                    : meReady
-                      ? t("tayyorni_bekor_qilish")
-                      : t("tayyorman")}
-                </button>
-                <p className="text-center text-xs text-ink-muted">
-                  {canStart
-                    ? t("kamida_minplayers_kishi_readycount_ta_6b25", {
-                        minPlayers,
-                        readyCount,
-                      })
-                    : t("count_ta_oyinchi_kerak", { count: minPlayers })}
-                </p>
-              </>
-            ) : null}
+            <button
+              type="button"
+              disabled={!canStart || readyPending}
+              onClick={onToggleReady}
+              className={`flex h-12 w-full items-center justify-center rounded-2xl px-4 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
+                meReady
+                  ? "border border-brand/30 bg-brand-soft text-brand"
+                  : "bg-brand text-bg-base"
+              }`}
+            >
+              {readyPending
+                ? t("yuborilmoqda")
+                : meReady
+                  ? t("tayyorni_bekor_qilish")
+                  : t("tayyorman")}
+            </button>
           </div>
         ) : !me?.isHost ? (
           <div className="mt-6 grid gap-2">
@@ -1950,21 +2121,33 @@ function Lobby({
         <div className="mx-auto max-w-2xl">
           {me?.isHost ? (
             <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-              <p className="mb-2 text-xs font-medium text-ink-muted">
-                {t(uiVariant === "online" ? "online_rejim_avtomatik_oqim_8c64" : "host_paneli")}
-              </p>
+              {uiVariant !== "online" && (
+                <p className="mb-2 text-xs font-medium text-ink-muted">
+                  {t("host_paneli")}
+                </p>
+              )}
               {uiVariant === "online" ? (
                 <div className="grid gap-2">
-                  <p className="text-sm text-ink-secondary">
-                    {t("online_fazalar_va_start_avto_4891")}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={onRequestEndGame}
-                    className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
-                  >
-                    {t("roomni_ochirish")}
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    {chatAction}
+                    <button
+                      type="button"
+                      onClick={onLeaveRoom}
+                      className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-xs font-semibold text-bad"
+                    >
+                      {t("roomdan_chiqish")}
+                    </button>
+                  </div>
+                  {/* <div className="grid gap-2">
+                    <p className="text-center text-xs text-ink-muted sm:text-left">
+                      {canStart
+                        ? t("kamida_minplayers_kishi_readycount_ta_6b25", {
+                            minPlayers,
+                            readyCount,
+                          })
+                        : t("count_ta_oyinchi_kerak", { count: minPlayers })}
+                    </p>
+                  </div> */}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
@@ -1997,13 +2180,38 @@ function Lobby({
             </div>
           ) : (
             <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-              <button
-                type="button"
-                onClick={onLeaveRoom}
-                className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad"
-              >
-                {t("roomdan_chiqish")}
-              </button>
+              {uiVariant === "online" ? (
+                <div className="grid gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {chatAction}
+                    <button
+                      type="button"
+                      onClick={onLeaveRoom}
+                      className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-xs font-semibold text-bad"
+                    >
+                      {t("roomdan_chiqish")}
+                    </button>
+                  </div>
+                  <div className="grid gap-2">
+                    <p className="text-center text-xs text-ink-muted sm:text-left">
+                      {canStart
+                        ? t("kamida_minplayers_kishi_readycount_ta_6b25", {
+                            minPlayers,
+                            readyCount,
+                          })
+                        : t("count_ta_oyinchi_kerak", { count: minPlayers })}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onLeaveRoom}
+                  className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad"
+                >
+                  {t("roomdan_chiqish")}
+                </button>
+              )}
             </div>
           )}
         </div>

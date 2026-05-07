@@ -33,7 +33,7 @@ export function MafiaFriendsCreate() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [usage, setUsage] = useState<UsageResponse | null>(null);
   const [hostName, setHostName] = useState("");
-  const [mafiaCount, setMafiaCount] = useState(2);
+  const [mafiaCount, setMafiaCount] = useState(1);
   const [hasSheriff, setHasSheriff] = useState(true);
   const [hasDoctor, setHasDoctor] = useState(true);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -83,10 +83,7 @@ export function MafiaFriendsCreate() {
   const compositionValid = citizenCount >= 1;
   const maxMafiaForSize = Math.max(
     1,
-    Math.min(
-      3,
-      MAX_PLAYERS - (hasSheriff ? 1 : 0) - (hasDoctor ? 1 : 0) - 1,
-    ),
+    Math.min(3, MAX_PLAYERS - (hasSheriff ? 1 : 0) - (hasDoctor ? 1 : 0) - 1),
   );
 
   // Komisar/doktor yoqib-o'chirilganda mafia soni yangi limitdan oshib
@@ -152,12 +149,12 @@ export function MafiaFriendsCreate() {
         <p className="mt-2 text-sm text-ink-secondary">
           {t("min_max_oyinchi_30_45_e4e4", {
             min: MIN_PLAYERS,
-            max: MAX_PLAYERS
+            max: MAX_PLAYERS,
           })}
         </p>
 
         <div className="mt-6 grid gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+          <p className="text-s font-medium uppercase tracking-wider text-brand">
             {t("qoidalar")}
           </p>
           <ul className="grid gap-2 text-sm text-ink-secondary">
@@ -172,10 +169,13 @@ export function MafiaFriendsCreate() {
           </ul>
         </div>
 
+        {/* Limit to'lsa korsatiladi */}
         {usage && limitReached && (
           <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
             <div className="flex items-center justify-between text-sm">
-              <p className="font-semibold text-ink-primary">{t("oylik_limit")}</p>
+              <p className="font-semibold text-ink-primary">
+                {t("oylik_limit")}
+              </p>
               <p
                 className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
               >
@@ -207,7 +207,7 @@ export function MafiaFriendsCreate() {
           onSubmit={handleCreate}
           className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
         >
-          <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+          <p className="text-s font-medium uppercase tracking-wider text-brand">
             {t("yangi_oyin")}
           </p>
 
@@ -230,9 +230,7 @@ export function MafiaFriendsCreate() {
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
                 {t("mafia_soni")}
               </span>
-              <span className="font-mono text-sm text-brand">
-                {mafiaCount}
-              </span>
+              <span className="font-mono text-sm text-brand">{mafiaCount}</span>
             </div>
             <input
               type="range"
@@ -284,8 +282,12 @@ export function MafiaFriendsCreate() {
           </div>
 
           <div className="rounded-xl border border-line-strong bg-bg-base px-3 py-2.5 text-xs text-ink-muted">
-            {t("tarkib")}: <span className="font-semibold text-ink-primary">{citizenCount}</span>{" "}
-            {t("fuqaro")} · <span className="font-semibold text-ink-primary">{mafiaCount}</span>{" "}
+            {t("tarkib")}:{" "}
+            <span className="font-semibold text-ink-primary">
+              {citizenCount}
+            </span>{" "}
+            {t("fuqaro")} ·{" "}
+            <span className="font-semibold text-ink-primary">{mafiaCount}</span>{" "}
             {t("mafia")}
             {hasSheriff && <> · 1 {t("komisar")}</>}
             {hasDoctor && <> · 1 {t("doktor")}</>}
@@ -306,10 +308,7 @@ export function MafiaFriendsCreate() {
           <button
             type="submit"
             disabled={
-              creating ||
-              limitReached ||
-              !compositionValid ||
-              !hostName.trim()
+              creating || limitReached || !compositionValid || !hostName.trim()
             }
             className={`flex h-14 items-center justify-center rounded-xl text-base font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
               limitReached
@@ -323,15 +322,15 @@ export function MafiaFriendsCreate() {
                 ? t("limit_tugagan")
                 : t("oyin_yaratish")}
           </button>
-        </form>
 
-        <button
-          type="button"
-          onClick={() => setJoinOpen(true)}
-          className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
-        >
-          {t("kod_orqali_qoshilish")}
-        </button>
+          <button
+            type="button"
+            onClick={() => setJoinOpen(true)}
+            className="flex h-14 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+          >
+            {t("kod_orqali_qoshilish")}
+          </button>
+        </form>
       </section>
 
       <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />

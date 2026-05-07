@@ -7,6 +7,9 @@ import {
   RoomStatus
 } from "@prisma/client";
 
+import type { ChatMessage } from "../../services/chat-service";
+import type { OnlineGovernanceState } from "../../services/online-governance-service";
+
 // Tunda taymerga oid sozlama. Har bir rol qarorini xotirjam tanlashi
 // uchun 60 soniya beriladi.
 export const MAFIA_NIGHT_DURATION_SECONDS = 60;
@@ -127,4 +130,8 @@ export type MafiaPublicState = {
       total: number;
     };
   };
+  chat: {
+    messages: ChatMessage[];
+  };
+  governance: OnlineGovernanceState;
 };

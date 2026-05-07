@@ -8,7 +8,7 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState
+  useState,
 } from "react";
 
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
@@ -20,33 +20,36 @@ import { useI18n } from "@/lib/i18n";
 import {
   getLocalizedText,
   type LocalizedText,
-  type SupportedLanguage
+  type SupportedLanguage,
 } from "@/lib/localized-content";
 import { HostControls } from "./bunker-host-controls";
 import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
-import {
-  tgHaptic,
-  tgHapticNotify
-} from "@/lib/telegram";
+import { tgHaptic, tgHapticNotify } from "@/lib/telegram";
 import { VotePanel } from "./bunker-vote-panel";
 import { useGameAudio } from "./use-bunker-audio";
 import { apiRequest } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import { getOrCreateSessionId } from "@/lib/storage";
-import type { BunkerCardType, BunkerPhase, BunkerRoomState } from "./bunker-types";
+import type {
+  BunkerCardType,
+  BunkerPhase,
+  BunkerRoomState,
+} from "./bunker-types";
 import { useGameStore } from "./use-bunker-store";
 import { pushToast } from "@/store/useToastStore";
 import {
   RealtimeConnectionFeedback,
-  useRealtimeConnectionRecovery
+  useRealtimeConnectionRecovery,
 } from "../shared/realtime-connection-feedback";
+import { OnlineChat } from "../shared/online-chat";
+import { OnlineGovernanceModal } from "../shared/online-governance-modal";
 import type { RoomVisibility } from "@/lib/types";
 
 const BUNKER_ONLINE_MODAL_TIMINGS_MS = {
   intro: 12000,
-  situation: 9000
+  situation: 9000,
 } as const;
 
 // Disaster banner mapping. Image filenames in /public are tied to the
@@ -62,7 +65,7 @@ const disasterImage: Record<string, string> = {
   "Zombi apokalipsisi": "/bunker/disasters/zombi-apokalipsisi.webp",
   "Demografik kollaps": "/bunker/adult/demografik-banner.webp",
   "Jinsiy tanlash epidemiyasi": "/bunker/adult/jinsiy-banner.webp",
-  "Narkotik urushi": "/bunker/adult/narkotik-banner.webp"
+  "Narkotik urushi": "/bunker/adult/narkotik-banner.webp",
 };
 
 const cardLabels: Record<BunkerCardType, string> = {
@@ -71,7 +74,7 @@ const cardLabels: Record<BunkerCardType, string> = {
   CHARACTER: "Xarakter",
   SKILL: "Ko‘nikma",
   BAGGAGE: "Bagaj",
-  FACT: "Fakt"
+  FACT: "Fakt",
 };
 
 const cardOrder: BunkerCardType[] = [
@@ -80,7 +83,7 @@ const cardOrder: BunkerCardType[] = [
   "CHARACTER",
   "SKILL",
   "BAGGAGE",
-  "FACT"
+  "FACT",
 ];
 
 const phaseHelp: Record<BunkerPhase, string> = {
@@ -90,7 +93,7 @@ const phaseHelp: Record<BunkerPhase, string> = {
   ROUND_PITCH: "Pitch — 2 daqiqa",
   ROUND_COMPLETE: "Round yakuni",
   VOTING: "Ovoz berish",
-  FINISHED: "Yakun"
+  FINISHED: "Yakun",
 };
 
 type BunkerExperienceProps = {
@@ -108,10 +111,13 @@ type Announcement = {
 
 function localizeCardMap(
   cards: Partial<Record<string, LocalizedText>>,
-  language: SupportedLanguage
+  language: SupportedLanguage,
 ): Partial<Record<string, string>> {
   return Object.fromEntries(
-    Object.entries(cards).map(([key, value]) => [key, getLocalizedText(value, language)])
+    Object.entries(cards).map(([key, value]) => [
+      key,
+      getLocalizedText(value, language),
+    ]),
   );
 }
 
@@ -119,7 +125,7 @@ export function BunkerExperience({
   roomCode,
   view,
   uiVariant = "friends",
-  visibility = "PRIVATE"
+  visibility = "PRIVATE",
 }: BunkerExperienceProps) {
   const router = useRouter();
   const { language, t } = useI18n();
@@ -148,6 +154,9 @@ export function BunkerExperience({
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [kickedModalOpen, setKickedModalOpen] = useState(false);
+  const [dismissedKickProposalId, setDismissedKickProposalId] = useState<
+    string | null
+  >(null);
   const [kickTarget, setKickTarget] = useState<{
     id: string;
     name: string;
@@ -173,7 +182,10 @@ export function BunkerExperience({
   const seenCancelledModalRef = useRef<Set<string>>(new Set());
   const playersRef = useRef<
     Array<
-      Omit<BunkerRoomState["players"][number], "visibleCards" | "revealedCards"> & {
+      Omit<
+        BunkerRoomState["players"][number],
+        "visibleCards" | "revealedCards"
+      > & {
         visibleCards: Partial<Record<string, string>>;
         revealedCards: Partial<Record<string, string>>;
       }
@@ -210,7 +222,7 @@ export function BunkerExperience({
   const refreshState = useCallback(() => {
     if (!sessionId) return;
     void apiRequest<BunkerRoomState>(
-      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+      `/api/rooms/${roomCode}/state?sessionId=${sessionId}`,
     )
       .then((state) => {
         setRoomState(state);
@@ -294,7 +306,7 @@ export function BunkerExperience({
     void (async () => {
       try {
         const state = await apiRequest<BunkerRoomState>(
-          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`
+          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`,
         );
         if (active) setRoomState(state);
       } catch (nextError) {
@@ -409,7 +421,7 @@ export function BunkerExperience({
     roomCode,
     sessionId,
     setError,
-    setRoomState
+    setRoomState,
   ]);
 
   // Auto-route based on status
@@ -454,7 +466,7 @@ export function BunkerExperience({
     roomCode,
     roomState?.game.roundNumber,
     roomState?.game.situation,
-    roomState?.room.status
+    roomState?.room.status,
   ]);
 
   const closeSituation = useCallback(() => {
@@ -485,7 +497,7 @@ export function BunkerExperience({
     playersRef.current = (roomState?.players ?? []).map((player) => ({
       ...player,
       visibleCards: localizeCardMap(player.visibleCards, language),
-      revealedCards: localizeCardMap(player.revealedCards, language)
+      revealedCards: localizeCardMap(player.revealedCards, language),
     }));
   }, [language, roomState?.players]);
 
@@ -516,10 +528,10 @@ export function BunkerExperience({
     const newCardValue = player.revealedCards?.[cardType] ?? "";
     if (!newCardValue) return;
 
-    const olderCards: Array<{ type: BunkerCardType; value: string }> = Object
-      .entries(player.revealedCards ?? {})
-      .filter(([t, v]) => t !== cardType && !!v)
-      .map(([t, v]) => ({ type: t as BunkerCardType, value: v as string }));
+    const olderCards: Array<{ type: BunkerCardType; value: string }> =
+      Object.entries(player.revealedCards ?? {})
+        .filter(([t, v]) => t !== cardType && !!v)
+        .map(([t, v]) => ({ type: t as BunkerCardType, value: v as string }));
 
     seenRevealAnnouncementRef.current.add(key);
     tgHaptic("light");
@@ -528,13 +540,13 @@ export function BunkerExperience({
       playerName: player.name,
       newCardType: cardType,
       newCardValue,
-      olderCards
+      olderCards,
     });
   }, [
     roomState?.game.lastRevealedCardType,
     roomState?.game.lastRevealedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me?.id
+    roomState?.me?.id,
   ]);
 
   // Elimination announcement — only re-fires when the actual elimination changes.
@@ -544,7 +556,7 @@ export function BunkerExperience({
     if (seenElimAnnouncementRef.current.has(key)) return;
 
     const player = playersRef.current.find(
-      (p) => p.id === roomState.game.lastEliminatedPlayerId
+      (p) => p.id === roomState.game.lastEliminatedPlayerId,
     );
     if (!player) return;
 
@@ -561,14 +573,14 @@ export function BunkerExperience({
       key,
       title: t("name_oyindan_chiqdi", { name: player.name }),
       description: t(
-        "Bu o'yinchi endi ovoz bera olmaydi, lekin kuzatishda davom etadi."
-      )
+        "Bu o'yinchi endi ovoz bera olmaydi, lekin kuzatishda davom etadi.",
+      ),
     });
   }, [
     t,
     roomState?.game.lastEliminatedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me?.id
+    roomState?.me?.id,
   ]);
 
   // Auto-clear announcement after a fixed delay; runs only when the
@@ -595,7 +607,7 @@ export function BunkerExperience({
   }, [
     roomState?.game.lastEliminatedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me?.id
+    roomState?.me?.id,
   ]);
 
   // Open the "game over" modal once per finished game for every participant —
@@ -609,11 +621,7 @@ export function BunkerExperience({
     if (seenWinnerModalRef.current.has(key)) return;
     seenWinnerModalRef.current.add(key);
     setWinnerModalOpen(true);
-  }, [
-    roomState?.room.status,
-    roomState?.room.code,
-    roomState?.me?.id
-  ]);
+  }, [roomState?.room.status, roomState?.room.code, roomState?.me?.id]);
 
   // Lobby vaqtida host xonani tugatib yuborsa room CANCELLED bo'ladi va
   // o'yin umuman boshlanmaydi. Har bir ishtirokchiga "o'yin yaratilmadi"
@@ -627,11 +635,7 @@ export function BunkerExperience({
     if (seenCancelledModalRef.current.has(key)) return;
     seenCancelledModalRef.current.add(key);
     setCancelledModalOpen(true);
-  }, [
-    roomState?.room.status,
-    roomState?.room.code,
-    roomState?.me?.id
-  ]);
+  }, [roomState?.room.status, roomState?.room.code, roomState?.me?.id]);
 
   // Audio
   const meRevealKey = useMemo(() => {
@@ -647,7 +651,7 @@ export function BunkerExperience({
     roomState?.game.lastRevealedCardType,
     roomState?.game.lastRevealedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me
+    roomState?.me,
   ]);
 
   const meEliminationKey = useMemo(() => {
@@ -662,7 +666,7 @@ export function BunkerExperience({
   }, [
     roomState?.game.lastEliminatedPlayerId,
     roomState?.game.roundNumber,
-    roomState?.me
+    roomState?.me,
   ]);
 
   const situationKey = useMemo(() => {
@@ -678,14 +682,14 @@ export function BunkerExperience({
     situationRound: roomState?.game.roundNumber ?? null,
     votingActive: roomState?.game.phase === "VOTING",
     meRevealKey,
-    meEliminationKey
+    meEliminationKey,
   });
 
   // Helpers
   async function joinWithName(name: string) {
     await apiRequest(`/api/rooms/${roomCode}/join`, {
       method: "POST",
-      body: JSON.stringify({ name, sessionId })
+      body: JSON.stringify({ name, sessionId }),
     });
     const socket = getSocket();
     socket.emit("join_room", { roomCode, sessionId });
@@ -711,18 +715,16 @@ export function BunkerExperience({
     socket.emit(event, { roomCode, sessionId, ...(payload ?? {}) });
   }
 
-  const inviteUrl = roomState ? `${origin || ""}/room/${roomState.room.code}` : "";
-  const {
-    browserOnline,
-    showRecoveryModal,
-    retryNow,
-    reloadPage
-  } = useRealtimeConnectionRecovery({
-    enabled: !!sessionId,
-    connected: socketConnected,
-    onReconnect: reconnectSocket,
-    onRefreshState: refreshState
-  });
+  const inviteUrl = roomState
+    ? `${origin || ""}/room/${roomState.room.code}`
+    : "";
+  const { browserOnline, showRecoveryModal, retryNow, reloadPage } =
+    useRealtimeConnectionRecovery({
+      enabled: !!sessionId,
+      connected: socketConnected,
+      onReconnect: reconnectSocket,
+      onRefreshState: refreshState,
+    });
   const connectionFeedback = (
     <RealtimeConnectionFeedback
       connected={socketConnected}
@@ -739,25 +741,28 @@ export function BunkerExperience({
   const game = roomState?.game;
   const showLobbyShareActions = !isOnlineVariant || visibility === "PRIVATE";
   const closingConfirmation =
-    !!room &&
-    room.status !== "FINISHED" &&
-    room.status !== "CANCELLED";
+    !!room && room.status !== "FINISHED" && room.status !== "CANCELLED";
   const players = roomState?.players ?? [];
   const readyCount = players.filter((player) => !!player.readyAt).length;
-  const meReady = !!me && players.some((player) => player.id === me.id && !!player.readyAt);
+  const meReady =
+    !!me && players.some((player) => player.id === me.id && !!player.readyAt);
   const localizedPlayers = useMemo(
     () =>
       players.map((player) => ({
         ...player,
         visibleCards: localizeCardMap(player.visibleCards, language),
-        revealedCards: localizeCardMap(player.revealedCards, language)
+        revealedCards: localizeCardMap(player.revealedCards, language),
       })),
-    [language, players]
+    [language, players],
   );
   const alivePlayers = players.filter((p) => p.isAlive);
   const currentTurnPlayer = players.find(
-    (p) => p.id === game?.currentTurnPlayerId
+    (p) => p.id === game?.currentTurnPlayerId,
   );
+  const activeGovernanceProposal =
+    roomState?.governance.kickProposal?.id === dismissedKickProposalId
+      ? null
+      : (roomState?.governance.kickProposal ?? null);
   const localizedDisasterName = game?.disaster
     ? getLocalizedText(game.disaster.name, language)
     : "";
@@ -774,7 +779,7 @@ export function BunkerExperience({
       type,
       label: t(cardLabels[type]),
       value: getLocalizedText(me.cards[type], language),
-      isRevealed: me.revealed.includes(type)
+      isRevealed: me.revealed.includes(type),
     }));
   }, [language, me, t]);
   const myVisibleCards = useMemo(
@@ -782,9 +787,9 @@ export function BunkerExperience({
       Object.fromEntries(
         myCards
           .filter((card) => card.isRevealed)
-          .map((card) => [card.type, card.value])
+          .map((card) => [card.type, card.value]),
       ) as Partial<Record<BunkerCardType, string>>,
-    [myCards]
+    [myCards],
   );
   const isFinished = roomState?.room.status === "FINISHED";
   const displayPlayers = useMemo(() => {
@@ -795,18 +800,18 @@ export function BunkerExperience({
     return [
       {
         ...selfPlayer,
-        visibleCards: isFinished ? selfPlayer.visibleCards : myVisibleCards
+        visibleCards: isFinished ? selfPlayer.visibleCards : myVisibleCards,
       },
-      ...others
+      ...others,
     ];
   }, [isFinished, localizedPlayers, me, myVisibleCards]);
 
   const revealOptions = useMemo(
     () =>
       myCards.filter(
-        (c) => c.type !== "PROFESSION" && !me?.revealed.includes(c.type)
+        (c) => c.type !== "PROFESSION" && !me?.revealed.includes(c.type),
       ),
-    [me?.revealed, myCards]
+    [me?.revealed, myCards],
   );
 
   const isMyRevealTurn =
@@ -824,7 +829,7 @@ export function BunkerExperience({
     (p) =>
       p.isAlive &&
       p.id !== game?.currentTurnPlayerId &&
-      p.revealedCount < roundRevealTarget
+      p.revealedCount < roundRevealTarget,
   );
 
   // After resolveVoting we land back in ROUND_COMPLETE but with an
@@ -895,7 +900,19 @@ export function BunkerExperience({
           >
             <div className="w-full max-w-md rounded-3xl border border-bad/40 bg-bg-surface p-6 text-center shadow-pop">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-bad/40 bg-bad/10 text-2xl text-bad">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6L6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
               </div>
               <h3 className="mt-4 text-xl font-bold text-ink-primary">
                 {t("sizni_oyindan_chiqarishdi")}
@@ -917,7 +934,8 @@ export function BunkerExperience({
     }
 
     if (room.status !== "LOBBY") {
-      const finished = room.status === "FINISHED" || room.status === "CANCELLED";
+      const finished =
+        room.status === "FINISHED" || room.status === "CANCELLED";
       return (
         <main className="min-h-screen bg-bg-base px-5 pt-safe pb-safe text-ink-primary">
           <div className="mx-auto max-w-md pt-6">
@@ -1034,7 +1052,7 @@ export function BunkerExperience({
     return (
       <main className="min-h-screen bg-bg-base text-ink-primary">
         {connectionFeedback}
-        <div className="mx-auto max-w-xl px-5 pt-safe pb-32">
+        <div className="mx-auto max-w-2xl px-5 pt-safe pb-[13.5rem] sm:pb-[14.5rem]">
           <header className="flex items-center justify-between py-3">
             <button
               onClick={() => router.push("/dashboard")}
@@ -1042,9 +1060,35 @@ export function BunkerExperience({
             >
               <span aria-hidden>←</span> {t("bosh_sahifa")}
             </button>
-            <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary">
-              {t("lobby")}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary">
+                {t("lobby")}
+              </span>
+              {isOnlineVariant ? (
+                <button
+                  type="button"
+                  onClick={() => setLeaveConfirmOpen(true)}
+                  aria-label={t("roomdan_chiqish")}
+                  className="flex h-[30px] items-center justify-center gap-1 rounded-full border border-bad/40 bg-bad/10 px-3 text-xs font-semibold text-bad"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <path d="M16 17l5-5-5-5" />
+                    <path d="M21 12H9" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
           </header>
 
           <section className="mt-2 rounded-3xl border border-line-subtle bg-bg-surface p-5">
@@ -1058,7 +1102,7 @@ export function BunkerExperience({
               {t("players_maxplayers_oyinchi_finish_winnertarget_fefe", {
                 players: players.length,
                 maxPlayers: room.maxPlayers,
-                winnerTarget: room.winnerTarget
+                winnerTarget: room.winnerTarget,
               })}
             </p>
 
@@ -1089,7 +1133,7 @@ export function BunkerExperience({
               <h2 className="text-base font-semibold">{t("oyinchilar")}</h2>
               <p className="text-xs text-ink-muted">
                 {t("kamida_3_kishi_count_ta_fcb6", {
-                  count: alivePlayers.length
+                  count: alivePlayers.length,
                 })}
               </p>
             </div>
@@ -1107,7 +1151,7 @@ export function BunkerExperience({
                   isMe={p.id === me.id}
                   variant="tile"
                   onKick={
-                    me.isHost && p.id !== me.id
+                    me.isHost && !isOnlineVariant && p.id !== me.id
                       ? () => setKickTarget({ id: p.id, name: p.name })
                       : undefined
                   }
@@ -1117,49 +1161,25 @@ export function BunkerExperience({
           </section>
 
           {isOnlineVariant ? (
-            <>
-              <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
+            <div className="mt-6 grid gap-3">
+              <p className="rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
                 {me.isHost
                   ? t("online_lobbida_hamma_tayyor_bolsa_7195")
                   : t("online_oyinda_barcha_tayy_9f6b")}
               </p>
-              {!me.isHost ? (
-                <div className="mt-3 grid gap-2">
-                  <button
-                    type="button"
-                    disabled={players.length < 3}
-                    onClick={() => emit("toggle_ready")}
-                    className={`flex h-12 w-full items-center justify-center rounded-xl text-sm font-semibold transition active:scale-[0.99] disabled:opacity-50 ${
-                      meReady
-                        ? "border border-brand/30 bg-brand-soft text-brand"
-                        : "bg-brand text-bg-base"
-                    }`}
-                  >
-                    {meReady ? t("tayyorni_bekor_qilish") : t("tayyorman")}
-                  </button>
-                  {players.length < 3 ? (
-                    <p className="text-center text-xs text-ink-muted">
-                      {t("count_ta_oyinchi_kerak", { count: 3 })}
-                    </p>
-                  ) : (
-                    <p className="text-center text-xs text-ink-muted">
-                      {t("kamida_3_kishi_count_ta_fcb6", {
-                        count: readyCount
-                      })}
-                    </p>
-                  )}
-                </div>
-              ) : null}
               <button
                 type="button"
-                onClick={() =>
-                  me.isHost ? setEndGameConfirmOpen(true) : setLeaveConfirmOpen(true)
-                }
-                className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition active:scale-[0.99]"
+                disabled={players.length < 3}
+                onClick={() => emit("toggle_ready")}
+                className={`flex h-12 w-full items-center justify-center rounded-2xl px-4 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
+                  meReady
+                    ? "border border-brand/30 bg-brand-soft text-brand"
+                    : "bg-brand text-bg-base"
+                }`}
               >
-                {t(me.isHost ? "roomni_ochirish" : "roomdan_chiqish")}
+                {meReady ? t("tayyorni_bekor_qilish") : t("tayyorman")}
               </button>
-            </>
+            </div>
           ) : !me.isHost ? (
             <>
               <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
@@ -1173,6 +1193,39 @@ export function BunkerExperience({
                 {t("roomdan_chiqish")}
               </button>
             </>
+          ) : null}
+
+          {isOnlineVariant ? (
+            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 px-5 pt-3 pb-safe backdrop-blur">
+              <div className="mx-auto max-w-2xl rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
+                <div className="grid gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <OnlineChat
+                      meId={me.id}
+                      messages={roomState.chat.messages}
+                      onSend={(text) => emit("chat:send", { text })}
+                      floating={false}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLeaveConfirmOpen(true)}
+                      className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-xs font-semibold text-bad transition active:scale-[0.98]"
+                    >
+                      {t("roomdan_chiqish")}
+                    </button>
+                  </div>
+                  {/* <div className="grid gap-2">
+                    <p className="text-center text-xs text-ink-muted sm:text-left">
+                      {players.length < 3
+                        ? t("count_ta_oyinchi_kerak", { count: 3 })
+                        : t("kamida_3_kishi_count_ta_fcb6", {
+                            count: readyCount
+                          })}
+                    </p>
+                  </div> */}
+                </div>
+              </div>
+            </div>
           ) : null}
 
           {error ? (
@@ -1239,7 +1292,9 @@ export function BunkerExperience({
         <ConfirmModal
           open={!!kickTarget}
           title={
-            kickTarget ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name }) : ""
+            kickTarget
+              ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name })
+              : ""
           }
           description={t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")}
           confirmLabel={t("chiqarish")}
@@ -1252,6 +1307,21 @@ export function BunkerExperience({
             setKickTarget(null);
           }}
           onClose={() => setKickTarget(null)}
+        />
+        <OnlineGovernanceModal
+          proposal={activeGovernanceProposal}
+          mePlayerId={me.id}
+          onClose={() =>
+            setDismissedKickProposalId(activeGovernanceProposal?.id ?? null)
+          }
+          onApprove={(proposalId) => {
+            setDismissedKickProposalId(proposalId);
+            emit("online:vote_kick", { proposalId, approve: true });
+          }}
+          onReject={(proposalId) => {
+            setDismissedKickProposalId(proposalId);
+            emit("online:vote_kick", { proposalId, approve: false });
+          }}
         />
       </main>
     );
@@ -1267,14 +1337,12 @@ export function BunkerExperience({
       {connectionFeedback}
       {/* Sticky header */}
       <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
-        <div className="mx-auto flex max-w-xl items-center justify-between gap-2 px-4 pt-safe pb-2.5">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 pt-safe pb-2.5">
           <div className="min-w-0">
             <p className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
               {t("round")}{" "}
-              {room.status === "FINISHED"
-                ? "—"
-                : Math.max(room.round, 1)}{" "}
-              · {room.code}
+              {room.status === "FINISHED" ? "—" : Math.max(room.round, 1)} ·{" "}
+              {room.code}
             </p>
             <p
               key={`${game.phase}-${game.currentTurnPlayerId ?? "_"}`}
@@ -1296,23 +1364,35 @@ export function BunkerExperience({
             <Timer seconds={game.remainingSeconds} />
             <button
               onClick={toggleAudio}
-              aria-label={audioEnabled ? t("ovozni_ochirish") : t("ovozni_yoqish")}
+              aria-label={
+                audioEnabled ? t("ovozni_ochirish") : t("ovozni_yoqish")
+              }
               className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-bg-surface text-ink-secondary"
             >
               {audioEnabled ? "🔊" : "🔇"}
             </button>
+            {isOnlineVariant && room.status !== "FINISHED" ? (
+              <button
+                type="button"
+                onClick={() => setLeaveConfirmOpen(true)}
+                aria-label={t("oyindan_chiqish")}
+                className="inline-flex h-9 min-w-[46px] items-center justify-center rounded-full border border-bad/40 bg-bad/10 px-3 text-bad"
+              >
+                ×
+              </button>
+            ) : null}
           </div>
         </div>
       </header>
 
       <div
-        className="mx-auto max-w-xl px-4 pt-3"
+        className="mx-auto max-w-2xl px-4 pt-3"
         style={{
           paddingBottom:
             Math.max(
               bottomBarHeight,
-              me.isHost && !isOnlineVariant ? 240 : 140
-            ) + 24
+              me.isHost && !isOnlineVariant ? 240 : 140,
+            ) + 24,
         }}
       >
         {/* Disaster + situation summary */}
@@ -1330,7 +1410,9 @@ export function BunkerExperience({
                 <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
                   {t("fojea")}
                 </p>
-                <p className="mt-0.5 text-base font-semibold">{localizedDisasterName}</p>
+                <p className="mt-0.5 text-base font-semibold">
+                  {localizedDisasterName}
+                </p>
               </button>
             ) : null}
 
@@ -1346,10 +1428,12 @@ export function BunkerExperience({
               >
                 <p className="text-[11px] font-medium uppercase tracking-wider text-warn">
                   {t("round_roundnumber_vaziyati", {
-                    roundNumber: game.roundNumber
+                    roundNumber: game.roundNumber,
                   })}
                 </p>
-                <p className="mt-1 text-sm leading-6 text-ink-primary">{localizedSituationText}</p>
+                <p className="mt-1 text-sm leading-6 text-ink-primary">
+                  {localizedSituationText}
+                </p>
               </button>
             ) : null}
           </div>
@@ -1362,7 +1446,9 @@ export function BunkerExperience({
             </p>
             <p className="mt-1 text-base font-semibold">
               {t("yutganlar_names", {
-                names: winners.map((p) => p.name).join(", ") || t("hech_kim_qolmadi")
+                names:
+                  winners.map((p) => p.name).join(", ") ||
+                  t("hech_kim_qolmadi"),
               })}
             </p>
           </section>
@@ -1377,7 +1463,7 @@ export function BunkerExperience({
             <p className="text-xs text-ink-muted">
               {t("tirik_alive_total", {
                 alive: alivePlayers.length,
-                total: players.length
+                total: players.length,
               })}
             </p>
           </div>
@@ -1392,12 +1478,23 @@ export function BunkerExperience({
                 revealedCards={p.visibleCards}
                 isCurrentTurn={p.id === game.currentTurnPlayerId}
                 gameOver={room.status === "FINISHED"}
+                onReport={
+                  isOnlineVariant &&
+                  room.status === "PLAYING" &&
+                  p.id !== me.id &&
+                  p.isAlive
+                    ? () =>
+                        emit("online:request_kick_vote", {
+                          targetPlayerId: p.id,
+                        })
+                    : undefined
+                }
                 onKick={
-                    me.isHost &&
-                    !isOnlineVariant &&
-                    room.status === "PLAYING" &&
-                    p.isAlive &&
-                    !p.isHost
+                  me.isHost &&
+                  !isOnlineVariant &&
+                  room.status === "PLAYING" &&
+                  p.isAlive &&
+                  !p.isHost
                     ? () => setKickTarget({ id: p.id, name: p.name })
                     : undefined
                 }
@@ -1418,22 +1515,7 @@ export function BunkerExperience({
         ref={setBottomBarNode}
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 backdrop-blur"
       >
-        <div className="mx-auto max-w-xl px-4 pt-3 pb-safe">
-          {me.isHost && room.status !== "FINISHED" && isOnlineVariant ? (
-            <div className="mb-2 rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-              <p className="mb-2 text-xs font-medium text-ink-muted">
-                {t("online_rejim_avtomatik_oqim_8c64")}
-              </p>
-              <button
-                type="button"
-                onClick={() => setEndGameConfirmOpen(true)}
-                className="flex h-12 w-full items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-sm font-semibold text-bad transition active:scale-[0.98]"
-              >
-                {t("oyinni_tugatish")}
-              </button>
-            </div>
-          ) : null}
-
+        <div className="mx-auto max-w-2xl px-4 pt-3 pb-safe">
           {me.isHost && room.status !== "FINISHED" && !isOnlineVariant ? (
             <div className="mb-2">
               <HostControls
@@ -1447,7 +1529,9 @@ export function BunkerExperience({
                   room.status === "PLAYING" && game.phase === "ROUND_PITCH"
                 }
                 advanceTurnLabel={
-                  hasMoreRevealPlayers ? "Keyingi o'yinchi" : "Pitchni yakunlash"
+                  hasMoreRevealPlayers
+                    ? "Keyingi o'yinchi"
+                    : "Pitchni yakunlash"
                 }
                 canStartVoting={
                   room.status === "PLAYING" && game.phase === "ROUND_COMPLETE"
@@ -1488,22 +1572,41 @@ export function BunkerExperience({
               {t("bosh_sahifaga_qaytish")}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={openMyCards}
-              className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
+            <div
+              className={`grid gap-2 ${isOnlineVariant ? "grid-cols-2" : "grid-cols-1"}`}
             >
-              <div>
-                <p className="text-xs text-ink-muted">{t("mening_kartalarim")}</p>
-                <p className="text-sm font-semibold">
-                  {t("count_6_ochilgan", { count: myRevealedCount })}
-                  {!me.isAlive ? ` · ${t("chiqqansiz")}` : ""}
-                </p>
-              </div>
-              <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-                {t("korish")}
-              </span>
-            </button>
+              {isOnlineVariant ? (
+                <OnlineChat
+                  meId={me.id}
+                  messages={roomState.chat.messages}
+                  onSend={(text) => emit("chat:send", { text })}
+                  floating={false}
+                  highlightedPlayerId={
+                    game.phase === "ROUND_PITCH"
+                      ? game.currentTurnPlayerId
+                      : null
+                  }
+                />
+              ) : null}
+              <button
+                type="button"
+                onClick={openMyCards}
+                className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
+              >
+                <div>
+                  <p className="text-xs text-ink-muted">
+                    {t("mening_kartalarim")}
+                  </p>
+                  <p className="text-sm font-semibold">
+                    {t("count_6_ochilgan", { count: myRevealedCount })}
+                    {!me.isAlive ? ` · ${t("chiqqansiz")}` : ""}
+                  </p>
+                </div>
+                <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
+                  {t("korish")}
+                </span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -1565,7 +1668,9 @@ export function BunkerExperience({
                       </span>
                     )}
                   </div>
-                  <p className="mt-1.5 text-sm text-ink-primary">{card.value}</p>
+                  <p className="mt-1.5 text-sm text-ink-primary">
+                    {card.value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -1603,8 +1708,12 @@ export function BunkerExperience({
               <p className="text-xs font-medium uppercase tracking-wider text-brand">
                 {t("fojea")}
               </p>
-              <h2 className="mt-1 text-2xl font-bold">{localizedDisasterName}</h2>
-              <p className="mt-3 text-sm leading-7 text-ink-secondary">{localizedDisasterDescription}</p>
+              <h2 className="mt-1 text-2xl font-bold">
+                {localizedDisasterName}
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-ink-secondary">
+                {localizedDisasterDescription}
+              </p>
               <div className="mt-5 grid gap-2">
                 <button
                   onClick={() => setIntroOpen(false)}
@@ -1628,16 +1737,20 @@ export function BunkerExperience({
           }`}
         >
           <div className="absolute inset-0" />
-          <div className={`relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border ${
-            situationClosing ? "animate-sheet-out" : "animate-sheet-in"
-          }`}>
+          <div
+            className={`relative z-10 w-full max-w-md rounded-t-3xl border-t border-line-subtle bg-bg-surface p-5 pb-safe shadow-pop sm:rounded-3xl sm:border ${
+              situationClosing ? "animate-sheet-out" : "animate-sheet-in"
+            }`}
+          >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
             <p className="text-xs font-medium uppercase tracking-wider text-warn">
               {t("round_roundnumber_vaziyati", {
-                roundNumber: game.roundNumber
+                roundNumber: game.roundNumber,
               })}
             </p>
-            <p className="mt-3 text-base leading-7 text-ink-primary">{localizedSituationText}</p>
+            <p className="mt-3 text-base leading-7 text-ink-primary">
+              {localizedSituationText}
+            </p>
             <button
               onClick={closeSituation}
               className="mt-5 flex h-14 w-full items-center justify-center rounded-2xl bg-brand text-base font-semibold text-bg-base transition active:scale-[0.98]"
@@ -1660,10 +1773,15 @@ export function BunkerExperience({
             <p className="text-xs font-medium uppercase tracking-wider text-brand">
               {t("sizning_navbatingiz")}
             </p>
-            <h2 className="mt-1 text-2xl font-bold">{t("bitta_kartani_tanlang")}</h2>
+            <h2 className="mt-1 text-2xl font-bold">
+              {t("bitta_kartani_tanlang")}
+            </h2>
             <p className="mt-2 text-sm leading-6 text-ink-secondary">
               {t("tanlaganingizdan_keyin_2_daqiqada_nega_18e0")}
             </p>
+            <div className="mt-4">
+              <Timer seconds={game.remainingSeconds} variant="warning" />
+            </div>
             <div className="mt-4 grid gap-2">
               {revealOptions.map((card) => (
                 <button
@@ -1674,7 +1792,9 @@ export function BunkerExperience({
                   <p className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
                     {card.label}
                   </p>
-                  <p className="mt-1 text-base text-ink-primary">{card.value}</p>
+                  <p className="mt-1 text-base text-ink-primary">
+                    {card.value}
+                  </p>
                 </button>
               ))}
             </div>
@@ -1691,7 +1811,7 @@ export function BunkerExperience({
             id: p.id,
             name: p.name,
             isAlive: p.isAlive,
-            visibleCards: p.visibleCards
+            visibleCards: p.visibleCards,
           }))}
           meId={me.id}
           tiebreakCandidateIds={game.tiebreakCandidateIds}
@@ -1715,7 +1835,7 @@ export function BunkerExperience({
             className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-bad/40 bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%), linear-gradient(180deg, rgba(239,68,68,0.04) 0%, rgba(11,13,18,0) 60%)"
+                "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.22), transparent 55%), linear-gradient(180deg, rgba(239,68,68,0.04) 0%, rgba(11,13,18,0) 60%)",
             }}
           >
             <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
@@ -1778,7 +1898,7 @@ export function BunkerExperience({
             className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border-t border-brand/40 bg-bg-surface pb-safe shadow-pop sm:rounded-3xl sm:border"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 50% 0%, rgba(244,168,58,0.28), transparent 55%), linear-gradient(180deg, rgba(34,197,94,0.06) 0%, rgba(11,13,18,0) 70%)"
+                "radial-gradient(circle at 50% 0%, rgba(244,168,58,0.28), transparent 55%), linear-gradient(180deg, rgba(34,197,94,0.06) 0%, rgba(11,13,18,0) 70%)",
             }}
           >
             <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
@@ -1863,7 +1983,9 @@ export function BunkerExperience({
       <ConfirmModal
         open={!!kickTarget}
         title={
-          kickTarget ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name }) : ""
+          kickTarget
+            ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name })
+            : ""
         }
         description={t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")}
         confirmLabel={t("chiqarish")}
@@ -1892,6 +2014,21 @@ export function BunkerExperience({
           router.push("/dashboard");
         }}
         onClose={() => setLeaveConfirmOpen(false)}
+      />
+      <OnlineGovernanceModal
+        proposal={activeGovernanceProposal}
+        mePlayerId={me.id}
+        onClose={() =>
+          setDismissedKickProposalId(activeGovernanceProposal?.id ?? null)
+        }
+        onApprove={(proposalId) => {
+          setDismissedKickProposalId(proposalId);
+          emit("online:vote_kick", { proposalId, approve: true });
+        }}
+        onReject={(proposalId) => {
+          setDismissedKickProposalId(proposalId);
+          emit("online:vote_kick", { proposalId, approve: false });
+        }}
       />
 
       {/* Lobby cancellation modal — host tugatdi, o'yin umuman bo'lmadi.
@@ -1950,11 +2087,13 @@ export function BunkerExperience({
                     while the flip animation is delayed. */}
                 <div
                   className="col-start-1 row-start-1 grid place-items-center rounded-2xl border border-line-strong bg-bg-elevated p-4"
-                  style={{
-                    backfaceVisibility: "hidden",
-                    WebkitBackfaceVisibility: "hidden",
-                    transform: "rotateY(180deg)"
-                  } as React.CSSProperties}
+                  style={
+                    {
+                      backfaceVisibility: "hidden",
+                      WebkitBackfaceVisibility: "hidden",
+                      transform: "rotateY(180deg)",
+                    } as React.CSSProperties
+                  }
                 >
                   <span className="text-4xl font-bold text-ink-muted">?</span>
                 </div>
@@ -1962,14 +2101,16 @@ export function BunkerExperience({
                     both faces share dimensions. */}
                 <div
                   className="col-start-1 row-start-1 rounded-2xl border border-brand/40 bg-brand-soft/40 p-4"
-                  style={{
-                    backfaceVisibility: "hidden",
-                    WebkitBackfaceVisibility: "hidden"
-                  } as React.CSSProperties}
+                  style={
+                    {
+                      backfaceVisibility: "hidden",
+                      WebkitBackfaceVisibility: "hidden",
+                    } as React.CSSProperties
+                  }
                 >
                   <p className="text-[11px] font-medium uppercase tracking-wider text-brand">
                     {t("label_yangi", {
-                      label: t(cardLabels[revealModal.newCardType])
+                      label: t(cardLabels[revealModal.newCardType]),
                     })}
                   </p>
                   <p className="mt-2 text-base font-semibold leading-7 text-ink-primary">

@@ -1,6 +1,8 @@
 import { BunkerCardType, BunkerDifficulty, BunkerPhase, RoomStatus } from "@prisma/client";
 
 import type { LocalizedText } from "../../lib/localized-content";
+import type { ChatMessage } from "../../services/chat-service";
+import type { OnlineGovernanceState } from "../../services/online-governance-service";
 
 export const CARD_TYPES = [
   BunkerCardType.PROFESSION,
@@ -73,4 +75,8 @@ export type BunkerPublicState = {
     total: number;
     submittedByMe: boolean;
   };
+  chat: {
+    messages: ChatMessage[];
+  };
+  governance: OnlineGovernanceState;
 };

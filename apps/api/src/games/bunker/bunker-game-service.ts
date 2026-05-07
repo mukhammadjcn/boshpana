@@ -10,7 +10,9 @@ import { randomBytes, randomInt } from "node:crypto";
 
 import { buildLocalizedText, type LocalizedText } from "../../lib/localized-content";
 import { prisma } from "../../lib/prisma";
+import { chatService } from "../../services/chat-service";
 import { hostTransferService } from "../../services/host-transfer-service";
+import { onlineGovernanceService } from "../../services/online-governance-service";
 import { shouldAutoStartOnlineLobby } from "../../services/online-lobby-service";
 import {
   getBunkerIntroDurationSeconds,
@@ -141,7 +143,7 @@ export class BunkerGameService {
               }
             ]
           },
-          select: { id: true, bunkerGame: { select: { id: true } } }
+          select: { id: true, code: true, bunkerGame: { select: { id: true } } }
         });
         for (const r of stale) {
           await this.saveGameHistory(r.id, "cancelled");
@@ -156,16 +158,33 @@ export class BunkerGameService {
             });
           }
           this.stopTimer(r.id);
+          await chatService.clearRoom(r.code);
+          await onlineGovernanceService.clearRoom(r.code);
         }
 
         // Step 2: purge old finished/cancelled rooms.
         const deleteCutoff = new Date(Date.now() - ageMs);
-        await prisma.room.deleteMany({
+        const roomsToDelete = await prisma.room.findMany({
           where: {
             status: { in: [RoomStatus.FINISHED, RoomStatus.CANCELLED] },
             updatedAt: { lt: deleteCutoff }
-          }
+          },
+          select: { code: true }
         });
+        if (roomsToDelete.length > 0) {
+          await prisma.room.deleteMany({
+            where: {
+              status: { in: [RoomStatus.FINISHED, RoomStatus.CANCELLED] },
+              updatedAt: { lt: deleteCutoff }
+            }
+          });
+          await Promise.all(
+            roomsToDelete.map(async (room) => {
+              await chatService.clearRoom(room.code);
+              await onlineGovernanceService.clearRoom(room.code);
+            })
+          );
+        }
       } catch (error) {
         console.error("cleanup sweep failed", error);
       }
@@ -291,7 +310,15 @@ export class BunkerGameService {
     }
 
     const cardTranslations = await this.loadCardTranslations();
-    return this.buildRoomState(room, sessionId, cardTranslations);
+    const chatMessages = await chatService.getRecentMessages(room.code);
+    const governance = await onlineGovernanceService.getState(room.code);
+    return this.buildRoomState(
+      room,
+      sessionId,
+      cardTranslations,
+      chatMessages,
+      governance
+    );
   }
 
   // Pre-loaded version: assumes the caller already fetched the room with
@@ -307,17 +334,27 @@ export class BunkerGameService {
       throw new Error("Room state topilmadi.");
     }
     const cardTranslations = await this.loadCardTranslations();
+    const chatMessages = await chatService.getRecentMessages(room.code);
+    const governance = await onlineGovernanceService.getState(room.code);
     return {
       room,
       perSession: (sessionId: string) =>
-        this.buildRoomState(room, sessionId, cardTranslations)
+        this.buildRoomState(
+          room,
+          sessionId,
+          cardTranslations,
+          chatMessages,
+          governance
+        )
     };
   }
 
   private buildRoomState(
     room: NonNullable<Awaited<ReturnType<BunkerGameService["getRoomWithState"]>>>,
     sessionId: string,
-    cardTranslations: CardTranslationMap
+    cardTranslations: CardTranslationMap,
+    chatMessages: Awaited<ReturnType<typeof chatService.getRecentMessages>>,
+    governance: Awaited<ReturnType<typeof onlineGovernanceService.getState>>
   ): BunkerPublicState {
     if (!room.bunkerGame) {
       throw new Error("Room state topilmadi.");
@@ -417,7 +454,11 @@ export class BunkerGameService {
               (vote) => vote.roundNumber === currentRoundNumber && vote.voterPlayerId === me.id
             )
           : false
-      }
+      },
+      chat: {
+        messages: chatMessages
+      },
+      governance
     };
   }
 
@@ -675,11 +716,15 @@ export class BunkerGameService {
       include: { players: true }
     });
     if (!room) throw new Error("Room topilmadi.");
-    if (room.status !== RoomStatus.LOBBY) {
-      throw new Error("O'yin boshlanganidan keyin chiqib bo'lmaydi.");
-    }
     const me = room.players.find((p) => p.sessionId === input.sessionId);
     if (!me) throw new Error("O'yinchi topilmadi.");
+    if (room.status !== RoomStatus.LOBBY) {
+      if (room.mode !== "ONLINE") {
+        throw new Error("O'yin boshlanganidan keyin chiqib bo'lmaydi.");
+      }
+      await this.removePlayerFromOnlineGame(room.code, me.id, input.sessionId);
+      return;
+    }
     if (me.isHost) {
       if (room.mode === "ONLINE") {
         const transfer = await hostTransferService.transferOnlineRoomHost({
@@ -712,6 +757,37 @@ export class BunkerGameService {
       throw new Error("Host xonadan chiqa olmaydi. O'yinni tugating yoki bekor qiling.");
     }
     await prisma.player.delete({ where: { id: me.id } });
+  }
+
+  private async removePlayerFromOnlineGame(
+    roomCode: string,
+    playerId: string,
+    sessionId: string
+  ) {
+    const room = await this.getRoomWithState(roomCode);
+    if (!room || !room.bunkerGame) throw new Error("Room topilmadi.");
+
+    const target = room.players.find((player) => player.id === playerId);
+    if (!target) throw new Error("O'yinchi topilmadi.");
+
+    if (target.isHost) {
+      const transfer = await hostTransferService.transferOnlineRoomHost({
+        roomCode: room.code,
+        expectedHostSessionId: sessionId,
+        currentHostPlayerId: target.id
+      });
+
+      if (transfer?.kind !== "transferred" && room.players.length <= 1) {
+        await this.endGame({ code: room.code, sessionId });
+        return;
+      }
+    }
+
+    await this.kickPlayer({
+      code: room.code,
+      sessionId: room.hostSessionId,
+      targetPlayerId: target.id
+    });
   }
 
   async kickPlayer(input: RoomCodeAction & { targetPlayerId: string }) {
@@ -787,6 +863,7 @@ export class BunkerGameService {
 
     if (didFinish) {
       this.stopTimer(room.code);
+      await onlineGovernanceService.clearRoom(room.code);
       await this.saveGameHistory(roomId, "manualEnd");
       return;
     }
@@ -844,6 +921,7 @@ export class BunkerGameService {
     ]);
 
     await this.saveGameHistory(room.id, wasInLobby ? "cancelled" : "manualEnd");
+    await onlineGovernanceService.clearRoom(room.code);
   }
 
   private async saveGameHistory(
@@ -1253,6 +1331,7 @@ export class BunkerGameService {
       (player) => player.id === game.currentTurnPlayerId
     );
     if (!currentPlayer?.bunkerAttributes) {
+      await this.advanceTurnForRoom(roomCode);
       return;
     }
 
@@ -1505,6 +1584,7 @@ export class BunkerGameService {
     });
 
     if (didFinish) {
+      await onlineGovernanceService.clearRoom(room.code);
       await this.saveGameHistory(room.id, "natural");
       return;
     }

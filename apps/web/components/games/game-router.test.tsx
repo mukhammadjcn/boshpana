@@ -58,6 +58,28 @@ describe("resolveGameExperience", () => {
       }),
     ).toBe("online-mafia");
   });
+
+  it("keeps friends rooms on the legacy experiences", () => {
+    expect(
+      resolveGameExperience({
+        code: "IJKL",
+        gameType: "BUNKER",
+        status: "LOBBY",
+        mode: "FRIENDS",
+        visibility: "PRIVATE",
+      }),
+    ).toBe("bunker");
+
+    expect(
+      resolveGameExperience({
+        code: "MNOP",
+        gameType: "MAFIA",
+        status: "PLAYING",
+        mode: "FRIENDS",
+        visibility: "PRIVATE",
+      }),
+    ).toBe("mafia");
+  });
 });
 
 describe("GameRouter", () => {
@@ -78,6 +100,38 @@ describe("GameRouter", () => {
 
     await waitFor(() => {
       expect(screen.getByText("online-bunker")).toBeTruthy();
+    });
+  });
+
+  it("mounts the friends bunker experience for friends bunker rooms", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      code: "ROOM2",
+      gameType: "BUNKER",
+      status: "LOBBY",
+      mode: "FRIENDS",
+      visibility: "PRIVATE",
+    });
+
+    render(<GameRouter roomCode="ROOM2" view="room" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("bunker")).toBeTruthy();
+    });
+  });
+
+  it("mounts the friends mafia experience for friends mafia rooms", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({
+      code: "ROOM3",
+      gameType: "MAFIA",
+      status: "PLAYING",
+      mode: "FRIENDS",
+      visibility: "PRIVATE",
+    });
+
+    render(<GameRouter roomCode="ROOM3" view="game" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("mafia")).toBeTruthy();
     });
   });
 });

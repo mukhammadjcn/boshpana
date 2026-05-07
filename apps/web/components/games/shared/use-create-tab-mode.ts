@@ -20,7 +20,10 @@ function readInitial(): CreateTabMode {
 // reload keeps the user on the same view, and reflects it in the URL
 // (?mode=online) for shareable / deep-linkable navigation. Avoids
 // useSearchParams to skip the Suspense boundary requirement on Next 15.
-export function useCreateTabMode(): [CreateTabMode, (next: CreateTabMode) => void] {
+export function useCreateTabMode(): [
+  CreateTabMode,
+  (next: CreateTabMode) => void,
+] {
   const [mode, setMode] = useState<CreateTabMode>("friends");
 
   useEffect(() => {

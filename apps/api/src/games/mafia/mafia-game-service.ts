@@ -13,7 +13,9 @@ import {
 import { randomBytes, randomInt } from "node:crypto";
 
 import { prisma } from "../../lib/prisma";
+import { chatService } from "../../services/chat-service";
 import { hostTransferService } from "../../services/host-transfer-service";
+import { onlineGovernanceService } from "../../services/online-governance-service";
 import { shouldAutoStartOnlineLobby } from "../../services/online-lobby-service";
 import {
   getMafiaResultRevealDurationSeconds,
@@ -228,11 +230,15 @@ export class MafiaGameService {
       include: { players: true }
     });
     if (!room) throw new Error("Room topilmadi.");
-    if (room.status !== RoomStatus.LOBBY) {
-      throw new Error("O'yin boshlanganidan keyin chiqib bo'lmaydi.");
-    }
     const me = room.players.find((p) => p.sessionId === input.sessionId);
     if (!me) throw new Error("O'yinchi topilmadi.");
+    if (room.status !== RoomStatus.LOBBY) {
+      if (room.mode !== "ONLINE") {
+        throw new Error("O'yin boshlanganidan keyin chiqib bo'lmaydi.");
+      }
+      await this.removePlayerFromOnlineGame(room.code, me.id, input.sessionId);
+      return;
+    }
     if (me.isHost) {
       if (room.mode === "ONLINE") {
         const transfer = await hostTransferService.transferOnlineRoomHost({
@@ -1269,6 +1275,7 @@ export class MafiaGameService {
         data: { roleRevealed: true }
       })
     ]);
+    await onlineGovernanceService.clearRoom(room.code);
 
     if (room.hostUserId) {
       await prisma.gameHistory.create({
@@ -1312,6 +1319,7 @@ export class MafiaGameService {
         data: { roleRevealed: true }
       })
     ]);
+    await onlineGovernanceService.clearRoom(room.code);
 
     if (!wasLobby && room.hostUserId) {
       // Mirror Bunker: cancelled-mid-game still records a history row so
@@ -1345,7 +1353,9 @@ export class MafiaGameService {
     if (!room || !room.mafiaGame) {
       throw new Error("Room state topilmadi.");
     }
-    return this.buildPublicState(room, sessionId);
+    const chatMessages = await chatService.getRecentMessages(room.code);
+    const governance = await onlineGovernanceService.getState(room.code);
+    return this.buildPublicState(room, sessionId, chatMessages, governance);
   }
 
   async getRoomStateForBroadcast(code: string): Promise<{
@@ -1356,15 +1366,20 @@ export class MafiaGameService {
     if (!room || !room.mafiaGame) {
       throw new Error("Room state topilmadi.");
     }
+    const chatMessages = await chatService.getRecentMessages(room.code);
+    const governance = await onlineGovernanceService.getState(room.code);
     return {
       room,
-      perSession: (sessionId: string) => this.buildPublicState(room, sessionId)
+      perSession: (sessionId: string) =>
+        this.buildPublicState(room, sessionId, chatMessages, governance)
     };
   }
 
   private buildPublicState(
     room: RoomWithMafiaState,
-    sessionId: string
+    sessionId: string,
+    chatMessages: Awaited<ReturnType<typeof chatService.getRecentMessages>>,
+    governance: Awaited<ReturnType<typeof onlineGovernanceService.getState>>
   ): MafiaPublicState {
     if (!room.mafiaGame) throw new Error("Room state topilmadi.");
     const game = room.mafiaGame;
@@ -1599,7 +1614,11 @@ export class MafiaGameService {
           confirmed: voteConfirmedCount,
           total: eligibleDayVoters.length
         }
-      }
+      },
+      chat: {
+        messages: chatMessages
+      },
+      governance
     };
   }
 
@@ -1669,6 +1688,95 @@ export class MafiaGameService {
     return alivePlayers.filter(
       (player) => !tiebreakCandidates.includes(player.id)
     );
+  }
+
+  private async removePlayerFromOnlineGame(
+    roomCode: string,
+    playerId: string,
+    sessionId: string
+  ) {
+    const room = await this.getRoomWithState(roomCode);
+    if (!room || !room.mafiaGame) throw new Error("Room topilmadi.");
+
+    const target = room.players.find((player) => player.id === playerId);
+    if (!target || !target.mafiaRole) throw new Error("O'yinchi topilmadi.");
+
+    if (target.isHost) {
+      const transfer = await hostTransferService.transferOnlineRoomHost({
+        roomCode: room.code,
+        expectedHostSessionId: sessionId,
+        currentHostPlayerId: target.id
+      });
+
+      if (transfer?.kind !== "transferred" && room.players.length <= 1) {
+        await this.endGame({ code: room.code, sessionId });
+        return;
+      }
+    }
+
+    await prisma.$transaction([
+      prisma.player.update({
+        where: { id: target.id },
+        data: { isAlive: false }
+      }),
+      prisma.mafiaPlayerRole.update({
+        where: { playerId: target.id },
+        data: {
+          isAlive: false,
+          roleRevealed: true
+        }
+      })
+    ]);
+
+    await this.resumeAfterPlayerRemoval(room.code);
+    await this.realtime.broadcastRoomState(room.code);
+  }
+
+  private async resumeAfterPlayerRemoval(roomCode: string) {
+    const room = await this.getRoomWithState(roomCode);
+    if (!room || !room.mafiaGame) return;
+
+    const winner = this.computeWinner(room.players);
+    if (winner) {
+      await this.finishGame(room, winner);
+      return;
+    }
+
+    const game = room.mafiaGame;
+    if (game.phase === MafiaPhase.NIGHT) {
+      const aliveCount = room.players.filter((player) => player.mafiaRole?.isAlive).length;
+      const confirmedCount = await prisma.mafiaNightSubmission.count({
+        where: {
+          gameId: game.id,
+          nightNumber: game.nightNumber,
+          isConfirmed: true
+        }
+      });
+      if (confirmedCount >= aliveCount) {
+        this.stopTimer(room.code);
+        await this.resolveNight(room.code);
+      }
+      return;
+    }
+
+    if (
+      game.phase === MafiaPhase.DAY_VOTE ||
+      game.phase === MafiaPhase.DAY_TIEBREAK
+    ) {
+      const eligibleVoters = this.getDayVoteEligibleVoters(room.players, game);
+      const confirmedCount = await prisma.mafiaDayVote.count({
+        where: {
+          gameId: game.id,
+          dayNumber: game.dayNumber,
+          isTiebreak: game.phase === MafiaPhase.DAY_TIEBREAK,
+          isConfirmed: true
+        }
+      });
+      if (confirmedCount >= eligibleVoters.length) {
+        this.stopTimer(room.code);
+        await this.resolveDayVote(room.code);
+      }
+    }
   }
 
   // 1Hz tick — broadcasts the remaining seconds to clients and triggers

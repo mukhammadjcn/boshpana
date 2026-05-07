@@ -8,6 +8,7 @@ import type { MafiaPublicState, MafiaRole } from "./mafia-types";
 
 type Props = {
   state: MafiaPublicState;
+  headerAction?: React.ReactNode;
 };
 
 function getRoleLabel(
@@ -25,7 +26,7 @@ function getRoleLabel(
 // qolgan bo'lsa, "Doktor 1 fuqaroni saqlab qoldi" matni chiqadi
 // (mafia/komisar nishoni bo'lgan ismni oshkor qilmaymiz). Aks holda
 // qurbonlarni 1 sek interval bilan birin-ketin ko'rsatib boramiz.
-export function MafiaNightResult({ state }: Props) {
+export function MafiaNightResult({ state, headerAction }: Props) {
   const { t } = useI18n();
   const { game, players } = state;
   const victims = game.lastNightVictims;
@@ -61,9 +62,12 @@ export function MafiaNightResult({ state }: Props) {
               nightNumber: game.nightNumber,
             })}
           </p>
-          <span className="inline-flex h-9 min-w-[124px] items-center justify-center rounded-full border border-line-strong bg-bg-surface px-4 font-mono text-sm font-semibold uppercase tracking-[0.22em] text-ink-secondary">
-            #{state.room.code}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-9 min-w-[124px] items-center justify-center rounded-full border border-line-strong bg-bg-surface px-4 font-mono text-sm font-semibold uppercase tracking-[0.22em] text-ink-secondary">
+              #{state.room.code}
+            </span>
+            {headerAction}
+          </div>
         </header>
 
         <section className="grid gap-4">

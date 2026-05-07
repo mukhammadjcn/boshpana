@@ -24,7 +24,16 @@ export function BunkerCreatePage() {
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-ink-secondary"
             aria-label={t("orqaga")}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </Link>
@@ -36,11 +45,7 @@ export function BunkerCreatePage() {
 
         <CreatePageTabs value={mode} onChange={setMode} />
 
-        {mode === "friends" ? (
-          <BunkerFriendsCreate />
-        ) : (
-          <OnlineBunkerCreate />
-        )}
+        {mode === "friends" ? <BunkerFriendsCreate /> : <OnlineBunkerCreate />}
       </div>
     </main>
   );

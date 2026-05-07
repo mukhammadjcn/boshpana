@@ -150,7 +150,9 @@ export function BunkerFriendsCreate() {
         {usage && limitReached && (
           <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
             <div className="flex items-center justify-between text-sm">
-              <p className="font-semibold text-ink-primary">{t("oylik_limit")}</p>
+              <p className="font-semibold text-ink-primary">
+                {t("oylik_limit")}
+              </p>
               <p
                 className={`text-sm font-mono ${limitReached ? "text-bad" : "text-brand"}`}
               >
@@ -182,7 +184,7 @@ export function BunkerFriendsCreate() {
           onSubmit={handleCreate}
           className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
         >
-          <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+          <p className="text-xs font-medium uppercase tracking-wider text-brand">
             {t("yangi_lobby")}
           </p>
 
@@ -292,15 +294,15 @@ export function BunkerFriendsCreate() {
                 ? t("limit_tugagan")
                 : t("oyin_yaratish")}
           </button>
-        </form>
 
-        <button
-          type="button"
-          onClick={() => setJoinOpen(true)}
-          className="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
-        >
-          {t("kod_orqali_qoshilish")}
-        </button>
+          <button
+            type="button"
+            onClick={() => setJoinOpen(true)}
+            className="flex h-14 w-full items-center justify-center rounded-xl border border-line-strong bg-bg-surface text-sm font-semibold text-ink-primary transition active:scale-[0.98]"
+          >
+            {t("kod_orqali_qoshilish")}
+          </button>
+        </form>
       </section>
 
       <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />
