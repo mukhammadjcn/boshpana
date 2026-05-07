@@ -16,7 +16,12 @@ import { prisma } from "../../lib/prisma";
 import { chatService } from "../../services/chat-service";
 import { hostTransferService } from "../../services/host-transfer-service";
 import { onlineGovernanceService } from "../../services/online-governance-service";
-import { shouldAutoStartOnlineLobby } from "../../services/online-lobby-service";
+import {
+  getMafiaOnlineMinPlayers,
+  shouldAutoStartOnlineLobby
+} from "../../services/online-lobby-service";
+import { joinLobbyRoom } from "../../services/room-membership-service";
+import { withRoomActionLock } from "../../services/room-action-lock-service";
 import {
   getMafiaResultRevealDurationSeconds,
   isSelfManagedOnlineRoom
@@ -168,60 +173,17 @@ export class MafiaGameService {
   }
 
   async joinRoom(input: JoinRoomInput) {
-    const room = await prisma.room.findUnique({
-      where: { code: input.code.toUpperCase() },
-      include: { players: { orderBy: { seatOrder: "asc" } } }
+    const result = await joinLobbyRoom({
+      ...input,
+      expectedGameType: GameType.MAFIA,
+      expectedGameLabel: "Mafia"
     });
 
-    if (!room) throw new Error("Room topilmadi.");
-    if (room.gameType !== GameType.MAFIA) {
-      throw new Error("Bu Mafia o'yini emas.");
-    }
-    if (room.status !== RoomStatus.LOBBY) {
-      throw new Error(
-        "O'yin boshlanganidan keyin yangi o'yinchi qo'shila olmaydi."
-      );
+    if (result.didCreatePlayer) {
+      await this.realtime.broadcastRoomState(result.roomCode);
     }
 
-    // Re-attach existing player if same user opens from another device.
-    if (input.userId) {
-      const byUser = room.players.find((p) => p.userId === input.userId);
-      if (byUser && byUser.sessionId !== input.sessionId) {
-        const updated = await prisma.player.update({
-          where: { id: byUser.id },
-          data: { sessionId: input.sessionId }
-        });
-        return { roomCode: room.code, playerId: updated.id };
-      }
-    }
-
-    const existing = room.players.find((p) => p.sessionId === input.sessionId);
-    if (existing) {
-      if (input.userId && !existing.userId) {
-        await prisma.player.update({
-          where: { id: existing.id },
-          data: { userId: input.userId }
-        });
-      }
-      return { roomCode: room.code, playerId: existing.id };
-    }
-
-    if (room.players.length >= room.maxPlayers) {
-      throw new Error("Xona to'lib bo'lgan.");
-    }
-
-    const player = await prisma.player.create({
-      data: {
-        roomId: room.id,
-        name: input.name.trim(),
-        sessionId: input.sessionId,
-        userId: input.userId ?? null,
-        seatOrder: room.players.length + 1
-      }
-    });
-
-    await this.realtime.broadcastRoomState(room.code);
-    return { roomCode: room.code, playerId: player.id };
+    return { roomCode: result.roomCode, playerId: result.playerId };
   }
 
   async leaveRoom(input: RoomCodeAction) {
@@ -249,6 +211,7 @@ export class MafiaGameService {
 
         if (transfer?.kind === "transferred") {
           await prisma.player.delete({ where: { id: me.id } });
+          await onlineGovernanceService.clearRoom(room.code);
           return {
             creatorChanged: {
               roomCode: transfer.roomCode,
@@ -266,6 +229,7 @@ export class MafiaGameService {
             data: { status: RoomStatus.CANCELLED }
           })
         ]);
+        await onlineGovernanceService.clearRoom(room.code);
         return;
       }
       throw new Error(
@@ -273,6 +237,9 @@ export class MafiaGameService {
       );
     }
     await prisma.player.delete({ where: { id: me.id } });
+    if (room.mode === "ONLINE") {
+      await onlineGovernanceService.clearRoom(room.code);
+    }
   }
 
   async kickPlayer(input: RoomCodeAction & { targetPlayerId: string }) {
@@ -284,75 +251,80 @@ export class MafiaGameService {
     if (!target) throw new Error("O'yinchi topilmadi.");
     if (target.isHost) throw new Error("Hostni chiqarib bo'lmaydi.");
     await prisma.player.delete({ where: { id: target.id } });
+    if (room.mode === "ONLINE") {
+      await onlineGovernanceService.clearRoom(room.code);
+    }
   }
 
   async toggleReady(input: RoomCodeAction) {
-    const room = await prisma.room.findUnique({
-      where: { code: input.code.toUpperCase() },
-      include: {
-        players: { orderBy: { seatOrder: "asc" } },
-        mafiaGame: true
-      }
-    });
-    if (!room) throw new Error("Room topilmadi.");
-    if (room.gameType !== GameType.MAFIA) {
-      throw new Error("Bu Mafia o'yini emas.");
-    }
-    if (room.mode !== "ONLINE") {
-      throw new Error("Tayyorman faqat online lobby uchun ishlaydi.");
-    }
-    if (room.status !== RoomStatus.LOBBY) {
-      throw new Error("O'yin boshlanganidan keyin tayyor holatini o'zgartirib bo'lmaydi.");
-    }
-    if (!room.mafiaGame) {
-      throw new Error("O'yin state topilmadi.");
-    }
-
-    const me = room.players.find((player) => player.sessionId === input.sessionId);
-    if (!me) throw new Error("O'yinchi topilmadi.");
-
-    const required =
-      room.mafiaGame.mafiaCount +
-      (room.mafiaGame.hasSheriff ? 1 : 0) +
-      (room.mafiaGame.hasDoctor ? 1 : 0) +
-      1;
-    if (room.players.length < required && !me.readyAt) {
-      throw new Error(
-        `Kamida ${required} ta o'yinchi bo'lgach tayyor holatini yoqish mumkin.`
-      );
-    }
-
-    const nextReadyAt = me.readyAt ? null : new Date();
-
-    await prisma.player.update({
-      where: { id: me.id },
-      data: { readyAt: nextReadyAt }
-    });
-
-    if (!nextReadyAt) {
-      return;
-    }
-
-    const refreshed = await prisma.room.findUnique({
-      where: { id: room.id },
-      include: {
-        players: { orderBy: { seatOrder: "asc" } },
-        mafiaGame: true
-      }
-    });
-
-    if (
-      refreshed?.mafiaGame &&
-      shouldAutoStartOnlineLobby(refreshed.players, required)
-    ) {
-      await this.startGame({
-        code: refreshed.code,
-        sessionId: refreshed.hostSessionId
+    return withRoomActionLock(input.code, async () => {
+      const room = await prisma.room.findUnique({
+        where: { code: input.code.toUpperCase() },
+        include: {
+          players: { orderBy: { seatOrder: "asc" } },
+          mafiaGame: true
+        }
       });
-    }
+      if (!room) throw new Error("Room topilmadi.");
+      if (room.gameType !== GameType.MAFIA) {
+        throw new Error("Bu Mafia o'yini emas.");
+      }
+      if (room.mode !== "ONLINE") {
+        throw new Error("Tayyorman faqat online lobby uchun ishlaydi.");
+      }
+      if (room.status !== RoomStatus.LOBBY) {
+        throw new Error("O'yin boshlanganidan keyin tayyor holatini o'zgartirib bo'lmaydi.");
+      }
+      if (!room.mafiaGame) {
+        throw new Error("O'yin state topilmadi.");
+      }
+
+      const me = room.players.find((player) => player.sessionId === input.sessionId);
+      if (!me) throw new Error("O'yinchi topilmadi.");
+
+      const required = getMafiaOnlineMinPlayers(room.mafiaGame);
+      if (room.players.length < required && !me.readyAt) {
+        throw new Error(
+          `Kamida ${required} ta o'yinchi bo'lgach tayyor holatini yoqish mumkin.`
+        );
+      }
+
+      const nextReadyAt = me.readyAt ? null : new Date();
+
+      await prisma.player.update({
+        where: { id: me.id },
+        data: { readyAt: nextReadyAt }
+      });
+
+      if (!nextReadyAt) {
+        return;
+      }
+
+      const refreshed = await prisma.room.findUnique({
+        where: { id: room.id },
+        include: {
+          players: { orderBy: { seatOrder: "asc" } },
+          mafiaGame: true
+        }
+      });
+
+      if (
+        refreshed?.mafiaGame &&
+        shouldAutoStartOnlineLobby(refreshed.players, required)
+      ) {
+        await this.startGameUnlocked({
+          code: refreshed.code,
+          sessionId: refreshed.hostSessionId
+        });
+      }
+    });
   }
 
   async startGame(input: RoomCodeAction) {
+    return withRoomActionLock(input.code, () => this.startGameUnlocked(input));
+  }
+
+  private async startGameUnlocked(input: RoomCodeAction) {
     const room = await this.requireHostRoom(input);
     if (!room.mafiaGame) throw new Error("O'yin state topilmadi.");
     if (room.status !== RoomStatus.LOBBY) {
@@ -360,11 +332,7 @@ export class MafiaGameService {
     }
 
     const config = room.mafiaGame;
-    const required =
-      config.mafiaCount +
-      (config.hasSheriff ? 1 : 0) +
-      (config.hasDoctor ? 1 : 0) +
-      1;
+    const required = getMafiaOnlineMinPlayers(config);
     if (room.players.length < required) {
       throw new Error(
         `O'yinni boshlash uchun kamida ${required} ta o'yinchi kerak.`
@@ -425,6 +393,7 @@ export class MafiaGameService {
         });
       }
     });
+    await onlineGovernanceService.clearRoom(room.code);
   }
 
   // Player taps "Tasdiqlash" on the role-reveal screen. Once every
@@ -1729,6 +1698,7 @@ export class MafiaGameService {
     ]);
 
     await this.resumeAfterPlayerRemoval(room.code);
+    await onlineGovernanceService.clearRoom(room.code);
     await this.realtime.broadcastRoomState(room.code);
   }
 

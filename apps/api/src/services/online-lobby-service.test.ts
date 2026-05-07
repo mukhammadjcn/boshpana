@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   canEnableReady,
+  getMafiaOnlineMinPlayers,
   shouldAutoStartOnlineLobby
 } from "./online-lobby-service";
 
@@ -31,5 +32,24 @@ test("shouldAutoStartOnlineLobby requires min players and everyone ready", () =>
   assert.equal(
     shouldAutoStartOnlineLobby([{ readyAt }, { readyAt }, { readyAt }], 3),
     true
+  );
+});
+
+test("getMafiaOnlineMinPlayers derives the required lobby size from composition", () => {
+  assert.equal(
+    getMafiaOnlineMinPlayers({
+      mafiaCount: 1,
+      hasSheriff: true,
+      hasDoctor: false
+    }),
+    3
+  );
+  assert.equal(
+    getMafiaOnlineMinPlayers({
+      mafiaCount: 2,
+      hasSheriff: true,
+      hasDoctor: true
+    }),
+    5
   );
 });

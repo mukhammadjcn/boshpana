@@ -1,6 +1,6 @@
-import { RoomMode, RoomVisibility } from "@prisma/client";
+import { RoomVisibility } from "@prisma/client";
 
-import { prisma } from "../../lib/prisma";
+import { finalizeOnlineRoomCreation } from "../../services/online-lobby-service";
 import { MafiaGameService } from "../mafia/mafia-game-service";
 
 type OnlineCreateInput = {
@@ -31,19 +31,11 @@ export class OnlineMafiaGameService {
       hasSheriff: input.hasSheriff ?? true,
       hasDoctor: input.hasDoctor ?? true,
     });
-    await prisma.room.update({
-      where: { code: result.roomCode },
-      data: {
-        mode: RoomMode.ONLINE,
-        visibility: input.visibility,
-      },
+    await finalizeOnlineRoomCreation({
+      roomCode: result.roomCode,
+      hostPlayerId: result.playerId,
+      visibility: input.visibility
     });
-    if (result.playerId) {
-      await prisma.player.update({
-        where: { id: result.playerId },
-        data: { readyAt: new Date() }
-      });
-    }
     return result;
   }
 }

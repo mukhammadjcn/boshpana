@@ -5,18 +5,15 @@ import { GameRegistry } from "../games/registry";
 import { prisma } from "../lib/prisma";
 import { chatService } from "../services/chat-service";
 import { hostTransferService } from "../services/host-transfer-service";
-import { onlineGovernanceService } from "../services/online-governance-service";
+import {
+  OnlineGovernanceActionService,
+  type CreatorChangedPayload,
+  type OnlineGovernanceActionResult
+} from "../services/online-governance-action-service";
 
 type SocketActionPayload = {
   roomCode: string;
   sessionId: string;
-};
-
-type CreatorChangedPayload = {
-  roomCode: string;
-  previousHostSessionId: string;
-  nextHostSessionId: string;
-  nextHostPlayerId: string;
 };
 
 export class RealtimeHub {
@@ -40,7 +37,11 @@ export class RealtimeHub {
   constructor(
     private readonly io: Server,
     private readonly games: GameRegistry
-  ) {}
+  ) {
+    this.onlineGovernanceActions = new OnlineGovernanceActionService(games);
+  }
+
+  private readonly onlineGovernanceActions: OnlineGovernanceActionService;
 
   // Bunker-specific shortcut. Bunker has the richer per-phase action
   // surface (reveal_card, advance_turn, etc.) that doesn't apply to
@@ -330,28 +331,12 @@ export class RealtimeHub {
 
       socket.on("online:request_end_game_vote", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
-          const room = await prisma.room.findUnique({
-            where: { code: payload.roomCode.toUpperCase() },
-            include: { players: true }
+          const result = await this.onlineGovernanceActions.requestEndGameVote({
+            roomCode: payload.roomCode,
+            sessionId: payload.sessionId
           });
-          if (!room) throw new Error("Room topilmadi.");
-          if (room.mode !== "ONLINE") {
-            throw new Error("Bu amal faqat online o'yinda ishlaydi.");
-          }
-          const me = room.players.find((player) => player.sessionId === payload.sessionId);
-          if (!me) throw new Error("O'yinchi topilmadi.");
-          const eligiblePlayerIds =
-            room.status === "LOBBY"
-              ? room.players.map((player) => player.id)
-              : room.players.filter((player) => player.isAlive).map((player) => player.id);
-          await onlineGovernanceService.createProposal({
-            roomCode: room.code,
-            kind: "END_GAME",
-            proposerPlayerId: me.id,
-            proposerName: me.name,
-            eligiblePlayerIds
-          });
-          await this.broadcastRoomState(room.code);
+          this.emitCreatorChangedFromResult(result);
+          await this.broadcastRoomState(result.roomCode);
         });
       });
 
@@ -364,32 +349,14 @@ export class RealtimeHub {
           }
         ) => {
           await this.handleAction(socket, async () => {
-            const room = await prisma.room.findUnique({
-              where: { code: payload.roomCode.toUpperCase() },
-              include: { players: true }
-            });
-            if (!room) throw new Error("Room topilmadi.");
-            const me = room.players.find((player) => player.sessionId === payload.sessionId);
-            if (!me) throw new Error("O'yinchi topilmadi.");
-
-            const result = await onlineGovernanceService.vote({
-              roomCode: room.code,
-              kind: "END_GAME",
+            const result = await this.onlineGovernanceActions.voteEndGame({
+              roomCode: payload.roomCode,
+              sessionId: payload.sessionId,
               proposalId: payload.proposalId,
-              playerId: me.id,
               approve: payload.approve
             });
-
-            if (result.status === "passed") {
-              const service = await this.serviceForRoom(room.code);
-              if (!service) throw new Error("Room topilmadi.");
-              await service.endGame({
-                code: room.code,
-                sessionId: room.hostSessionId
-              });
-            }
-
-            await this.broadcastRoomState(room.code);
+            this.emitCreatorChangedFromResult(result);
+            await this.broadcastRoomState(result.roomCode);
           });
         }
       );
@@ -402,39 +369,13 @@ export class RealtimeHub {
           }
         ) => {
           await this.handleAction(socket, async () => {
-            const room = await prisma.room.findUnique({
-              where: { code: payload.roomCode.toUpperCase() },
-              include: { players: true }
+            const result = await this.onlineGovernanceActions.requestKickVote({
+              roomCode: payload.roomCode,
+              sessionId: payload.sessionId,
+              targetPlayerId: payload.targetPlayerId,
             });
-            if (!room) throw new Error("Room topilmadi.");
-            if (room.mode !== "ONLINE") {
-              throw new Error("Kick ovozi faqat online roomlarda ishlaydi.");
-            }
-
-            const me = room.players.find((player) => player.sessionId === payload.sessionId);
-            const target = room.players.find((player) => player.id === payload.targetPlayerId);
-            if (!me || !target) throw new Error("O'yinchi topilmadi.");
-            if (me.id === target.id) throw new Error("O'zingizga kick ovozi ocholmaysiz.");
-            if (room.status === "PLAYING") {
-              if (!me.isAlive) throw new Error("Faqat tirik o'yinchi kick ovozini boshlay oladi.");
-              if (!target.isAlive) throw new Error("Bu o'yinchi allaqachon o'yindan chiqqan.");
-            }
-
-            await onlineGovernanceService.createProposal({
-              roomCode: room.code,
-              kind: "KICK",
-              proposerPlayerId: me.id,
-              proposerName: me.name,
-              targetPlayerId: target.id,
-              targetName: target.name,
-              eligiblePlayerIds:
-                room.status === "LOBBY"
-                  ? room.players.map((player) => player.id)
-                  : room.players
-                      .filter((player) => player.isAlive)
-                      .map((player) => player.id)
-            });
-            await this.broadcastRoomState(room.code);
+            this.emitCreatorChangedFromResult(result);
+            await this.broadcastRoomState(result.roomCode);
           });
         }
       );
@@ -448,38 +389,14 @@ export class RealtimeHub {
           }
         ) => {
           await this.handleAction(socket, async () => {
-            const room = await prisma.room.findUnique({
-              where: { code: payload.roomCode.toUpperCase() },
-              include: { players: true }
-            });
-            if (!room) throw new Error("Room topilmadi.");
-            const me = room.players.find((player) => player.sessionId === payload.sessionId);
-            if (!me) throw new Error("O'yinchi topilmadi.");
-
-            const result = await onlineGovernanceService.vote({
-              roomCode: room.code,
-              kind: "KICK",
+            const result = await this.onlineGovernanceActions.voteKick({
+              roomCode: payload.roomCode,
+              sessionId: payload.sessionId,
               proposalId: payload.proposalId,
-              playerId: me.id,
               approve: payload.approve
             });
-
-            if (result.status === "passed" && result.proposal.targetPlayerId) {
-              const service = await this.serviceForRoom(room.code);
-              if (!service || !("leaveRoom" in service)) {
-                throw new Error("Room topilmadi.");
-              }
-              const target = room.players.find(
-                (player) => player.id === result.proposal.targetPlayerId
-              );
-              if (!target) throw new Error("Kick qilinadigan o'yinchi topilmadi.");
-              await service.leaveRoom({
-                code: room.code,
-                sessionId: target.sessionId
-              });
-            }
-
-            await this.broadcastRoomState(room.code);
+            this.emitCreatorChangedFromResult(result);
+            await this.broadcastRoomState(result.roomCode);
           });
         }
       );
@@ -747,7 +664,21 @@ export class RealtimeHub {
         expectedHostSessionId: sessionId
       });
 
-      if (transfer?.kind !== "transferred") {
+      if (!transfer) {
+        return;
+      }
+
+      if (transfer.kind === "no_successor") {
+        const service = await this.serviceForRoom(transfer.roomCode);
+        await service?.endGame({
+          code: transfer.roomCode,
+          sessionId: transfer.previousHostSessionId
+        });
+        await this.broadcastRoomState(transfer.roomCode);
+        return;
+      }
+
+      if (transfer.kind !== "transferred") {
         return;
       }
 
@@ -774,6 +705,12 @@ export class RealtimeHub {
 
   private emitCreatorChanged(payload: CreatorChangedPayload) {
     this.io.to(payload.roomCode.toUpperCase()).emit("creator_changed", payload);
+  }
+
+  private emitCreatorChangedFromResult(result: OnlineGovernanceActionResult) {
+    if (result.creatorChanged) {
+      this.emitCreatorChanged(result.creatorChanged);
+    }
   }
 
   private extractCreatorChangedPayload(value: unknown): CreatorChangedPayload | null {

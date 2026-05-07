@@ -2,6 +2,7 @@ import { GameType, RoomMode, RoomStatus, RoomVisibility } from "@prisma/client";
 
 import { GameRegistry } from "../games/registry";
 import { prisma } from "../lib/prisma";
+import { withMatchmakingPoolLock } from "./room-action-lock-service";
 
 type MatchmakeInput = {
   gameType: GameType;
@@ -29,6 +30,14 @@ export class MatchmakingService {
   constructor(private readonly registry: GameRegistry) {}
 
   async findOrCreatePublicRoom(input: MatchmakeInput): Promise<MatchmakeResult> {
+    return withMatchmakingPoolLock(buildMatchmakingPoolKey(input), () =>
+      this.findOrCreatePublicRoomUnlocked(input)
+    );
+  }
+
+  private async findOrCreatePublicRoomUnlocked(
+    input: MatchmakeInput
+  ): Promise<MatchmakeResult> {
     const isAdultFilter =
       input.gameType === GameType.BUNKER ? !!input.isAdult : undefined;
 
@@ -50,20 +59,27 @@ export class MatchmakingService {
       orderBy: { createdAt: "asc" },
     });
 
-    const open = candidates.find((r) => r._count.players < r.maxPlayers);
-    if (open) {
-      const service = this.registry.for(input.gameType);
-      const result = await service.joinRoom({
-        code: open.code,
-        name: input.hostName,
-        sessionId: input.sessionId,
-        userId: input.hostUserId,
-      });
-      return {
-        roomCode: result.roomCode,
-        playerId: result.playerId,
-        isNew: false,
-      };
+    const service = this.registry.for(input.gameType);
+    const openRooms = candidates.filter((r) => r._count.players < r.maxPlayers);
+    for (const open of openRooms) {
+      try {
+        const result = await service.joinRoom({
+          code: open.code,
+          name: input.hostName,
+          sessionId: input.sessionId,
+          userId: input.hostUserId,
+        });
+        return {
+          roomCode: result.roomCode,
+          playerId: result.playerId,
+          isNew: false,
+        };
+      } catch (error) {
+        if (isUnavailableLobbyError(error)) {
+          continue;
+        }
+        throw error;
+      }
     }
 
     // Step 2: no matching lobby — create a new PUBLIC room and become its
@@ -91,4 +107,25 @@ export class MatchmakingService {
       isNew: true,
     };
   }
+}
+
+export function buildMatchmakingPoolKey(input: {
+  gameType: GameType;
+  isAdult?: boolean;
+}): string {
+  const pool =
+    input.gameType === GameType.BUNKER
+      ? input.isAdult
+        ? "adult"
+        : "normal"
+      : "all";
+  return [input.gameType, pool].join(":");
+}
+
+function isUnavailableLobbyError(error: unknown): boolean {
+  const message = (error as Error).message ?? "";
+  return (
+    message.includes("to'lib") ||
+    message.includes("O'yin boshlanganidan keyin")
+  );
 }

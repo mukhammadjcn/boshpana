@@ -169,6 +169,7 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
     Body: {
       name: string;
       sessionId: string;
+      confirmLeaveExisting?: boolean;
     };
   }>(
     "/api/rooms/:code/join",
@@ -178,10 +179,22 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
         const code = request.params.code.toUpperCase();
         const room = await prisma.room.findUnique({
           where: { code },
-          select: { gameType: true }
+          select: { gameType: true, mode: true }
         });
         if (!room) {
           return reply.status(404).send({ message: "Xona topilmadi." });
+        }
+        if (room.mode === RoomMode.ONLINE) {
+          const active = await enforceSingleActiveRoom(
+            request.authUser!.id,
+            request.body.confirmLeaveExisting,
+            request.body.sessionId,
+            deps.games,
+            code,
+          );
+          if (active.kind === "blocked") {
+            return reply.status(409).send(active.payload);
+          }
         }
         const service = deps.games.for(room.gameType);
         const result = await service.joinRoom({
@@ -257,6 +270,7 @@ async function enforceSingleActiveRoom(
   confirmLeave: boolean | undefined,
   sessionId: string,
   games: GameRegistry,
+  allowedRoomCode?: string,
 ): Promise<
   | { kind: "ok" }
   | {
@@ -270,6 +284,9 @@ async function enforceSingleActiveRoom(
 > {
   const active = await findActiveRoomForUser(userId);
   if (!active) return { kind: "ok" };
+  if (allowedRoomCode && active.code === allowedRoomCode.toUpperCase()) {
+    return { kind: "ok" };
+  }
 
   if (!confirmLeave) {
     return {
@@ -287,7 +304,9 @@ async function enforceSingleActiveRoom(
   // create/matchmake go through.
   try {
     const service = games.for(active.gameType);
-    await service.leaveRoom({ code: active.code, sessionId });
+    const activeSessionId =
+      (await findActiveRoomSessionId(userId, active.code)) ?? sessionId;
+    await service.leaveRoom({ code: active.code, sessionId: activeSessionId });
     const broadcaster = service as typeof service & {
       broadcastState?: (roomCode: string) => Promise<void>;
     };
@@ -296,4 +315,19 @@ async function enforceSingleActiveRoom(
     // ignore
   }
   return { kind: "ok" };
+}
+
+async function findActiveRoomSessionId(
+  userId: string,
+  roomCode: string
+): Promise<string | null> {
+  const player = await prisma.player.findFirst({
+    where: {
+      userId,
+      room: { code: roomCode.toUpperCase() }
+    },
+    select: { sessionId: true },
+    orderBy: { joinedAt: "desc" }
+  });
+  return player?.sessionId ?? null;
 }

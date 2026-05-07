@@ -1,6 +1,6 @@
-import { RoomMode, RoomVisibility } from "@prisma/client";
+import { RoomVisibility } from "@prisma/client";
 
-import { prisma } from "../../lib/prisma";
+import { finalizeOnlineRoomCreation } from "../../services/online-lobby-service";
 import { BunkerGameService } from "../bunker/bunker-game-service";
 
 type OnlineCreateInput = {
@@ -32,20 +32,12 @@ export class OnlineBunkerGameService {
       winnerTarget: input.winnerTarget ?? 2,
       isAdult: input.isAdult,
     });
-    await prisma.room.update({
-      where: { code: result.roomCode },
-      data: {
-        mode: RoomMode.ONLINE,
-        visibility: input.visibility,
-        maxPlayers: 16,
-      },
+    await finalizeOnlineRoomCreation({
+      roomCode: result.roomCode,
+      hostPlayerId: result.playerId,
+      visibility: input.visibility,
+      maxPlayers: 16
     });
-    if (result.playerId) {
-      await prisma.player.update({
-        where: { id: result.playerId },
-        data: { readyAt: new Date() }
-      });
-    }
     return result;
   }
 }
