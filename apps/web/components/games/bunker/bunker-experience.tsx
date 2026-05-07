@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -14,7 +15,9 @@ import {
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { LobbyShareActions } from "@/components/lobby-share-actions";
+import { LoadingState } from "@/components/loading-state";
 import { RoomExpiredState } from "@/components/room-expired-state";
+import { SharedAlert } from "@/components/shared-alert";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -43,6 +46,8 @@ import {
   RealtimeConnectionFeedback,
   useRealtimeConnectionRecovery,
 } from "../shared/realtime-connection-feedback";
+import { LobbyRoomCard } from "../shared/lobby-room-card";
+import { LobbyPlayerCard } from "../shared/lobby-player-card";
 import { OnlineChat } from "../shared/online-chat";
 import { OnlineGovernanceModal } from "../shared/online-governance-modal";
 import type { RoomVisibility } from "@/lib/types";
@@ -629,13 +634,23 @@ export function BunkerExperience({
   useEffect(() => {
     if (roomState?.room.status !== "CANCELLED") return;
     if (!roomState.me) return;
+    if (roomState.me.isHost) {
+      router.replace("/dashboard" as Route);
+      return;
+    }
     const code = roomState.room.code;
     const meId = roomState.me.id;
     const key = `cancelled-${code}-${meId}`;
     if (seenCancelledModalRef.current.has(key)) return;
     seenCancelledModalRef.current.add(key);
     setCancelledModalOpen(true);
-  }, [roomState?.room.status, roomState?.room.code, roomState?.me?.id]);
+  }, [
+    router,
+    roomState?.room.status,
+    roomState?.room.code,
+    roomState?.me?.id,
+    roomState?.me?.isHost,
+  ]);
 
   // Audio
   const meRevealKey = useMemo(() => {
@@ -740,6 +755,20 @@ export function BunkerExperience({
   const me = roomState?.me;
   const game = roomState?.game;
   const showLobbyShareActions = !isOnlineVariant || visibility === "PRIVATE";
+  const lobbyBadges = [
+    {
+      label: t(isOnlineVariant ? "tab_online" : "tab_dostlar_davrasi"),
+      tone: isOnlineVariant ? ("brand" as const) : ("neutral" as const),
+    },
+    {
+      label: roomState?.room.isAdult ? "18+" : t("normal"),
+      tone: "neutral" as const,
+    },
+    {
+      label: t(visibility === "PUBLIC" ? "tab_public" : "tab_private"),
+      tone: "neutral" as const,
+    },
+  ];
   const closingConfirmation =
     !!room && room.status !== "FINISHED" && room.status !== "CANCELLED";
   const players = roomState?.players ?? [];
@@ -877,12 +906,9 @@ export function BunkerExperience({
   if (!roomState || !room || !game) {
     if (loading) {
       return (
-        <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
+        <main>
           <TelegramChrome backHref="/dashboard" />
-          <div className="flex items-center gap-2 text-sm">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-            {t("room_yuklanmoqda")}
-          </div>
+          <LoadingState label={t("room_yuklanmoqda")} />
         </main>
       );
     }
@@ -1064,7 +1090,7 @@ export function BunkerExperience({
               <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1.5 text-xs font-medium text-ink-secondary">
                 {t("lobby")}
               </span>
-              {isOnlineVariant ? (
+              {isOnlineVariant || !me.isHost ? (
                 <button
                   type="button"
                   onClick={() => setLeaveConfirmOpen(true)}
@@ -1091,42 +1117,26 @@ export function BunkerExperience({
             </div>
           </header>
 
-          <section className="mt-2 rounded-3xl border border-line-subtle bg-bg-surface p-5">
-            <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("room_code")}
-            </p>
-            <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em]">
-              {room.code}
-            </p>
-            <p className="mt-2 text-sm text-ink-secondary">
-              {t("players_maxplayers_oyinchi_finish_winnertarget_fefe", {
-                players: players.length,
-                maxPlayers: room.maxPlayers,
-                winnerTarget: room.winnerTarget,
-              })}
-            </p>
-
-            {me.isHost && showLobbyShareActions ? (
-              <div className="mt-4 grid gap-2">
+          <LobbyRoomCard
+            roomCodeLabel={t("room_code")}
+            roomCode={room.code}
+            summary={t("players_maxplayers_oyinchi_finish_winnertarget_fefe", {
+              players: players.length,
+              maxPlayers: room.maxPlayers,
+              winnerTarget: room.winnerTarget,
+            })}
+            gameLabel="Bunker"
+            badges={lobbyBadges}
+            actions={
+              me.isHost && showLobbyShareActions ? (
                 <LobbyShareActions
                   roomCode={room.code}
                   inviteUrl={inviteUrl}
                   gameLabel="Bunker"
                 />
-              </div>
-            ) : null}
-
-            {isOnlineVariant ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-full border border-brand/30 bg-brand-soft px-3 py-1 text-xs font-medium text-brand">
-                  {t("tab_online")}
-                </span>
-                <span className="rounded-full border border-line-strong bg-bg-base px-3 py-1 text-xs font-medium text-ink-secondary">
-                  {t(visibility === "PUBLIC" ? "tab_public" : "tab_private")}
-                </span>
-              </div>
-            ) : null}
-          </section>
+              ) : null
+            }
+          />
 
           <section className="mt-4">
             <div className="mb-2 flex items-center justify-between">
@@ -1139,17 +1149,18 @@ export function BunkerExperience({
             </div>
             <ul className="grid gap-2 sm:grid-cols-2">
               {players.map((p) => (
-                <PlayerCard
+                <LobbyPlayerCard
                   key={p.id}
                   name={p.name}
                   isHost={p.isHost}
-                  isAlive={p.isAlive}
                   online={p.online}
                   isReady={!!p.readyAt}
-                  showPresence
-                  revealedCards={{}}
                   isMe={p.id === me.id}
-                  variant="tile"
+                  onReport={
+                    isOnlineVariant && p.id !== me.id
+                      ? () => setKickTarget({ id: p.id, name: p.name })
+                      : undefined
+                  }
                   onKick={
                     me.isHost && !isOnlineVariant && p.id !== me.id
                       ? () => setKickTarget({ id: p.id, name: p.name })
@@ -1162,11 +1173,11 @@ export function BunkerExperience({
 
           {isOnlineVariant ? (
             <div className="mt-6 grid gap-3">
-              <p className="rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
+              <SharedAlert className="py-3" variant="info">
                 {me.isHost
                   ? t("online_lobbida_hamma_tayyor_bolsa_7195")
                   : t("online_oyinda_barcha_tayy_9f6b")}
-              </p>
+              </SharedAlert>
               <button
                 type="button"
                 disabled={players.length < 3}
@@ -1182,9 +1193,9 @@ export function BunkerExperience({
             </div>
           ) : !me.isHost ? (
             <>
-              <p className="mt-6 rounded-2xl border border-line-subtle bg-bg-surface p-4 text-center text-sm text-ink-secondary">
+              <SharedAlert className="mt-6 py-3">
                 {t("host_oyinni_boshlashini_kuting")}
-              </p>
+              </SharedAlert>
               <button
                 type="button"
                 onClick={() => setLeaveConfirmOpen(true)}
@@ -1199,20 +1210,13 @@ export function BunkerExperience({
             <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 px-5 pt-3 pb-safe backdrop-blur">
               <div className="mx-auto max-w-2xl rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
                 <div className="grid gap-2">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-2">
                     <OnlineChat
                       meId={me.id}
                       messages={roomState.chat.messages}
                       onSend={(text) => emit("chat:send", { text })}
                       floating={false}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setLeaveConfirmOpen(true)}
-                      className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-xs font-semibold text-bad transition active:scale-[0.98]"
-                    >
-                      {t("roomdan_chiqish")}
-                    </button>
                   </div>
                   {/* <div className="grid gap-2">
                     <p className="text-center text-xs text-ink-muted sm:text-left">
@@ -1296,13 +1300,24 @@ export function BunkerExperience({
               ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name })
               : ""
           }
-          description={t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")}
-          confirmLabel={t("chiqarish")}
+          description={
+            isOnlineVariant
+              ? t("name_ni_oyindan_chiqarishga_rozi_bolasizmi", {
+                  name: kickTarget?.name ?? t("oyinchi_2"),
+                })
+              : t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")
+          }
+          confirmLabel={
+            isOnlineVariant ? t("kick_uchun_ovoz_boshlash") : t("chiqarish")
+          }
           cancelLabel={t("bekor_qilish")}
           tone="danger"
           onConfirm={() => {
             if (kickTarget) {
-              emit("kick_player", { targetPlayerId: kickTarget.id });
+              emit(
+                isOnlineVariant ? "online:request_kick_vote" : "kick_player",
+                { targetPlayerId: kickTarget.id },
+              );
             }
             setKickTarget(null);
           }}
@@ -1371,14 +1386,28 @@ export function BunkerExperience({
             >
               {audioEnabled ? "🔊" : "🔇"}
             </button>
-            {isOnlineVariant && room.status !== "FINISHED" ? (
+            {room.status !== "FINISHED" && (isOnlineVariant || !me.isHost) ? (
               <button
                 type="button"
                 onClick={() => setLeaveConfirmOpen(true)}
-                aria-label={t("oyindan_chiqish")}
-                className="inline-flex h-9 min-w-[46px] items-center justify-center rounded-full border border-bad/40 bg-bad/10 px-3 text-bad"
+                aria-label={t("roomdan_chiqish")}
+                className="flex h-[30px] items-center justify-center gap-1 rounded-full border border-bad/40 bg-bad/10 px-3 text-xs font-semibold text-bad"
               >
-                ×
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <path d="M16 17l5-5-5-5" />
+                  <path d="M21 12H9" />
+                </svg>
               </button>
             ) : null}
           </div>
@@ -1483,10 +1512,7 @@ export function BunkerExperience({
                   room.status === "PLAYING" &&
                   p.id !== me.id &&
                   p.isAlive
-                    ? () =>
-                        emit("online:request_kick_vote", {
-                          targetPlayerId: p.id,
-                        })
+                    ? () => setKickTarget({ id: p.id, name: p.name })
                     : undefined
                 }
                 onKick={
@@ -1586,6 +1612,7 @@ export function BunkerExperience({
                       ? game.currentTurnPlayerId
                       : null
                   }
+                  triggerClassName="h-14"
                 />
               ) : null}
               <button
@@ -1770,17 +1797,21 @@ export function BunkerExperience({
         >
           <div className="relative z-10 max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl border-t border-line-subtle bg-bg-surface px-5 pt-4 pb-safe shadow-pop sm:rounded-3xl sm:border">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
-            <p className="text-xs font-medium uppercase tracking-wider text-brand">
-              {t("sizning_navbatingiz")}
-            </p>
-            <h2 className="mt-1 text-2xl font-bold">
-              {t("bitta_kartani_tanlang")}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-ink-secondary">
-              {t("tanlaganingizdan_keyin_2_daqiqada_nega_18e0")}
-            </p>
-            <div className="mt-4">
-              <Timer seconds={game.remainingSeconds} variant="warning" />
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-brand">
+                  {t("sizning_navbatingiz")}
+                </p>
+                <h2 className="mt-1 text-2xl font-bold">
+                  {t("bitta_kartani_tanlang")}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-ink-secondary">
+                  {t("tanlaganingizdan_keyin_2_daqiqada_nega_18e0")}
+                </p>
+              </div>
+              <div className="shrink-0 pt-1">
+                <Timer seconds={game.remainingSeconds} variant="warning" />
+              </div>
             </div>
             <div className="mt-4 grid gap-2">
               {revealOptions.map((card) => (
@@ -1984,16 +2015,32 @@ export function BunkerExperience({
         open={!!kickTarget}
         title={
           kickTarget
-            ? t("name_ni_oyindan_chiqarish", { name: kickTarget.name })
+            ? t(
+                isOnlineVariant
+                  ? "name_ni_chiqarish_2"
+                  : "name_ni_oyindan_chiqarish",
+                { name: kickTarget.name },
+              )
             : ""
         }
-        description={t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")}
-        confirmLabel={t("chiqarish")}
+        description={
+          isOnlineVariant
+            ? t("name_ni_oyindan_chiqarishga_rozi_bolasizmi", {
+                name: kickTarget?.name ?? t("oyinchi_2"),
+              })
+            : t("ushbu_oyinchining_barcha_kartalari_ochiladi_4162")
+        }
+        confirmLabel={
+          isOnlineVariant ? t("kick_uchun_ovoz_boshlash") : t("chiqarish")
+        }
         cancelLabel={t("bekor_qilish")}
         tone="danger"
         onConfirm={() => {
           if (kickTarget) {
-            emit("kick_player", { targetPlayerId: kickTarget.id });
+            emit(
+              isOnlineVariant ? "online:request_kick_vote" : "kick_player",
+              { targetPlayerId: kickTarget.id },
+            );
           }
           setKickTarget(null);
         }}
@@ -2036,8 +2083,11 @@ export function BunkerExperience({
       <CancelledRoomModal
         open={cancelledModalOpen}
         onDismiss={() => {
-          setCancelledModalOpen(false);
-          router.push("/dashboard");
+          if (typeof window !== "undefined") {
+            window.location.replace("/dashboard");
+            return;
+          }
+          router.replace("/dashboard" as Route);
         }}
       />
 

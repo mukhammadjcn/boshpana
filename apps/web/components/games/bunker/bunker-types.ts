@@ -41,6 +41,7 @@ export type BunkerRoomState = {
     round: number;
     winnerTarget: number;
     maxPlayers: number;
+    isAdult: boolean;
   };
   game: {
     phase: BunkerPhase;

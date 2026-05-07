@@ -19,6 +19,7 @@ type Props = {
   bottomOffsetPx?: number;
   highlightedPlayerId?: string | null;
   floating?: boolean;
+  triggerClassName?: string;
 };
 
 export function OnlineChat({
@@ -28,6 +29,7 @@ export function OnlineChat({
   bottomOffsetPx = 16,
   highlightedPlayerId = null,
   floating = true,
+  triggerClassName = "",
 }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -97,7 +99,7 @@ export function OnlineChat({
         unreadCount > 0
           ? "border-brand/35 bg-brand-soft/60"
           : "border-line-strong bg-bg-surface"
-      }`}
+      } ${triggerClassName}`}
     >
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-ink-primary">

@@ -146,23 +146,13 @@ export function PlayerCard({
   return (
     <div className={`rounded-2xl border transition ${containerTone}`}>
       <div className="flex items-center gap-3 p-3">
-        <div className="relative shrink-0">
+        <div className="shrink-0">
           <Avatar
             initials={initials}
             isHost={isHost}
             isAlive={isAlive}
             gameOver={gameOver}
           />
-          {canReport ? (
-            <button
-              type="button"
-              onClick={onReport}
-              aria-label={t("kick_uchun_ovoz_boshlash")}
-              className="absolute -top-1 -left-1 grid h-5 w-5 place-items-center rounded-full border border-warn/40 bg-warn/15 text-[10px] text-warn"
-            >
-              !
-            </button>
-          ) : null}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -200,30 +190,42 @@ export function PlayerCard({
                   : t("oyindan_chiqqan")}
           </p>
         </div>
-        {canKick ? (
-          <button
-            type="button"
-            onClick={onKick}
-            aria-label={t("name_ni_chiqarish", { name })}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
+        <div className="flex shrink-0 items-center gap-2">
+          {canReport ? (
+            <button
+              type="button"
+              onClick={onReport}
+              aria-label={t("kick_uchun_ovoz_boshlash")}
+              className="grid h-8 w-8 place-items-center rounded-full border border-warn/40 bg-warn/12 text-sm font-semibold text-warn transition active:scale-95"
             >
-              <path d="M18 6L6 18" />
-              <path d="M6 6l12 12" />
-            </svg>
-          </button>
-        ) : null}
-        <StatusDot isAlive={isAlive} isCurrentTurn={isCurrentTurn} />
+              !
+            </button>
+          ) : null}
+          {canKick ? (
+            <button
+              type="button"
+              onClick={onKick}
+              aria-label={t("name_ni_chiqarish", { name })}
+              className="grid h-9 w-9 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M18 6L6 18" />
+                <path d="M6 6l12 12" />
+              </svg>
+            </button>
+          ) : null}
+          <StatusDot isAlive={isAlive} isCurrentTurn={isCurrentTurn} />
+        </div>
       </div>
 
       {entries.length ? (

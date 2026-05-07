@@ -16,7 +16,9 @@ import {
 import { CancelledRoomModal } from "@/components/cancelled-room-modal";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { LobbyShareActions } from "@/components/lobby-share-actions";
+import { LoadingState } from "@/components/loading-state";
 import { RoomExpiredState } from "@/components/room-expired-state";
+import { SharedAlert } from "@/components/shared-alert";
 import { TelegramChrome } from "@/components/telegram-chrome";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
@@ -29,6 +31,8 @@ import {
   RealtimeConnectionFeedback,
   useRealtimeConnectionRecovery,
 } from "../shared/realtime-connection-feedback";
+import { LobbyPlayerCard } from "../shared/lobby-player-card";
+import { LobbyRoomCard } from "../shared/lobby-room-card";
 import { OnlineChat } from "../shared/online-chat";
 import { OnlineGovernanceModal } from "../shared/online-governance-modal";
 
@@ -783,9 +787,9 @@ export function MafiaExperience({
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center text-sm text-ink-muted">
+      <main>
         <TelegramChrome backHref="/dashboard" />
-        {t("yuklanmoqda_2")}
+        <LoadingState label={t("yuklanmoqda_2")} />
       </main>
     );
   }
@@ -826,14 +830,30 @@ export function MafiaExperience({
       />
     ) : null;
   const onlineHeaderAction =
-    uiVariant === "online" && me && room.status === "PLAYING" ? (
+    me &&
+    room.status === "PLAYING" &&
+    (uiVariant === "online" || !me.isHost) ? (
       <button
         type="button"
         onClick={() => setLeaveConfirmOpen(true)}
-        aria-label={t("oyindan_chiqish")}
-        className="inline-flex h-9 min-w-[46px] items-center justify-center rounded-full border border-bad/40 bg-bad/10 px-3 text-bad"
+        aria-label={t("roomdan_chiqish")}
+        className="flex h-[30px] items-center justify-center gap-1 rounded-full border border-bad/40 bg-bad/10 px-3 text-xs font-semibold text-bad"
       >
-        ×
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <path d="M16 17l5-5-5-5" />
+          <path d="M21 12H9" />
+        </svg>
       </button>
     ) : null;
   const onlineGovernanceModal =
@@ -1204,8 +1224,13 @@ export function MafiaExperience({
           headerAction={onlineHeaderAction}
           onReportPlayer={
             uiVariant === "online" && me.isAlive
-              ? (targetPlayerId) =>
-                  emit("online:request_kick_vote", { targetPlayerId })
+              ? (targetPlayerId) => {
+                  const target = players.find(
+                    (player) => player.id === targetPlayerId,
+                  );
+                  if (!target) return;
+                  setKickTarget({ id: target.id, name: target.name });
+                }
               : undefined
           }
           submitPending={isPending("mafia:submit_night_action")}
@@ -1339,8 +1364,13 @@ export function MafiaExperience({
           headerAction={onlineHeaderAction}
           onReportPlayer={
             uiVariant === "online" && me.isAlive
-              ? (targetPlayerId) =>
-                  emit("online:request_kick_vote", { targetPlayerId })
+              ? (targetPlayerId) => {
+                  const target = players.find(
+                    (player) => player.id === targetPlayerId,
+                  );
+                  if (!target) return;
+                  setKickTarget({ id: target.id, name: target.name });
+                }
               : undefined
           }
           voteSubmitPending={isPending("mafia:submit_day_vote")}
@@ -1441,8 +1471,11 @@ export function MafiaExperience({
         <CancelledRoomModal
           open={cancelledModalOpen}
           onDismiss={() => {
-            setCancelledModalOpen(false);
-            router.push("/dashboard" as Route);
+            if (typeof window !== "undefined") {
+              window.location.replace("/dashboard");
+              return;
+            }
+            router.replace("/dashboard" as Route);
           }}
         />
         {connectionFeedback}
@@ -1905,10 +1938,20 @@ function Lobby({
       ? `${window.location.origin}/room/${room.code}`
       : "";
   const showShareActions = uiVariant === "friends" || visibility === "PRIVATE";
+  const lobbyBadges = [
+    {
+      label: t(uiVariant === "online" ? "tab_online" : "tab_dostlar_davrasi"),
+      tone: uiVariant === "online" ? ("brand" as const) : ("neutral" as const),
+    },
+    {
+      label: t(visibility === "PUBLIC" ? "tab_public" : "tab_private"),
+      tone: "neutral" as const,
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-bg-base pb-[13.5rem] text-ink-primary sm:pb-[14.5rem]">
-      <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-safe sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-2xl flex-col px-5">
         <header className="flex items-center justify-between py-3 lg:py-5">
           <button
             type="button"
@@ -1921,7 +1964,8 @@ function Lobby({
             <span className="rounded-full border border-line-strong bg-bg-surface px-3 py-1.5 text-xs">
               {t("lobby")}
             </span>
-            {uiVariant === "online" ? (
+            {room.status !== "FINISHED" &&
+            (uiVariant === "online" || !me?.isHost) ? (
               <button
                 type="button"
                 onClick={onLeaveRoom}
@@ -1948,39 +1992,25 @@ function Lobby({
           </div>
         </header>
 
-        {/* Room code card */}
-        <section className="mt-2 rounded-3xl border border-line-subtle bg-bg-surface p-5">
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-brand">
-            {t("room_code")}
-          </p>
-          <p className="mt-1 font-mono text-3xl font-bold tracking-[0.4em]">
-            {room.code}
-          </p>
-          <p className="mt-2 text-xs text-ink-muted">
-            {t("players_maxplayers_oyinchi", {
-              players: players.length,
-              maxPlayers: room.maxPlayers,
-            })}
-          </p>
-
-          {showShareActions ? (
-            <LobbyShareActions
-              roomCode={room.code}
-              inviteUrl={inviteUrl}
-              gameLabel="Mafia"
-            />
-          ) : null}
-          {uiVariant === "online" ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="rounded-full border border-brand/30 bg-brand-soft px-3 py-1 text-xs font-medium text-brand">
-                {t("tab_online")}
-              </span>
-              <span className="rounded-full border border-line-strong bg-bg-base px-3 py-1 text-xs font-medium text-ink-secondary">
-                {t(visibility === "PUBLIC" ? "tab_public" : "tab_private")}
-              </span>
-            </div>
-          ) : null}
-        </section>
+        <LobbyRoomCard
+          roomCodeLabel={t("room_code")}
+          roomCode={room.code}
+          summary={t("players_maxplayers_oyinchi", {
+            players: players.length,
+            maxPlayers: room.maxPlayers,
+          })}
+          gameLabel="Mafia"
+          badges={lobbyBadges}
+          actions={
+            showShareActions ? (
+              <LobbyShareActions
+                roomCode={room.code}
+                inviteUrl={inviteUrl}
+                gameLabel="Mafia"
+              />
+            ) : null
+          }
+        />
 
         {/* Composition preview */}
         <section className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
@@ -2017,79 +2047,38 @@ function Lobby({
           </div>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
             {players.map((p) => (
-              <li
+              <LobbyPlayerCard
                 key={p.id}
-                className="flex items-center gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-3"
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-soft text-xs font-semibold uppercase text-brand">
-                  {p.name.slice(0, 2)}
-                </span>
-                <div className="flex-1 leading-tight">
-                  <p className="text-sm font-semibold">{p.name}</p>
-                  <p className="text-[11px] text-ink-muted">
-                    {me?.id === p.id
-                      ? t("siz_2")
-                      : p.online
-                        ? t("oyinchi_2")
-                        : t("tarmoqda_emas")}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                      p.online
-                        ? "bg-ok/15 text-ok"
-                        : "bg-bg-elevated text-ink-muted"
-                    }`}
-                  >
-                    ● {p.online ? t("onlayn") : t("offlayn")}
-                  </span>
-                  {p.readyAt ? (
-                    <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand">
-                      {t("tayyor")}
-                    </span>
-                  ) : null}
-                </div>
-                {me?.isHost &&
-                uiVariant !== "online" &&
-                p.id !== me.id &&
-                room.status === "LOBBY" ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onRequestKickPlayer({ id: p.id, name: p.name })
-                    }
-                    aria-label={t("name_ni_chiqarish", { name: p.name })}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-bad/40 bg-bad/10 text-bad transition active:scale-95"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden
-                    >
-                      <path d="M18 6L6 18" />
-                      <path d="M6 6l12 12" />
-                    </svg>
-                  </button>
-                ) : null}
-              </li>
+                name={p.name}
+                isHost={p.isHost}
+                isMe={me?.id === p.id}
+                online={p.online}
+                isReady={!!p.readyAt}
+                onReport={
+                  uiVariant === "online" && p.id !== me?.id
+                    ? () => onRequestKickPlayer({ id: p.id, name: p.name })
+                    : undefined
+                }
+                onKick={
+                  me?.isHost &&
+                  uiVariant !== "online" &&
+                  p.id !== me.id &&
+                  room.status === "LOBBY"
+                    ? () => onRequestKickPlayer({ id: p.id, name: p.name })
+                    : undefined
+                }
+              />
             ))}
           </ul>
         </section>
 
         {uiVariant === "online" ? (
           <div className="mt-6 grid gap-3">
-            <p className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center text-sm text-ink-secondary">
+            <SharedAlert className="py-3">
               {me?.isHost
                 ? t("online_lobbida_hamma_tayyor_bolsa_7195")
                 : t("online_oyinda_barcha_tayy_9f6b")}
-            </p>
+            </SharedAlert>
             <button
               type="button"
               disabled={!canStart || readyPending}
@@ -2109,35 +2098,71 @@ function Lobby({
           </div>
         ) : !me?.isHost ? (
           <div className="mt-6 grid gap-2">
-            <p className="rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-center text-sm text-ink-secondary">
+            <SharedAlert className="py-3">
               {t("host_oyinni_boshlashini_kuting_2")}
-            </p>
+            </SharedAlert>
           </div>
         ) : null}
       </div>
 
       {/* Sticky bottom bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
-        <div className="mx-auto max-w-2xl">
-          {me?.isHost ? (
-            <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-              {uiVariant !== "online" && (
-                <p className="mb-2 text-xs font-medium text-ink-muted">
-                  {t("host_paneli")}
-                </p>
-              )}
-              {uiVariant === "online" ? (
-                <div className="grid gap-2">
-                  <div className="grid grid-cols-2 gap-2">
+      {me?.isHost || uiVariant === "online" ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line-subtle bg-bg-base/95 px-4 pt-3 pb-safe backdrop-blur">
+          <div className="mx-auto max-w-2xl">
+            {me?.isHost ? (
+              <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
+                {uiVariant !== "online" && (
+                  <p className="mb-2 text-xs font-medium text-ink-muted">
+                    {t("host_paneli")}
+                  </p>
+                )}
+                {uiVariant === "online" ? (
+                  <div className="grid gap-2">
                     {chatAction}
+                    {/* <div className="grid gap-2">
+                      <p className="text-center text-xs text-ink-muted sm:text-left">
+                        {canStart
+                          ? t("kamida_minplayers_kishi_readycount_ta_6b25", {
+                              minPlayers,
+                              readyCount,
+                            })
+                          : t("count_ta_oyinchi_kerak", { count: minPlayers })}
+                      </p>
+                    </div> */}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={onLeaveRoom}
-                      className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-xs font-semibold text-bad"
+                      onClick={onStartGame}
+                      disabled={!canStart || startGamePending}
+                      className="flex h-12 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
                     >
-                      {t("roomdan_chiqish")}
+                      {startGamePending ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Spinner />
+                          {t("yuborilmoqda")}
+                        </span>
+                      ) : canStart ? (
+                        t("oyinni_boshlash")
+                      ) : (
+                        t("count_ta_oyinchi_kerak", { count: minPlayers })
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onRequestEndGame}
+                      className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
+                    >
+                      {t("roomni_ochirish")}
                     </button>
                   </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
+                <div className="grid gap-2">
+                  {chatAction}
                   {/* <div className="grid gap-2">
                     <p className="text-center text-xs text-ink-muted sm:text-left">
                       {canStart
@@ -2149,73 +2174,11 @@ function Lobby({
                     </p>
                   </div> */}
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={onStartGame}
-                    disabled={!canStart || startGamePending}
-                    className="flex h-12 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
-                  >
-                    {startGamePending ? (
-                      <span className="inline-flex items-center gap-2">
-                        <Spinner />
-                        {t("yuborilmoqda")}
-                      </span>
-                    ) : canStart ? (
-                      t("oyinni_boshlash")
-                    ) : (
-                      t("count_ta_oyinchi_kerak", { count: minPlayers })
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onRequestEndGame}
-                    className="flex h-12 items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad transition"
-                  >
-                    {t("roomni_ochirish")}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-line-subtle bg-bg-surface p-3 shadow-pop">
-              {uiVariant === "online" ? (
-                <div className="grid gap-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    {chatAction}
-                    <button
-                      type="button"
-                      onClick={onLeaveRoom}
-                      className="flex h-12 items-center justify-center rounded-2xl border border-bad/40 bg-bad/10 px-4 text-xs font-semibold text-bad"
-                    >
-                      {t("roomdan_chiqish")}
-                    </button>
-                  </div>
-                  <div className="grid gap-2">
-                    <p className="text-center text-xs text-ink-muted sm:text-left">
-                      {canStart
-                        ? t("kamida_minplayers_kishi_readycount_ta_6b25", {
-                            minPlayers,
-                            readyCount,
-                          })
-                        : t("count_ta_oyinchi_kerak", { count: minPlayers })}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onLeaveRoom}
-                  className="flex h-12 w-full items-center justify-center rounded-xl border border-bad/40 bg-bad/10 text-sm font-semibold text-bad"
-                >
-                  {t("roomdan_chiqish")}
-                </button>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {connectionFeedback}
     </main>

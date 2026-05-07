@@ -370,7 +370,8 @@ export class BunkerGameService {
         status: room.status,
         round: room.round,
         winnerTarget: room.winnerTarget,
-        maxPlayers: room.maxPlayers
+        maxPlayers: room.maxPlayers,
+        isAdult: room.isAdult,
       },
       game: {
         phase: room.bunkerGame.phase,
@@ -783,11 +784,73 @@ export class BunkerGameService {
       }
     }
 
-    await this.kickPlayer({
-      code: room.code,
-      sessionId: room.hostSessionId,
-      targetPlayerId: target.id
+    if (!target.isAlive) {
+      throw new Error("Bu o'yinchi allaqachon chiqib ketgan.");
+    }
+
+    const targetAttributes = await prisma.bunkerPlayerAttribute.findUnique({
+      where: { playerId: target.id }
     });
+    const wasCurrentTurn = room.bunkerGame.currentTurnPlayerId === target.id;
+    const gameId = room.bunkerGame.id;
+    const roomId = room.id;
+
+    let didFinish = false;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.player.update({
+        where: { id: target.id },
+        data: { isAlive: false }
+      });
+      if (targetAttributes) {
+        await tx.bunkerPlayerAttribute.update({
+          where: { id: targetAttributes.id },
+          data: { revealed: CARD_TYPES.slice() as BunkerCardType[] }
+        });
+      }
+
+      const aliveCount = await tx.player.count({
+        where: { roomId, isAlive: true }
+      });
+
+      if (aliveCount <= room.winnerTarget) {
+        await tx.room.update({
+          where: { id: roomId },
+          data: { status: RoomStatus.FINISHED }
+        });
+        await tx.bunkerGame.update({
+          where: { id: gameId },
+          data: {
+            phase: BunkerPhase.FINISHED,
+            timerEndsAt: null,
+            currentTurnPlayerId: null,
+            lastEliminatedPlayerId: target.id,
+            tiebreakCandidateIds: []
+          }
+        });
+        didFinish = true;
+        return;
+      }
+
+      await tx.bunkerGame.update({
+        where: { id: gameId },
+        data: {
+          lastEliminatedPlayerId: target.id,
+          ...(wasCurrentTurn ? { currentTurnPlayerId: null } : {})
+        }
+      });
+    });
+
+    if (didFinish) {
+      this.stopTimer(room.code);
+      await onlineGovernanceService.clearRoom(room.code);
+      await this.saveGameHistory(roomId, "manualEnd");
+      return;
+    }
+
+    if (wasCurrentTurn) {
+      await this.advanceTurnForRoom(room.code);
+    }
   }
 
   async kickPlayer(input: RoomCodeAction & { targetPlayerId: string }) {

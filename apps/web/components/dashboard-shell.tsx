@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { BottomNav } from "@/components/bottom-nav";
+import { LoadingState } from "@/components/loading-state";
 import { getAuthToken } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 
@@ -25,11 +26,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <main className="grid min-h-screen place-items-center bg-bg-base text-ink-secondary">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-          {t("yuklanmoqda")}
-        </div>
+      <main>
+        <LoadingState label={t("yuklanmoqda")} />
       </main>
     );
   }

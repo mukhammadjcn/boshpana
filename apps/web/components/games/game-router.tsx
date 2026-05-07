@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { apiRequest } from "@/lib/api";
+import { LoadingState } from "@/components/loading-state";
 import type {
   GameType,
   RoomMode,
@@ -76,11 +77,7 @@ export function GameRouter({ roomCode, view }: Props) {
   }
 
   if (!info) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-zinc-400">
-        {t("yuklanmoqda_2")}
-      </div>
-    );
+    return <LoadingState label={t("yuklanmoqda_2")} />;
   }
 
   switch (resolveGameExperience(info)) {

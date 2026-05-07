@@ -28,6 +28,7 @@ export type BunkerPublicState = {
     round: number;
     winnerTarget: number;
     maxPlayers: number;
+    isAdult: boolean;
   };
   game: {
     phase: BunkerPhase;

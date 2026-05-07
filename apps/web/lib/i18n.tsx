@@ -10,6 +10,9 @@ import {
 
 import { getAuthUser, setAuthUser, type AuthUser } from "@/lib/auth";
 import type { SupportedLanguage } from "@/lib/localized-content";
+import enMessages from "../messages/en.json";
+import ruMessages from "../messages/ru.json";
+import uzMessages from "../messages/uz.json";
 
 export type AppLanguage = SupportedLanguage;
 
@@ -47,12 +50,12 @@ function formatTemplate(
 async function loadMessages(language: AppLanguage): Promise<LocaleMessages> {
   switch (language) {
     case "ru":
-      return (await import("../messages/ru.json")).default;
+      return ruMessages;
     case "en":
-      return (await import("../messages/en.json")).default;
+      return enMessages;
     case "uz":
     default:
-      return (await import("../messages/uz.json")).default;
+      return uzMessages;
   }
 }
 
@@ -73,7 +76,7 @@ export function getInitialLanguageFromUser(user: AuthUser | null): AppLanguage {
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<AppLanguage>(DEFAULT_LANGUAGE);
-  const [messages, setMessages] = useState<LocaleMessages>({});
+  const [messages, setMessages] = useState<LocaleMessages>(uzMessages);
 
   useEffect(() => {
     const cachedUser = getAuthUser();
