@@ -442,6 +442,9 @@ export function BunkerExperience({
   // Auto-route based on status
   useEffect(() => {
     if (!roomState) return;
+    if (roomState.room.status === "CANCELLED") {
+      setCancelledModalOpen(true);
+    }
     if (view === "room" && roomState.room.status !== "LOBBY") {
       router.replace(`/game/${roomCode}`);
     }
@@ -644,10 +647,7 @@ export function BunkerExperience({
   useEffect(() => {
     if (roomState?.room.status !== "CANCELLED") return;
     if (!roomState.me) return;
-    if (roomState.me.isHost) {
-      router.replace("/dashboard" as Route);
-      return;
-    }
+
     const code = roomState.room.code;
     const meId = roomState.me.id;
     const key = `cancelled-${code}-${meId}`;
@@ -960,6 +960,28 @@ export function BunkerExperience({
         onJoinNameChange={setJoinName}
         onSubmit={handleJoin}
       />
+    );
+  }
+
+  if (room.status === "CANCELLED") {
+    return (
+      <main className="min-h-screen bg-bg-base">
+        <TelegramChrome backHref="/dashboard" />
+        <div className="flex min-h-screen items-center justify-center">
+          {/* Empty background while the modal is shown */}
+        </div>
+        <CancelledRoomModal
+          open={cancelledModalOpen}
+          onDismiss={() => {
+            if (typeof window !== "undefined") {
+              window.location.replace("/dashboard");
+              return;
+            }
+            router.replace("/dashboard" as Route);
+          }}
+        />
+        {connectionFeedback}
+      </main>
     );
   }
 

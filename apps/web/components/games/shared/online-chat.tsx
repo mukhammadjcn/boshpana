@@ -22,6 +22,9 @@ type Props = {
   triggerClassName?: string;
 };
 
+// Persistent state to keep chat open across remounts during a session
+const chatStatePersistence: Record<string, boolean> = {};
+
 export function OnlineChat({
   meId,
   messages,
@@ -32,8 +35,12 @@ export function OnlineChat({
   triggerClassName = "",
 }: Props) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => !!chatStatePersistence[meId]);
   const [draft, setDraft] = useState("");
+
+  useEffect(() => {
+    chatStatePersistence[meId] = open;
+  }, [open, meId]);
   const [unreadCount, setUnreadCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -80,6 +87,17 @@ export function OnlineChat({
         : messages.length - lastSeenIndex - 1,
     );
   }, [latestMessage?.id, messages, open]);
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

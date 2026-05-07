@@ -32,7 +32,7 @@ export class RealtimeHub {
   private readonly offlineTimers = new Map<string, NodeJS.Timeout>();
   private static readonly OFFLINE_GRACE_MS = 3000;
   private readonly hostTransferTimers = new Map<string, NodeJS.Timeout>();
-  private static readonly HOST_TRANSFER_GRACE_MS = 30_000;
+  private static readonly HOST_TRANSFER_GRACE_MS = 300_000; // 5 minutes
 
   constructor(
     private readonly io: Server,

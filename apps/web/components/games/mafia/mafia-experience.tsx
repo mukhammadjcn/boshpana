@@ -201,10 +201,7 @@ export function MafiaExperience({
   useEffect(() => {
     if (roomState?.room.status !== "CANCELLED") return;
     if (!roomState.me) return;
-    if (roomState.me.isHost) {
-      router.replace("/dashboard" as Route);
-      return;
-    }
+
     const code = roomState.room.code;
     const meId = roomState.me.id;
     const key = `cancelled-${code}-${meId}`;
@@ -681,6 +678,7 @@ export function MafiaExperience({
   const onlineChatFloating =
     uiVariant === "online" && me ? (
       <OnlineChat
+        key="global-online-chat"
         meId={me.id}
         messages={roomState.chat.messages}
         onSend={(text) => emit("chat:send", { text })}
@@ -698,6 +696,7 @@ export function MafiaExperience({
   const onlineChatAction =
     uiVariant === "online" && me ? (
       <OnlineChat
+        key="global-online-chat"
         meId={me.id}
         messages={roomState.chat.messages}
         onSend={(text) => emit("chat:send", { text })}
@@ -1230,20 +1229,37 @@ export function MafiaExperience({
     );
   }
 
-  // Game over — winner banner + role reveal grid. CANCELLED rooms
-  // (host nuked the lobby before start) also land here because the
-  // service flips game.phase to FINISHED in both endGame branches.
-  if (
-    game.phase === "FINISHED" ||
-    room.status === "FINISHED" ||
-    room.status === "CANCELLED"
-  ) {
+  // Game over — winner banner + role reveal grid.
+  if (room.status === "FINISHED") {
     return (
       <>
         <TelegramChrome backHref="/dashboard" />
         <MafiaFinished state={roomState} />
         {onlineGovernanceModal}
         {selfEliminationModal}
+        <CancelledRoomModal
+          open={cancelledModalOpen}
+          onDismiss={() => {
+            if (typeof window !== "undefined") {
+              window.location.replace("/dashboard");
+              return;
+            }
+            router.replace("/dashboard" as Route);
+          }}
+        />
+        {connectionFeedback}
+      </>
+    );
+  }
+
+  // Lobby cancelled (host nuked the lobby before start or timeout)
+  if (room.status === "CANCELLED") {
+    return (
+      <>
+        <TelegramChrome backHref="/dashboard" />
+        <div className="flex min-h-screen items-center justify-center bg-bg-base">
+          {/* Empty background while the modal is shown */}
+        </div>
         <CancelledRoomModal
           open={cancelledModalOpen}
           onDismiss={() => {

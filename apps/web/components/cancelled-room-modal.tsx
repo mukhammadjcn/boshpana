@@ -25,11 +25,11 @@ export function CancelledRoomModal({ open, onDismiss }: Props) {
           🚫
         </div>
         <h3 className="mt-4 text-xl font-bold text-ink-primary">
-          {t("oyin_yaratilmadi")}
+          {t("xona_yopildi")}
         </h3>
         <p className="mt-3 text-sm leading-7 text-ink-secondary">
           {t(
-            "Host xonani o'yin boshlanmasdan turib tugatdi. Yangi o'yinda ishtirok etish uchun bosh sahifaga qayting."
+            "Internet aloqasi uzilgani, uzoq vaqt nofaol bo'lingani yoki host xonani tark etgani sababli xona yopildi. Yangi o'yin boshlash uchun bosh sahifaga qayting."
           )}
         </p>
         <button
