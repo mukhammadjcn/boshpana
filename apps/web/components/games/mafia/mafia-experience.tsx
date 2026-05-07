@@ -105,6 +105,11 @@ export function MafiaExperience({
   const [dismissedKickProposalId, setDismissedKickProposalId] = useState<
     string | null
   >(null);
+  const [dismissedEndGameProposalId, setDismissedEndGameProposalId] = useState<
+    string | null
+  >(null);
+  const [dismissedSkipToVoteProposalId, setDismissedSkipToVoteProposalId] =
+    useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [showFinalResults, setShowFinalResults] = useState(false);
   const [phaseIntro, setPhaseIntro] = useState<{
@@ -585,6 +590,11 @@ export function MafiaExperience({
     roomState?.game.phase === "DAY_RESULT" &&
     !!roomState?.game.winner;
   const isPending = (actionKey: string) => pendingAction === actionKey;
+
+  const handleRequestSkipToVote = () => {
+    emit("online:request_skip_to_vote");
+  };
+
   const { browserOnline, showRecoveryModal, retryNow, reloadPage } =
     useRealtimeConnectionRecovery({
       enabled: !!sessionId,
@@ -646,10 +656,28 @@ export function MafiaExperience({
   }
 
   const { room, players, me, game } = roomState;
-  const activeGovernanceProposal =
-    roomState.governance.kickProposal?.id === dismissedKickProposalId
-      ? null
-      : roomState.governance.kickProposal;
+  const activeGovernanceProposal = useMemo(() => {
+    const { kickProposal, endGameProposal, skipToVoteProposal } =
+      roomState.governance;
+    if (kickProposal && kickProposal.id !== dismissedKickProposalId) {
+      return kickProposal;
+    }
+    if (endGameProposal && endGameProposal.id !== dismissedEndGameProposalId) {
+      return endGameProposal;
+    }
+    if (
+      skipToVoteProposal &&
+      skipToVoteProposal.id !== dismissedSkipToVoteProposalId
+    ) {
+      return skipToVoteProposal;
+    }
+    return null;
+  }, [
+    roomState.governance,
+    dismissedKickProposalId,
+    dismissedEndGameProposalId,
+    dismissedSkipToVoteProposalId,
+  ]);
   const onlineChatFloating =
     uiVariant === "online" && me ? (
       <OnlineChat
@@ -683,20 +711,42 @@ export function MafiaExperience({
       <RoomLeaveButton onClick={() => setLeaveConfirmOpen(true)} />
     ) : null;
   const onlineGovernanceModal =
-    uiVariant === "online" && me ? (
+    uiVariant === "online" && me && activeGovernanceProposal ? (
       <OnlineGovernanceModal
         proposal={activeGovernanceProposal}
         mePlayerId={me.id}
-        onClose={() =>
-          setDismissedKickProposalId(activeGovernanceProposal?.id ?? null)
-        }
+        onClose={() => {
+          if (activeGovernanceProposal.kind === "KICK") {
+            setDismissedKickProposalId(activeGovernanceProposal.id);
+          } else if (activeGovernanceProposal.kind === "END_GAME") {
+            setDismissedEndGameProposalId(activeGovernanceProposal.id);
+          } else if (activeGovernanceProposal.kind === "SKIP_TO_VOTE") {
+            setDismissedSkipToVoteProposalId(activeGovernanceProposal.id);
+          }
+        }}
         onApprove={(proposalId) => {
-          setDismissedKickProposalId(proposalId);
-          emit("online:vote_kick", { proposalId, approve: true });
+          if (activeGovernanceProposal.kind === "KICK") {
+            setDismissedKickProposalId(proposalId);
+            emit("online:vote_kick", { proposalId, approve: true });
+          } else if (activeGovernanceProposal.kind === "END_GAME") {
+            setDismissedEndGameProposalId(proposalId);
+            emit("online:vote_end_game", { proposalId, approve: true });
+          } else if (activeGovernanceProposal.kind === "SKIP_TO_VOTE") {
+            setDismissedSkipToVoteProposalId(proposalId);
+            emit("online:vote_skip_to_vote", { proposalId, approve: true });
+          }
         }}
         onReject={(proposalId) => {
-          setDismissedKickProposalId(proposalId);
-          emit("online:vote_kick", { proposalId, approve: false });
+          if (activeGovernanceProposal.kind === "KICK") {
+            setDismissedKickProposalId(proposalId);
+            emit("online:vote_kick", { proposalId, approve: false });
+          } else if (activeGovernanceProposal.kind === "END_GAME") {
+            setDismissedEndGameProposalId(proposalId);
+            emit("online:vote_end_game", { proposalId, approve: false });
+          } else if (activeGovernanceProposal.kind === "SKIP_TO_VOTE") {
+            setDismissedSkipToVoteProposalId(proposalId);
+            emit("online:vote_skip_to_vote", { proposalId, approve: false });
+          }
         }}
       />
     ) : null;
@@ -1106,6 +1156,9 @@ export function MafiaExperience({
             emitWithPending("mafia:submit_day_vote", "mafia:submit_day_vote", {
               targetPlayerId,
             })
+          }
+          onRequestSkipToVote={
+            uiVariant === "online" ? handleRequestSkipToVote : undefined
           }
         />
         {game.phase === "DAY_VOTE" || game.phase === "DAY_TIEBREAK" ? null : (

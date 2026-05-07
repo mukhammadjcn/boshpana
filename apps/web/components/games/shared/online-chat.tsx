@@ -36,6 +36,9 @@ export function OnlineChat({
   const [draft, setDraft] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const viewportHeight = "var(--tg-viewport-height, 100vh)";
+  const sheetMaxHeight = `min(82vh, ${viewportHeight})`;
   const lastSeenMessageIdRef = useRef<string | null>(
     messages.at(-1)?.id ?? null,
   );
@@ -52,6 +55,10 @@ export function OnlineChat({
     if (!node) return;
     node.scrollTop = node.scrollHeight;
   }, [messages, open]);
+
+  useEffect(() => {
+    resizeTextarea();
+  }, [draft, open]);
 
   useEffect(() => {
     const latestId = latestMessage?.id ?? null;
@@ -76,10 +83,36 @@ export function OnlineChat({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const text = draft.replace(/\s+/g, " ").trim();
+    const text = draft
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .join("\n")
+      .trim();
     if (!text) return;
     onSend(text);
     setDraft("");
+    requestAnimationFrame(() => {
+      if (!inputRef.current) return;
+      inputRef.current.style.height = "auto";
+      inputRef.current.focus();
+    });
+  }
+
+  function resizeTextarea() {
+    const node = inputRef.current;
+    if (!node) return;
+    node.style.height = "auto";
+    const styles = window.getComputedStyle(node);
+    const lineHeight = parseFloat(styles.lineHeight || "0");
+    const paddingTop = parseFloat(styles.paddingTop || "0");
+    const paddingBottom = parseFloat(styles.paddingBottom || "0");
+    const borderTop = parseFloat(styles.borderTopWidth || "0");
+    const borderBottom = parseFloat(styles.borderBottomWidth || "0");
+    const maxHeight =
+      lineHeight * 3 + paddingTop + paddingBottom + borderTop + borderBottom;
+    const nextHeight = Math.min(node.scrollHeight, maxHeight);
+    node.style.height = `${nextHeight}px`;
+    node.style.overflowY = node.scrollHeight > maxHeight ? "auto" : "hidden";
   }
 
   function openChat() {
@@ -134,7 +167,10 @@ export function OnlineChat({
           className="fixed inset-0 z-50 flex flex-col justify-end bg-bg-overlay backdrop-blur-sm m-auto max-w-2xl"
         >
           <div className="absolute inset-0" onClick={() => setOpen(false)} />
-          <div className="relative z-10 flex max-h-[82vh] flex-col rounded-t-3xl border-t border-line-subtle bg-bg-surface">
+          <div
+            className="relative z-10 flex flex-col rounded-t-3xl border-t border-line-subtle bg-bg-surface"
+            style={{ maxHeight: sheetMaxHeight }}
+          >
             <div className="px-5 pt-4 pb-3">
               <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-line-strong" />
               <div className="flex items-center justify-between gap-3">
@@ -156,7 +192,7 @@ export function OnlineChat({
 
             <div
               ref={scrollRef}
-              className="min-h-0 flex-1 space-y-2 overflow-y-auto px-5 pb-4"
+              className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 pb-4"
             >
               {messages.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-line-strong bg-bg-base px-4 py-6 text-center text-sm text-ink-muted">
@@ -168,32 +204,38 @@ export function OnlineChat({
                   const isHighlighted =
                     highlightedPlayerId === message.senderId;
                   return (
-                    <article
+                    <div
                       key={message.id}
-                      className={`rounded-2xl border px-4 py-3 ${
-                        isMe
-                          ? "border-brand/30 bg-brand-soft"
-                          : isHighlighted
-                            ? "border-warn/40 bg-warn/10"
-                            : "border-line-subtle bg-bg-base"
-                      }`}
+                      className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-ink-primary">
-                          {message.senderName}
-                          {isMe ? ` · ${t("siz_2")}` : ""}
-                        </p>
-                        <time className="shrink-0 text-[11px] text-ink-muted">
-                          {new Date(message.timestamp).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </time>
-                      </div>
-                      <p className="mt-1 text-sm leading-6 text-ink-primary">
-                        {message.text}
-                      </p>
-                    </article>
+                      <article
+                        className={`relative max-w-[85%] rounded-2xl px-3.5 py-2 shadow-sm ${
+                          isMe
+                            ? "rounded-tr-sm border border-brand/20 bg-brand-soft text-ink-primary"
+                            : isHighlighted
+                              ? "rounded-tl-sm border border-warn/30 bg-warn/10 text-ink-primary"
+                              : "rounded-tl-sm border border-line-subtle bg-bg-base text-ink-primary"
+                        }`}
+                      >
+                        {!isMe && (
+                          <p className="mb-0.5 text-[11px] font-bold tracking-tight text-brand uppercase opacity-90">
+                            {message.senderName}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-0.5">
+                          <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                            {message.text}
+                          </p>
+                          <time className="ml-auto block shrink-0 select-none text-[10px] font-medium opacity-50 tabular-nums">
+                            {new Date(message.timestamp).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: false,
+                            })}
+                          </time>
+                        </div>
+                      </article>
+                    </div>
                   );
                 })
               )}
@@ -205,12 +247,14 @@ export function OnlineChat({
             >
               <div className="flex items-end gap-3">
                 <textarea
+                  ref={inputRef}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
+                  onInput={resizeTextarea}
                   maxLength={300}
                   rows={1}
                   placeholder={t("chat_xabar_placeholder")}
-                  className="min-h-[52px] flex-1 resize-none rounded-2xl border border-line-strong bg-bg-base px-4 py-3 text-sm text-ink-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
+                  className="min-h-[52px] flex-1 resize-none rounded-2xl border border-line-strong bg-bg-base px-4 py-3 text-base text-ink-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
                 />
                 <button
                   type="submit"

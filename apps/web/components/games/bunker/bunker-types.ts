@@ -4,7 +4,7 @@ import type { OnlineChatMessage } from "../shared/online-chat";
 
 export type OnlineProposal = {
   id: string;
-  kind: "END_GAME" | "KICK";
+  kind: "END_GAME" | "KICK" | "SKIP_TO_VOTE";
   proposerPlayerId: string;
   proposerName: string;
   targetPlayerId: string | null;
@@ -95,5 +95,6 @@ export type BunkerRoomState = {
   governance: {
     endGameProposal: OnlineProposal | null;
     kickProposal: OnlineProposal | null;
+    skipToVoteProposal: OnlineProposal | null;
   };
 };

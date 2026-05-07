@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
-import { getLocalizedText, type LocalizedText } from "@/lib/localized-content";
+import { type LocalizedText } from "@/lib/localized-content";
 import { getOrCreateSessionId } from "@/lib/storage";
 
 type ActiveGameItem = {
@@ -41,7 +41,7 @@ export function ActiveGames() {
     void (async () => {
       try {
         const res = await apiRequest<{ items: ActiveGameItem[] }>(
-          "/api/me/active-games"
+          "/api/me/active-games",
         );
         if (!active) return;
         setItems(res.items);
@@ -62,7 +62,7 @@ export function ActiveGames() {
       const sessionId = getOrCreateSessionId();
       await apiRequest(`/api/rooms/${item.room.code}/resume`, {
         method: "POST",
-        body: JSON.stringify({ sessionId })
+        body: JSON.stringify({ sessionId }),
       });
       const target = (
         item.room.status === "LOBBY"
@@ -73,7 +73,9 @@ export function ActiveGames() {
     } catch (error) {
       const message = (error as Error).message;
       if (message.includes("yakunlangan")) {
-        setItems((current) => current.filter((it) => it.playerId !== item.playerId));
+        setItems((current) =>
+          current.filter((it) => it.playerId !== item.playerId),
+        );
       } else {
         alert(message);
       }
@@ -114,23 +116,29 @@ export function ActiveGames() {
         {items.map((it) => (
           <li
             key={it.playerId}
-            className="flex items-center justify-between gap-4 rounded-[28px] border border-brand/25 bg-gradient-to-br from-brand/12 via-bg-surface to-bg-surface p-4 shadow-[0_18px_48px_rgba(245,158,11,0.08)]"
+            className="relative flex items-center justify-between gap-4 overflow-hidden rounded-2xl border border-brand/25 bg-gradient-to-br from-brand/15 via-bg-surface to-bg-surface p-4 shadow-[0_18px_48px_rgba(245,158,11,0.08)]"
           >
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-brand">
-                {it.room.gameType === "MAFIA" ? "Mafia" : "Bunker"}
-              </p>
-              <p className="mt-1 truncate text-base font-semibold text-ink-primary">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -top-16 right-6 h-32 w-32 rounded-full bg-brand/20 blur-3xl"
+            />
+            <div className="relative min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.28em] text-brand">
+                <span className="rounded-full border border-brand/30 bg-brand/10 px-2.5 py-1">
+                  {it.room.gameType === "MAFIA" ? "Mafia" : "Bunker"}
+                </span>
+                <span className="rounded-full border border-line-strong bg-bg-base/70 px-2.5 py-1 font-mono  tracking-[0.35em] text-ink-muted">
+                  #{it.room.code}
+                </span>
+              </div>
+              {/* <p className="mt-2 truncate text-lg font-semibold text-ink-primary">
                 {(it.room.disasterName
                   ? getLocalizedText(it.room.disasterName, language)
                   : null) ??
                   (it.room.gameType === "MAFIA"
                     ? t("mafia_oyini")
-                    : t("bunker_oyini"))}{" "}
-                <span className="font-mono text-sm tracking-[0.2em] text-brand">
-                  · #{it.room.code}
-                </span>
-              </p>
+                    : t("bunker_oyini"))}
+              </p> */}
               <p className="mt-1 text-sm text-ink-secondary">
                 {it.room.status === "LOBBY"
                   ? t("lobbi_kuting")
@@ -142,12 +150,15 @@ export function ActiveGames() {
             <button
               onClick={() => resume(it)}
               disabled={resuming === it.playerId}
-              className="inline-flex h-12 min-w-[132px] shrink-0 items-center justify-center gap-2 rounded-2xl bg-brand px-5 text-base font-semibold text-bg-base transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-100"
+              className="inline-flex h-12 min-w-[132px] shrink-0 items-center justify-center gap-2 rounded-2xl bg-brand px-5 text-base font-semibold text-bg-base shadow-[0_10px_24px_rgba(245,158,11,0.2)] transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-100"
             >
               {resuming === it.playerId ? (
                 <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-bg-base/30 border-t-bg-base" />
-                  {t("yuklanmoqda")}
+                  <span className="sr-only">{t("yuklanmoqda")}</span>
+                  <span
+                    aria-hidden
+                    className="h-4 w-4 animate-spin rounded-full border-2 border-bg-base/30 border-t-bg-base"
+                  />
                 </>
               ) : (
                 t("davom")

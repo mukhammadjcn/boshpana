@@ -310,7 +310,7 @@ export class RealtimeHub {
               throw new Error("Chatga yozish uchun avval roomga kiring.");
             }
 
-            const text = payload.text.replace(/\s+/g, " ").trim();
+            const text = payload.text.trim();
             if (!text) {
               throw new Error("Xabar bo'sh bo'lishi mumkin emas.");
             }
@@ -390,6 +390,38 @@ export class RealtimeHub {
         ) => {
           await this.handleAction(socket, async () => {
             const result = await this.onlineGovernanceActions.voteKick({
+              roomCode: payload.roomCode,
+              sessionId: payload.sessionId,
+              proposalId: payload.proposalId,
+              approve: payload.approve
+            });
+            this.emitCreatorChangedFromResult(result);
+            await this.broadcastRoomState(result.roomCode);
+          });
+        }
+      );
+
+      socket.on("online:request_skip_to_vote", async (payload: SocketActionPayload) => {
+        await this.handleAction(socket, async () => {
+          const result = await this.onlineGovernanceActions.requestSkipToVote({
+            roomCode: payload.roomCode,
+            sessionId: payload.sessionId
+          });
+          this.emitCreatorChangedFromResult(result);
+          await this.broadcastRoomState(result.roomCode);
+        });
+      });
+
+      socket.on(
+        "online:vote_skip_to_vote",
+        async (
+          payload: SocketActionPayload & {
+            proposalId: string;
+            approve: boolean;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const result = await this.onlineGovernanceActions.voteSkipToVote({
               roomCode: payload.roomCode,
               sessionId: payload.sessionId,
               proposalId: payload.proposalId,

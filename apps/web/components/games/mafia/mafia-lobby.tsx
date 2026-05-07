@@ -77,7 +77,7 @@ export function MafiaLobby({
   ];
 
   return (
-    <main className="min-h-screen bg-bg-base pb-[13.5rem] text-ink-primary sm:pb-[14.5rem]">
+    <main className="min-h-screen bg-bg-base pb-[13.5rem] pt-safe text-ink-primary sm:pb-[14.5rem]">
       <div className="mx-auto flex w-full max-w-2xl flex-col px-5">
         <header className="flex items-center justify-between py-3 lg:py-5">
           <button

@@ -118,5 +118,6 @@ export type MafiaPublicState = {
   governance: {
     endGameProposal: OnlineProposal | null;
     kickProposal: OnlineProposal | null;
+    skipToVoteProposal: OnlineProposal | null;
   };
 };

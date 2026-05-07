@@ -641,5 +641,8 @@
   "yutgan": "Yutgan",
   "yutganlar_names": "Yutganlar: {names}",
   "yutqazgan": "Yutqazgan",
-  "profil": "Profil"
+  "profil": "Profil",
+  "ovoz_berishga_otish_taklifi": "Ovoz berishga o'tish taklifi",
+  "ovoz_berishni_boshlaymizmi": "Ovoz berishni boshlaymizmi?",
+  "name_muhokamani_tugatib_ovoz_berishni_taklif_qildi": "{name} muhokamani tugatib, ovoz berishni boshlashni taklif qildi."
 }

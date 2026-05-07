@@ -29,18 +29,24 @@ export function OnlineGovernanceModal({
   const title =
     proposal.kind === "END_GAME"
       ? t("oyinni_tugatishni_istaysizmi")
-      : t("name_ni_oyindan_chiqarishga_rozi_bolasizmi", {
-          name: proposal.targetName ?? t("oyinchi_2")
-        });
+      : proposal.kind === "SKIP_TO_VOTE"
+        ? t("ovoz_berishni_boshlaymizmi")
+        : t("name_ni_oyindan_chiqarishga_rozi_bolasizmi", {
+            name: proposal.targetName ?? t("oyinchi_2")
+          });
   const description =
     proposal.kind === "END_GAME"
       ? t("name_oyinni_tugatishni_taklif_qildi", {
           name: proposal.proposerName
         })
-      : t("name_kick_ovozini_boshladi_target_uchun", {
-          name: proposal.proposerName,
-          target: proposal.targetName ?? t("oyinchi_2")
-        });
+      : proposal.kind === "SKIP_TO_VOTE"
+        ? t("name_muhokamani_tugatib_ovoz_berishni_taklif_qildi", {
+            name: proposal.proposerName
+          })
+        : t("name_kick_ovozini_boshladi_target_uchun", {
+            name: proposal.proposerName,
+            target: proposal.targetName ?? t("oyinchi_2")
+          });
 
   return (
     <div
@@ -57,7 +63,11 @@ export function OnlineGovernanceModal({
       <div className="relative z-10 w-full max-w-sm rounded-t-3xl border-t border-line-subtle bg-bg-surface p-6 pb-safe shadow-pop sm:rounded-3xl sm:border">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" />
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand">
-          {proposal.kind === "END_GAME" ? t("ovoz_berish") : t("kick_ovozi")}
+          {proposal.kind === "END_GAME"
+            ? t("ovoz_berish")
+            : proposal.kind === "SKIP_TO_VOTE"
+              ? t("ovoz_berishga_otish_taklifi")
+              : t("kick_ovozi")}
         </p>
         <h2 className="mt-2 text-xl font-bold leading-snug text-ink-primary">
           {title}

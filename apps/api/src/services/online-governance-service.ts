@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 import { getRedis } from "../lib/redis";
 
-export type OnlineProposalKind = "END_GAME" | "KICK";
+export type OnlineProposalKind = "END_GAME" | "KICK" | "SKIP_TO_VOTE";
 
 export type OnlineProposal = {
   id: string;
@@ -21,6 +21,7 @@ export type OnlineProposal = {
 export type OnlineGovernanceState = {
   endGameProposal: OnlineProposal | null;
   kickProposal: OnlineProposal | null;
+  skipToVoteProposal: OnlineProposal | null;
 };
 
 type VoteResult =
@@ -37,11 +38,20 @@ function key(roomCode: string) {
 
 async function read(roomCode: string): Promise<OnlineGovernanceState> {
   const raw = await getRedis().get(key(roomCode));
-  if (!raw) return { endGameProposal: null, kickProposal: null };
+  if (!raw)
+    return {
+      endGameProposal: null,
+      kickProposal: null,
+      skipToVoteProposal: null
+    };
   try {
     return JSON.parse(raw) as OnlineGovernanceState;
   } catch {
-    return { endGameProposal: null, kickProposal: null };
+    return {
+      endGameProposal: null,
+      kickProposal: null,
+      skipToVoteProposal: null
+    };
   }
 }
 
@@ -50,7 +60,9 @@ async function write(roomCode: string, state: OnlineGovernanceState) {
 }
 
 function slotName(kind: OnlineProposalKind) {
-  return kind === "END_GAME" ? "endGameProposal" : "kickProposal";
+  if (kind === "END_GAME") return "endGameProposal";
+  if (kind === "SKIP_TO_VOTE") return "skipToVoteProposal";
+  return "kickProposal";
 }
 
 function majorityFor(eligiblePlayerIds: string[]) {
@@ -87,7 +99,9 @@ export const onlineGovernanceService = {
       throw new Error(
         input.kind === "END_GAME"
           ? "O'yinni tugatish bo'yicha ovoz allaqachon ochilgan."
-          : "Bu o'yinchi bo'yicha kick ovozi allaqachon ochilgan."
+          : input.kind === "SKIP_TO_VOTE"
+            ? "Ovoz berishga o'tish bo'yicha taklif allaqachon ochilgan."
+            : "Bu o'yinchi bo'yicha kick ovozi allaqachon ochilgan."
       );
     }
 

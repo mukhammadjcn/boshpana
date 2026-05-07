@@ -78,6 +78,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover" as const,
   themeColor: "#0b0d12"
 };
@@ -117,7 +119,7 @@ export default function RootLayout({
               root.style.setProperty("--tg-safe-bottom", ((sa.bottom || 0) + (csa.bottom || 0)) + "px");
               root.style.setProperty("--tg-safe-left", ((sa.left || 0) + (csa.left || 0)) + "px");
               root.style.setProperty("--tg-safe-right", ((sa.right || 0) + (csa.right || 0)) + "px");
-              if (typeof wa.viewportStableHeight === "number") {
+              if (typeof wa.viewportStableHeight === "number" && wa.viewportStableHeight > 0) {
                 root.style.setProperty("--tg-viewport-height", wa.viewportStableHeight + "px");
               }
               return true;

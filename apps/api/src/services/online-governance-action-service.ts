@@ -147,6 +147,61 @@ export class OnlineGovernanceActionService {
     return this.kickPlayer(room, result.proposal.targetPlayerId);
   }
 
+  async requestSkipToVote(input: {
+    roomCode: string;
+    sessionId: string;
+  }): Promise<OnlineGovernanceActionResult> {
+    const { room, actor } = await this.requireOnlineActor(input);
+    this.requireAliveActorInPlayingRoom(room, actor);
+
+    // Validate that this is a Mafia game in DAY_DISCUSSION phase
+    if (room.gameType !== "MAFIA") {
+      throw new Error("Bu amal faqat Mafia o'yinida ishlaydi.");
+    }
+
+    const service = this.games.mafia;
+    const state = await service.getRoomStateForBroadcast(room.code);
+    const mafiaState = state.perSession(actor.sessionId) as {
+      game: { phase: string };
+    };
+
+    if (mafiaState.game.phase !== "DAY_DISCUSSION") {
+      throw new Error("Faqat kunning muhokama vaqtida ovoz berishga o'tishni taklif qilish mumkin.");
+    }
+
+    const proposal = await onlineGovernanceService.createProposal({
+      roomCode: room.code,
+      kind: "SKIP_TO_VOTE",
+      proposerPlayerId: actor.id,
+      proposerName: actor.name,
+      eligiblePlayerIds: this.eligiblePlayerIds(room)
+    });
+
+    return this.applyImmediatePass(room, "SKIP_TO_VOTE", proposal);
+  }
+
+  async voteSkipToVote(input: {
+    roomCode: string;
+    sessionId: string;
+    proposalId: string;
+    approve: boolean;
+  }): Promise<OnlineGovernanceActionResult> {
+    const { room, actor } = await this.requireOnlineActor(input);
+    const result = await onlineGovernanceService.vote({
+      roomCode: room.code,
+      kind: "SKIP_TO_VOTE",
+      proposalId: input.proposalId,
+      playerId: actor.id,
+      approve: input.approve
+    });
+
+    if (result.status !== "passed") {
+      return { roomCode: room.code };
+    }
+
+    return this.skipToVote(room);
+  }
+
   private async requireOnlineActor(input: {
     roomCode: string;
     sessionId: string;
@@ -202,9 +257,9 @@ export class OnlineGovernanceActionService {
     }
 
     await onlineGovernanceService.clearProposal(room.code, kind);
-    return kind === "END_GAME"
-      ? this.endGame(room)
-      : this.kickPlayer(room, proposal.targetPlayerId);
+    if (kind === "END_GAME") return this.endGame(room);
+    if (kind === "SKIP_TO_VOTE") return this.skipToVote(room);
+    return this.kickPlayer(room, proposal.targetPlayerId);
   }
 
   private async endGame(
@@ -241,6 +296,17 @@ export class OnlineGovernanceActionService {
       roomCode: room.code,
       creatorChanged: extractCreatorChangedPayload(result)
     };
+  }
+
+  private async skipToVote(
+    room: RoomWithPlayers
+  ): Promise<OnlineGovernanceActionResult> {
+    const service = this.games.mafia;
+    await service.advancePhase({
+      code: room.code,
+      sessionId: room.hostSessionId
+    });
+    return { roomCode: room.code };
   }
 }
 

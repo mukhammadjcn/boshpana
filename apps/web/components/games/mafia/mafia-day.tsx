@@ -16,6 +16,7 @@ type Props = {
   confirmVotePending?: boolean;
   onConfirmVote?: () => void;
   onOpenRole?: () => void;
+  onRequestSkipToVote?: () => void;
   headerAction?: React.ReactNode;
 };
 
@@ -41,11 +42,19 @@ export function MafiaDay({
   confirmVotePending = false,
   onConfirmVote,
   onOpenRole,
+  onRequestSkipToVote,
   headerAction
 }: Props) {
   const phase = state.game.phase;
   if (phase === "DAY_DISCUSSION") {
-    return <Discussion state={state} onReportPlayer={onReportPlayer} headerAction={headerAction} />;
+    return (
+      <Discussion
+        state={state}
+        onReportPlayer={onReportPlayer}
+        onRequestSkipToVote={onRequestSkipToVote}
+        headerAction={headerAction}
+      />
+    );
   }
   if (phase === "DAY_VOTE" || phase === "DAY_TIEBREAK") {
     return (
@@ -137,10 +146,12 @@ function DayShell({
 function Discussion({
   state,
   onReportPlayer,
+  onRequestSkipToVote,
   headerAction,
 }: {
   state: MafiaPublicState;
   onReportPlayer?: (playerId: string) => void;
+  onRequestSkipToVote?: () => void;
   headerAction?: React.ReactNode;
 }) {
   const { t } = useI18n();
@@ -164,6 +175,15 @@ function Discussion({
         <p className="text-sm text-ink-muted">
           {t("bahslashing_mafia_kim_ekan")}
         </p>
+        {onRequestSkipToVote && (
+          <button
+            type="button"
+            onClick={onRequestSkipToVote}
+            className="mt-4 flex h-12 w-full items-center justify-center rounded-2xl border border-brand/40 bg-brand/10 text-sm font-semibold text-brand transition active:scale-[0.98]"
+          >
+            {t("ovoz_berishni_boshlash")}
+          </button>
+        )}
       </section>
 
       <ul className="grid gap-2">

@@ -213,11 +213,20 @@ export function applyTelegramSafeAreas() {
     root.style.setProperty("--tg-safe-bottom", `${bottom}px`);
     root.style.setProperty("--tg-safe-left", `${left}px`);
     root.style.setProperty("--tg-safe-right", `${right}px`);
-    if (typeof wa.viewportStableHeight === "number") {
-      root.style.setProperty(
-        "--tg-viewport-height",
-        `${wa.viewportStableHeight}px`
-      );
+    const stableHeight =
+      typeof wa.viewportStableHeight === "number" &&
+      wa.viewportStableHeight > 0
+        ? wa.viewportStableHeight
+        : null;
+    const liveHeight =
+      typeof wa.viewportHeight === "number" && wa.viewportHeight > 0
+        ? wa.viewportHeight
+        : null;
+    const nextHeight = stableHeight ?? liveHeight;
+    if (nextHeight) {
+      root.style.setProperty("--tg-viewport-height", `${nextHeight}px`);
+    } else {
+      root.style.removeProperty("--tg-viewport-height");
     }
   };
 
