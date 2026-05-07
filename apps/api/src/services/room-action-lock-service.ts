@@ -9,7 +9,7 @@ async function withAdvisoryLock<T>(
 ): Promise<T> {
   return prisma.$transaction(
     async (tx) => {
-      await tx.$queryRaw`
+      await tx.$executeRaw`
         SELECT pg_advisory_xact_lock(hashtext(${lockKey}))
       `;
       return action();
