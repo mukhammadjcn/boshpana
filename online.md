@@ -41,7 +41,7 @@ Online o'zi ikki sub-rejimga bo'linadi: **PRIVATE** (creator settings bilan yara
 | **Lobby start trigger**  | Host "Boshlash" bosadi                   | (a) Creator "Boshlash"; YOKI (b) min'ga yetib **hamma** "Tayyorman" tasdiqlasa auto-start | Shu kabi (a) yoki (b)                            |
 | **Lobby timeout**        | Yo'q (host hal qiladi)                   | **Yo'q** — to'lguncha kutadi, kimlardir kiradi/chiqadi       | **Yo'q** — shu kabi                                          |
 | **Creator kick**         | Host kick'i bor                          | Creator kick'i bor (hozirgi pattern bilan bir xil)           | Shu kabi                                                     |
-| **Creator chiqib ketsa** | Room CANCELLED (hozirgi xulq)            | **Host transfer**: 30s grace, keyin eng erta `joinedAt` o'yinchiga | Shu kabi                                               |
+| **Creator chiqib ketsa** | Room CANCELLED (hozirgi xulq)            | **Host transfer**: 5 daqiqa grace, keyin eng erta `joinedAt` o'yinchiga | Shu kabi                                          |
 | **Host Controls (game)** | Har faza uchun tugmalar                  | Faqat lobby'da (Boshlash + Kick)                             | Shu kabi                                                     |
 | **Pitch (Bunker)**       | Host `advance_turn` bosadi               | Joriy o'yinchi "yakunlash" bosadi yoki timer                 | Shu kabi                                                     |
 | **Bottom bar (game)**    | Host controls + "Mening kartalarim"      | Chat panel + "Mening kartalarim"                             | Shu kabi                                                     |
@@ -372,7 +372,7 @@ Bu logika faqat ONLINE rejimda. Friends'da hech nima o'zgarmaydi.
 
 ### Host transfer (creator chiqib ketsa)
 
-Creator socket disconnect bo'lib **30 soniya** ichida qaytmasa yoki manual leave qilsa:
+Creator socket disconnect bo'lib **5 daqiqa** ichida qaytmasa yoki manual leave qilsa:
 
 1. Lobby'dagi qolgan o'yinchilardan **eng erta qo'shilgan** (joinedAt eng kichik) yangi creator sifatida tanlanadi.
 2. Yangi creator'ga real-time event (`creator_changed`) yuboriladi → UI'da `[Boshlash]` va `[Kick]` tugmalari ko'rinadi.
@@ -514,7 +514,7 @@ Potentsial nomzodlar (online yozish jarayonida tasdiqlanadi):
 | F19 | `apps/web/components/games/online-bunker/online-bunker-lobby-ready.tsx`       | "Tayyorman" tugmasi + creator [Boshlash] tugmasi               |
 | F20 | `apps/web/components/games/online-mafia/online-mafia-lobby-ready.tsx`         | Shu kabi                                                        |
 | F21 | `apps/web/components/dashboard/active-game-banner.tsx`                        | "Davom etish" banner — user aktiv online room'i bo'lsa dashboard tepasida ko'rinadi |
-| B10 | `apps/api/src/services/host-transfer-service.ts`                              | Creator chiqib ketsa eng erta `joinedAt` o'yinchiga creator role o'tkazish (30s grace) |
+| B10 | `apps/api/src/services/host-transfer-service.ts`                              | Creator chiqib ketsa eng erta `joinedAt` o'yinchiga creator role o'tkazish (5 daqiqa grace) |
 
 ### 8.2 Mavjud fayllarga MINIMAL qo'shimcha
 
@@ -579,7 +579,7 @@ Bir martada hammasini qilmaslik. Har bosqich alohida PR sifatida ship qilinadi v
 - Reconnect "Davom etish" banner (F21).
 - **Tasdiqlash**:
   - Lobby min'ga yetib hamma `[Tayyorman]` belgilasa auto-start.
-  - Creator chiqsa, 30s ichida qaytmasa, eng erta o'yinchiga creator transfer.
+  - Creator chiqsa, 5 daqiqa ichida qaytmasa, eng erta o'yinchiga creator transfer.
   - User browser yopib qaytsa, dashboard'da `[Davom etish]` banner ko'rinadi.
   - Pitch timer tugaganda keyingi o'yinchiga o'tish.
 
@@ -638,7 +638,7 @@ Bir martada hammasini qilmaslik. Har bosqich alohida PR sifatida ship qilinadi v
 >
 > **N1**: `[Tayyorman]` tugmasi min'ga yetmaguncha **disabled**, yonida `Yana N o'yinchi kerak` yozuvi. Min'ga yetganda enable bo'ladi. ✅
 >
-> **N2**: Creator disconnect — **30 soniya grace** (mavjud reconnect pattern bilan mos), keyin transfer. Manual leave — darhol transfer. ✅
+> **N2**: Creator disconnect — **5 daqiqa grace** (mobil tarmoq uzilishi va telegram-app suspend stsenariylariga moslashgan), keyin transfer. Manual leave — darhol transfer. ✅
 >
 > **N3**: 1 user = 1 active room (har qanday rejim — friends/online private/public). DB constraint: user'ning `status IN (LOBBY, PLAYING)` room'i 0 yoki 1 ta. ✅
 >

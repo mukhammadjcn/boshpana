@@ -49,19 +49,18 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
         const mode = body.mode ?? RoomMode.FRIENDS;
         const gameType = body.gameType ?? GameType.BUNKER;
 
-        // 1 user = 1 active room. Friends preserves the existing implicit
-        // behavior; only ONLINE rooms gate behind this check so the
-        // friends-mode flow stays exactly as it was.
-        if (mode === RoomMode.ONLINE) {
-          const active = await enforceSingleActiveRoom(
-            user.id,
-            body.confirmLeaveExisting,
-            body.sessionId,
-            deps.games,
-          );
-          if (active.kind === "blocked") {
-            return reply.status(409).send(active.payload);
-          }
+        // 1 user = 1 active room (N3) — applied to every room type so a
+        // user can never end up hosting two lobbies at once. Friends create
+        // gets the same 409 ACTIVE_ROOM_EXISTS envelope as online flows;
+        // the client surfaces the "Continue or start new?" modal.
+        const active = await enforceSingleActiveRoom(
+          user.id,
+          body.confirmLeaveExisting,
+          body.sessionId,
+          deps.games,
+        );
+        if (active.kind === "blocked") {
+          return reply.status(409).send(active.payload);
         }
 
         const recentCount = await countHostedRoomsLast30d(user.id);
@@ -184,17 +183,15 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
         if (!room) {
           return reply.status(404).send({ message: "Xona topilmadi." });
         }
-        if (room.mode === RoomMode.ONLINE) {
-          const active = await enforceSingleActiveRoom(
-            request.authUser!.id,
-            request.body.confirmLeaveExisting,
-            request.body.sessionId,
-            deps.games,
-            code,
-          );
-          if (active.kind === "blocked") {
-            return reply.status(409).send(active.payload);
-          }
+        const active = await enforceSingleActiveRoom(
+          request.authUser!.id,
+          request.body.confirmLeaveExisting,
+          request.body.sessionId,
+          deps.games,
+          code,
+        );
+        if (active.kind === "blocked") {
+          return reply.status(409).send(active.payload);
         }
         const service = deps.games.for(room.gameType);
         const result = await service.joinRoom({

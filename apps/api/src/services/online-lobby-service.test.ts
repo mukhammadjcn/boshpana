@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   canEnableReady,
+  computeBunkerOnlineWinnerTarget,
+  computeMafiaOnlineComposition,
   getMafiaOnlineMinPlayers,
   shouldAutoStartOnlineLobby
 } from "./online-lobby-service";
@@ -52,4 +54,49 @@ test("getMafiaOnlineMinPlayers derives the required lobby size from composition"
     }),
     5
   );
+});
+
+test("computeBunkerOnlineWinnerTarget scales by lobby size", () => {
+  // 3-5 players → 2 winners
+  assert.equal(computeBunkerOnlineWinnerTarget(3), 2);
+  assert.equal(computeBunkerOnlineWinnerTarget(5), 2);
+  // 6-10 → 3
+  assert.equal(computeBunkerOnlineWinnerTarget(6), 3);
+  assert.equal(computeBunkerOnlineWinnerTarget(10), 3);
+  // 11-16 → 4
+  assert.equal(computeBunkerOnlineWinnerTarget(11), 4);
+  assert.equal(computeBunkerOnlineWinnerTarget(16), 4);
+});
+
+test("computeMafiaOnlineComposition scales roles by lobby size", () => {
+  assert.deepEqual(computeMafiaOnlineComposition(4), {
+    mafiaCount: 1,
+    hasSheriff: true,
+    hasDoctor: false
+  });
+  assert.deepEqual(computeMafiaOnlineComposition(6), {
+    mafiaCount: 1,
+    hasSheriff: true,
+    hasDoctor: false
+  });
+  assert.deepEqual(computeMafiaOnlineComposition(7), {
+    mafiaCount: 2,
+    hasSheriff: true,
+    hasDoctor: true
+  });
+  assert.deepEqual(computeMafiaOnlineComposition(10), {
+    mafiaCount: 2,
+    hasSheriff: true,
+    hasDoctor: true
+  });
+  assert.deepEqual(computeMafiaOnlineComposition(11), {
+    mafiaCount: 3,
+    hasSheriff: true,
+    hasDoctor: true
+  });
+  assert.deepEqual(computeMafiaOnlineComposition(15), {
+    mafiaCount: 3,
+    hasSheriff: true,
+    hasDoctor: true
+  });
 });

@@ -17,6 +17,7 @@ import { chatService } from "../../services/chat-service";
 import { hostTransferService } from "../../services/host-transfer-service";
 import { onlineGovernanceService } from "../../services/online-governance-service";
 import {
+  applyOnlineMafiaComposition,
   getMafiaOnlineMinPlayers,
   shouldAutoStartOnlineLobby
 } from "../../services/online-lobby-service";
@@ -329,6 +330,14 @@ export class MafiaGameService {
     if (!room.mafiaGame) throw new Error("O'yin state topilmadi.");
     if (room.status !== RoomStatus.LOBBY) {
       throw new Error("O'yin allaqachon boshlangan.");
+    }
+
+    if (room.mode === "ONLINE") {
+      const composition = await applyOnlineMafiaComposition({
+        gameId: room.mafiaGame.id,
+        playerCount: room.players.length
+      });
+      Object.assign(room.mafiaGame, composition);
     }
 
     const config = room.mafiaGame;

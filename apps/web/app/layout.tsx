@@ -90,7 +90,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="uz" className={`${display.variable} ${mono.variable}`}>
+    <html
+      lang="uz"
+      className={`${display.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         <I18nProvider>
           <Script
@@ -105,7 +109,10 @@ export default function RootLayout({
               try {
                 wa.ready && wa.ready();
                 wa.expand && wa.expand();
-                wa.requestFullscreen && wa.requestFullscreen();
+                var version = parseFloat(wa.version || "0");
+                if (version >= 7.0 && wa.requestFullscreen) {
+                  wa.requestFullscreen();
+                }
                 wa.disableVerticalSwipes && wa.disableVerticalSwipes();
                 wa.setHeaderColor && wa.setHeaderColor("#0b0d12");
                 wa.setBackgroundColor && wa.setBackgroundColor("#0b0d12");

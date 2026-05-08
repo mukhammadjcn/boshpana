@@ -54,7 +54,7 @@ const MAX_PLAYERS = 15;
 export function OnlineMafiaCreate() {
   const router = useRouter();
   const { t } = useI18n();
-  const [visibility, setVisibility] = useState<OnlineVisibilityTab>("PRIVATE");
+  const [visibility, setVisibility] = useState<OnlineVisibilityTab>("PUBLIC");
   const [hostName, setHostName] = useState("");
   const [mafiaCount, setMafiaCount] = useState(1);
   const [hasSheriff, setHasSheriff] = useState(true);
@@ -210,7 +210,7 @@ export function OnlineMafiaCreate() {
         </p>
 
         <div className="mt-6 grid gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-          <p className="text-s font-medium uppercase tracking-wider text-brand">
+          <p className="text-sm font-medium uppercase tracking-wider text-brand">
             {t("qoidalar")}
           </p>
           <ul className="grid gap-2 text-sm text-ink-secondary">
@@ -225,17 +225,23 @@ export function OnlineMafiaCreate() {
           </ul>
         </div>
 
+        <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-sm leading-relaxed text-ink-secondary">
+          {t("online_mode_tavsifi")}
+        </div>
+
         <OnlineVisibilityTabs value={visibility} onChange={setVisibility} />
+
+        <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+          {visibility === "PRIVATE"
+            ? t("private_lobby_tavsifi")
+            : t("public_lobby_tavsifi")}
+        </p>
 
         {visibility === "PRIVATE" ? (
           <form
             onSubmit={handleCreate}
             className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
           >
-            <p className="text-s font-medium uppercase tracking-wider text-brand">
-              Shaxsiy lobby yarating va ulashing !
-            </p>
-
             <label className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
                 {t("nickname")}
@@ -348,10 +354,6 @@ export function OnlineMafiaCreate() {
           </form>
         ) : (
           <div className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-            <p className="text-s font-medium uppercase tracking-wider text-brand">
-              Ommaviy lobbyga qo'shiling!
-            </p>
-
             <label className="grid gap-2">
               <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
                 {t("nickname")}

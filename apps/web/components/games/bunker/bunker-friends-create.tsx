@@ -10,6 +10,11 @@ import { apiRequest } from "@/lib/api";
 import { type AuthUser, getAuthUser, setAuthUser } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { getOrCreateSessionId } from "@/lib/storage";
+import { ActiveRoomConflictModal } from "../shared/active-room-conflict-modal";
+import {
+  parseActiveRoomConflict,
+  type ActiveRoomSummary,
+} from "../shared/online-room-utils";
 
 type UsageResponse = {
   roomsCreatedLast30d: number;
@@ -41,6 +46,7 @@ export function BunkerFriendsCreate() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [activeRoom, setActiveRoom] = useState<ActiveRoomSummary | null>(null);
 
   useEffect(() => {
     const cached = getAuthUser();
@@ -76,8 +82,7 @@ export function BunkerFriendsCreate() {
 
   const limitReached = !!usage && usage.remaining <= 0;
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitCreate(confirmLeaveExisting = false) {
     if (limitReached) return;
     if (typeof document !== "undefined") {
       (document.activeElement as HTMLElement | null)?.blur?.();
@@ -95,15 +100,26 @@ export function BunkerFriendsCreate() {
             sessionId,
             winnerTarget,
             isAdult,
+            ...(confirmLeaveExisting ? { confirmLeaveExisting: true } : {}),
           }),
         },
       );
       router.push(`/room/${response.roomCode}` as Route);
     } catch (error) {
+      const conflict = parseActiveRoomConflict(error);
+      if (conflict) {
+        setActiveRoom(conflict.activeRoom);
+        return;
+      }
       setCreateError((error as Error).message);
     } finally {
       setCreating(false);
     }
+  }
+
+  function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitCreate(false);
   }
 
   return (
@@ -132,7 +148,7 @@ export function BunkerFriendsCreate() {
         </p>
 
         <div className="mt-6 grid gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+          <p className="text-sm font-medium uppercase tracking-wider text-brand">
             {t("qoidalar")}
           </p>
           <ul className="grid gap-2 text-sm text-ink-secondary">
@@ -145,6 +161,10 @@ export function BunkerFriendsCreate() {
               </li>
             ))}
           </ul>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-sm leading-relaxed text-ink-secondary">
+          {t("friends_mode_tavsifi")}
         </div>
 
         {usage && limitReached && (
@@ -184,9 +204,9 @@ export function BunkerFriendsCreate() {
           onSubmit={handleCreate}
           className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
         >
-          <p className="text-xs font-medium uppercase tracking-wider text-brand">
+          {/* <p className="text-xs font-medium uppercase tracking-wider text-brand">
             {t("yangi_lobby")}
-          </p>
+          </p> */}
 
           <label className="grid gap-2">
             <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
@@ -306,6 +326,20 @@ export function BunkerFriendsCreate() {
       </section>
 
       <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />
+
+      <ActiveRoomConflictModal
+        activeRoom={activeRoom}
+        open={!!activeRoom}
+        busy={creating}
+        onContinue={() => {
+          if (!activeRoom) return;
+          router.push(`/room/${activeRoom.code}` as Route);
+        }}
+        onStartNew={() => {
+          setActiveRoom(null);
+          void submitCreate(true);
+        }}
+      />
     </>
   );
 }

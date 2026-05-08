@@ -10,6 +10,11 @@ import { apiRequest } from "@/lib/api";
 import { type AuthUser, getAuthUser, setAuthUser } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { getOrCreateSessionId } from "@/lib/storage";
+import { ActiveRoomConflictModal } from "../shared/active-room-conflict-modal";
+import {
+  parseActiveRoomConflict,
+  type ActiveRoomSummary,
+} from "../shared/online-room-utils";
 
 type UsageResponse = {
   roomsCreatedLast30d: number;
@@ -39,6 +44,7 @@ export function MafiaFriendsCreate() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [activeRoom, setActiveRoom] = useState<ActiveRoomSummary | null>(null);
 
   useEffect(() => {
     const cached = getAuthUser();
@@ -92,8 +98,7 @@ export function MafiaFriendsCreate() {
     setMafiaCount((c) => Math.min(c, maxMafiaForSize));
   }, [maxMafiaForSize]);
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitCreate(confirmLeaveExisting = false) {
     if (limitReached || !compositionValid) return;
     if (typeof document !== "undefined") {
       (document.activeElement as HTMLElement | null)?.blur?.();
@@ -114,15 +119,26 @@ export function MafiaFriendsCreate() {
             mafiaCount,
             hasSheriff,
             hasDoctor,
+            ...(confirmLeaveExisting ? { confirmLeaveExisting: true } : {}),
           }),
         },
       );
       router.push(`/room/${response.roomCode}` as Route);
     } catch (error) {
+      const conflict = parseActiveRoomConflict(error);
+      if (conflict) {
+        setActiveRoom(conflict.activeRoom);
+        return;
+      }
       setCreateError((error as Error).message);
     } finally {
       setCreating(false);
     }
+  }
+
+  function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submitCreate(false);
   }
 
   return (
@@ -154,7 +170,7 @@ export function MafiaFriendsCreate() {
         </p>
 
         <div className="mt-6 grid gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-4">
-          <p className="text-s font-medium uppercase tracking-wider text-brand">
+          <p className="text-sm font-medium uppercase tracking-wider text-brand">
             {t("qoidalar")}
           </p>
           <ul className="grid gap-2 text-sm text-ink-secondary">
@@ -167,6 +183,10 @@ export function MafiaFriendsCreate() {
               </li>
             ))}
           </ul>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-line-subtle bg-bg-surface px-4 py-3 text-sm leading-relaxed text-ink-secondary">
+          {t("friends_mode_tavsifi")}
         </div>
 
         {/* Limit to'lsa korsatiladi */}
@@ -207,9 +227,9 @@ export function MafiaFriendsCreate() {
           onSubmit={handleCreate}
           className="mt-4 grid gap-4 rounded-2xl border border-line-subtle bg-bg-surface p-4"
         >
-          <p className="text-s font-medium uppercase tracking-wider text-brand">
+          {/* <p className="text-s font-medium uppercase tracking-wider text-brand">
             {t("yangi_oyin")}
-          </p>
+          </p> */}
 
           <label className="grid gap-2">
             <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
@@ -334,6 +354,20 @@ export function MafiaFriendsCreate() {
       </section>
 
       <JoinRoomModal open={joinOpen} onClose={() => setJoinOpen(false)} />
+
+      <ActiveRoomConflictModal
+        activeRoom={activeRoom}
+        open={!!activeRoom}
+        busy={creating}
+        onContinue={() => {
+          if (!activeRoom) return;
+          router.push(`/room/${activeRoom.code}` as Route);
+        }}
+        onStartNew={() => {
+          setActiveRoom(null);
+          void submitCreate(true);
+        }}
+      />
     </>
   );
 }

@@ -561,6 +561,32 @@ export function MafiaExperience({
       : null,
   });
 
+  // Hook must run before any early return so React sees a stable hook order
+  // even on the first render when roomState is still loading.
+  const activeGovernanceProposal = useMemo(() => {
+    if (!roomState) return null;
+    const { kickProposal, endGameProposal, skipToVoteProposal } =
+      roomState.governance;
+    if (kickProposal && kickProposal.id !== dismissedKickProposalId) {
+      return kickProposal;
+    }
+    if (endGameProposal && endGameProposal.id !== dismissedEndGameProposalId) {
+      return endGameProposal;
+    }
+    if (
+      skipToVoteProposal &&
+      skipToVoteProposal.id !== dismissedSkipToVoteProposalId
+    ) {
+      return skipToVoteProposal;
+    }
+    return null;
+  }, [
+    roomState,
+    dismissedKickProposalId,
+    dismissedEndGameProposalId,
+    dismissedSkipToVoteProposalId,
+  ]);
+
   const selfEliminationModal = (
     <MafiaSelfEliminationModal
       open={eliminatedModalOpen}
@@ -653,28 +679,6 @@ export function MafiaExperience({
   }
 
   const { room, players, me, game } = roomState;
-  const activeGovernanceProposal = useMemo(() => {
-    const { kickProposal, endGameProposal, skipToVoteProposal } =
-      roomState.governance;
-    if (kickProposal && kickProposal.id !== dismissedKickProposalId) {
-      return kickProposal;
-    }
-    if (endGameProposal && endGameProposal.id !== dismissedEndGameProposalId) {
-      return endGameProposal;
-    }
-    if (
-      skipToVoteProposal &&
-      skipToVoteProposal.id !== dismissedSkipToVoteProposalId
-    ) {
-      return skipToVoteProposal;
-    }
-    return null;
-  }, [
-    roomState.governance,
-    dismissedKickProposalId,
-    dismissedEndGameProposalId,
-    dismissedSkipToVoteProposalId,
-  ]);
   const onlineChatFloating =
     uiVariant === "online" && me ? (
       <OnlineChat

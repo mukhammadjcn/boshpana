@@ -15,6 +15,7 @@ import { hostTransferService } from "../../services/host-transfer-service";
 import { onlineGovernanceService } from "../../services/online-governance-service";
 import {
   BUNKER_ONLINE_MIN_PLAYERS,
+  applyOnlineBunkerComposition,
   shouldAutoStartOnlineLobby
 } from "../../services/online-lobby-service";
 import { joinLobbyRoom } from "../../services/room-membership-service";
@@ -426,6 +427,14 @@ export class BunkerGameService {
 
     if (room.players.length < 3) {
       throw new Error("O'yinni boshlash uchun kamida 3 o'yinchi kerak.");
+    }
+
+    if (room.mode === "ONLINE") {
+      const { winnerTarget } = await applyOnlineBunkerComposition({
+        roomId: room.id,
+        playerCount: room.players.length
+      });
+      room.winnerTarget = winnerTarget;
     }
 
     // 18+ rooms can pull from both pools (more variety); normal rooms
