@@ -16,6 +16,7 @@ import { onlineGovernanceService } from "../../services/online-governance-servic
 import {
   BUNKER_ONLINE_MIN_PLAYERS,
   applyOnlineBunkerComposition,
+  getBunkerEliminationsForRound,
   shouldAutoStartOnlineLobby
 } from "../../services/online-lobby-service";
 import { joinLobbyRoom } from "../../services/room-membership-service";
@@ -70,7 +71,10 @@ type RevealInput = RoomCodeAction & {
 };
 
 type VoteInput = RoomCodeAction & {
-  targetPlayerId: string;
+  // Online rounds with multi-elimination expect N targets per voter; friends
+  // and tiebreak rounds always expect exactly one. The service validates the
+  // count against the schedule before persisting.
+  targetPlayerIds: string[];
 };
 
 type RoomWithState = Prisma.RoomGetPayload<{
@@ -409,7 +413,17 @@ export class BunkerGameService {
           ? room.bunkerVotes.some(
               (vote) => vote.roundNumber === currentRoundNumber && vote.voterPlayerId === me.id
             )
-          : false
+          : false,
+        elimsThisRound:
+          room.bunkerGame?.tiebreakCandidateIds.length
+            ? 1
+            : isSelfManagedOnlineRoom(room.mode)
+              ? getBunkerEliminationsForRound(
+                  room.players.length,
+                  room.winnerTarget,
+                  currentRoundNumber
+                )
+              : 1
       },
       chat: {
         messages: chatMessages
@@ -1143,18 +1157,23 @@ export class BunkerGameService {
     }
 
     const me = room.players.find((player) => player.sessionId === input.sessionId);
-    const target = room.players.find((player) => player.id === input.targetPlayerId);
-
     if (!me || !me.isAlive) {
       throw new Error("Faqat tirik o'yinchi ovoz bera oladi.");
     }
 
-    if (!target || !target.isAlive) {
-      throw new Error("Noto'g'ri target tanlandi.");
+    // Deduplicate targets up front so a client double-tap can't inflate counts.
+    const targetIds = Array.from(new Set(input.targetPlayerIds));
+    if (!targetIds.length) {
+      throw new Error("Kamida bitta nomzod tanlang.");
     }
-
-    if (me.id === target.id) {
+    if (targetIds.includes(me.id)) {
       throw new Error("O'zingizga ovoz bera olmaysiz.");
+    }
+    const targets = targetIds.map((id) =>
+      room.players.find((player) => player.id === id)
+    );
+    if (targets.some((t) => !t || !t.isAlive)) {
+      throw new Error("Noto'g'ri target tanlandi.");
     }
 
     const tiebreakCandidates = room.bunkerGame.tiebreakCandidateIds;
@@ -1165,47 +1184,72 @@ export class BunkerGameService {
       alivePlayers.length > 0 &&
       alivePlayers.every((player) => tiebreakCandidates.includes(player.id));
 
+    // Tiebreak rounds always pick exactly one — only the missing seat from a
+    // prior round is at stake.
+    const expectedTargets = tiebreakActive
+      ? 1
+      : isSelfManagedOnlineRoom(room.mode)
+        ? Math.max(
+            1,
+            getBunkerEliminationsForRound(
+              room.players.length,
+              room.winnerTarget,
+              room.bunkerGame.roundNumber
+            )
+          )
+        : 1;
+
+    if (targetIds.length !== expectedTargets) {
+      throw new Error(
+        `Bu round'da aynan ${expectedTargets} ta nomzod tanlash kerak.`
+      );
+    }
+
     if (tiebreakActive) {
       if (tiebreakCandidates.includes(me.id) && !allAliveAreTied) {
         throw new Error("Tenglikdagi nomzodlar ovoz bera olmaydi.");
       }
-      if (!tiebreakCandidates.includes(target.id)) {
+      if (!tiebreakCandidates.includes(targetIds[0])) {
         throw new Error("Faqat tenglikdagi nomzodlardan birini tanlang.");
       }
     }
 
-    await prisma.bunkerVote.upsert({
-      where: {
-        roomId_roundNumber_voterPlayerId: {
+    // Replace the voter's whole ballot for this round so that re-submitting
+    // is idempotent — the unique key is now (room, round, voter, target), so
+    // a stale row from an earlier ballot would otherwise survive.
+    await prisma.$transaction([
+      prisma.bunkerVote.deleteMany({
+        where: {
           roomId: room.id,
           roundNumber: room.bunkerGame.roundNumber,
           voterPlayerId: me.id
         }
-      },
-      create: {
-        roomId: room.id,
-        roundNumber: room.bunkerGame.roundNumber,
-        voterPlayerId: me.id,
-        targetPlayerId: target.id
-      },
-      update: {
-        targetPlayerId: target.id
-      }
-    });
+      }),
+      prisma.bunkerVote.createMany({
+        data: targetIds.map((targetPlayerId) => ({
+          roomId: room.id,
+          roundNumber: room.bunkerGame!.roundNumber,
+          voterPlayerId: me.id,
+          targetPlayerId
+        }))
+      })
+    ]);
 
     const expectedVoters = tiebreakActive
       ? allAliveAreTied
         ? alivePlayers.length
         : alivePlayers.filter((p) => !tiebreakCandidates.includes(p.id)).length
       : alivePlayers.length;
-    const roundVotes = await prisma.bunkerVote.count({
+    const distinctVoters = await prisma.bunkerVote.findMany({
       where: {
         roomId: room.id,
         roundNumber: room.bunkerGame.roundNumber
-      }
+      },
+      distinct: ["voterPlayerId"],
+      select: { voterPlayerId: true }
     });
 
-    if (roundVotes >= expectedVoters) {
+    if (distinctVoters.length >= expectedVoters) {
       await this.resolveVoting(room.code);
     }
   }
@@ -1436,6 +1480,19 @@ export class BunkerGameService {
 
     this.stopTimer(room.code);
 
+    // After the last reveal of the round, online rooms either jump straight to
+    // voting (if eliminations are scheduled) or skip voting entirely for
+    // story-only rounds (early rounds in small games where the schedule has
+    // a 0). Friends rooms always pause at ROUND_COMPLETE for the host.
+    const onlineSkipsVoting =
+      !nextTurn &&
+      isSelfManagedOnlineRoom(room.mode) &&
+      getBunkerEliminationsForRound(
+        room.players.length,
+        room.winnerTarget,
+        room.bunkerGame.roundNumber
+      ) === 0;
+
     await prisma.bunkerGame.update({
       where: { id: room.bunkerGame.id },
       data: nextTurn
@@ -1448,20 +1505,32 @@ export class BunkerGameService {
               : null,
             currentTurnPlayerId: nextTurn.id
           }
-        : isSelfManagedOnlineRoom(room.mode)
+        : onlineSkipsVoting
           ? {
-              phase: BunkerPhase.VOTING,
-              timerEndsAt: new Date(
-                Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
-              ),
+              phase: BunkerPhase.ROUND_COMPLETE,
+              timerEndsAt: getBunkerRoundResultDurationSeconds(room.mode)
+                ? new Date(
+                    Date.now() +
+                      getBunkerRoundResultDurationSeconds(room.mode)! * 1000
+                  )
+                : null,
               currentTurnPlayerId: null,
               tiebreakCandidateIds: []
             }
-          : {
-              phase: BunkerPhase.ROUND_COMPLETE,
-              timerEndsAt: null,
-              currentTurnPlayerId: null
-            }
+          : isSelfManagedOnlineRoom(room.mode)
+            ? {
+                phase: BunkerPhase.VOTING,
+                timerEndsAt: new Date(
+                  Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
+                ),
+                currentTurnPlayerId: null,
+                tiebreakCandidateIds: []
+              }
+            : {
+                phase: BunkerPhase.ROUND_COMPLETE,
+                timerEndsAt: null,
+                currentTurnPlayerId: null
+              }
     });
 
     if (!nextTurn && isSelfManagedOnlineRoom(room.mode)) {
@@ -1484,7 +1553,22 @@ export class BunkerGameService {
     const isEndgame = aliveBeforeVote.length <= room.winnerTarget + 1;
     const tiebreakActive = room.bunkerGame.tiebreakCandidateIds.length > 0;
 
-    let eliminatedId: string;
+    // How many players this round is supposed to eliminate. Online rooms get
+    // it from the back-loaded schedule; friends and any tiebreak round eliminate
+    // exactly one. Capped to alive-1 so we never empty the lobby in one go.
+    const scheduledElims = tiebreakActive
+      ? 1
+      : isSelfManagedOnlineRoom(room.mode)
+        ? getBunkerEliminationsForRound(
+            room.players.length,
+            room.winnerTarget,
+            room.bunkerGame.roundNumber
+          )
+        : 1;
+    const maxAllowedElims = Math.max(0, aliveBeforeVote.length - room.winnerTarget);
+    const elimsThisRound = Math.min(scheduledElims, maxAllowedElims);
+
+    let eliminatedIds: string[] = [];
 
     if (!currentRoundVotes.length) {
       // No votes — at endgame we must force progress (2 players refusing to
@@ -1510,10 +1594,9 @@ export class BunkerGameService {
         return;
       }
 
-      eliminatedId = aliveBeforeVote[randomInt(aliveBeforeVote.length)].id;
+      eliminatedIds = [aliveBeforeVote[randomInt(aliveBeforeVote.length)].id];
     } else {
       const score = new Map<string, number>();
-
       for (const vote of currentRoundVotes) {
         score.set(
           vote.targetPlayerId,
@@ -1521,68 +1604,104 @@ export class BunkerGameService {
         );
       }
 
-      const topScore = Math.max(...score.values());
-      const candidates = [...score.entries()]
-        .filter(([, value]) => value === topScore)
-        .map(([playerId]) => playerId);
+      // Single-elim rounds preserve the existing tiebreak phase so two-player
+      // showdowns still play out fairly. Multi-elim rounds walk the scored
+      // list top-to-bottom and accept clear-tier groups whole; if a tier
+      // would overflow the remaining slot count, we break ties uniformly at
+      // random rather than running another voting pass.
+      if (elimsThisRound <= 1) {
+        const topScore = Math.max(...score.values());
+        const candidates = [...score.entries()]
+          .filter(([, value]) => value === topScore)
+          .map(([playerId]) => playerId);
 
-      if (candidates.length > 1) {
-        // Tie — enter (or repeat) a tiebreak vote. Eligible voters are alive
-        // players not in the tied set; if none exist we have no choice but
-        // to fall back to a random pick.
-        const eligibleVoters = aliveBeforeVote.filter(
-          (p) => !candidates.includes(p.id)
-        );
-        const allAliveAreTied = candidates.length === aliveBeforeVote.length;
+        if (candidates.length > 1) {
+          const eligibleVoters = aliveBeforeVote.filter(
+            (p) => !candidates.includes(p.id)
+          );
+          const allAliveAreTied = candidates.length === aliveBeforeVote.length;
 
-        if (eligibleVoters.length > 0 || (!tiebreakActive && allAliveAreTied)) {
-          this.stopTimer(room.code);
-          await prisma.$transaction([
-            prisma.bunkerVote.deleteMany({
-              where: {
-                roomId: room.id,
-                roundNumber: room.bunkerGame.roundNumber
-              }
-            }),
-            prisma.bunkerGame.update({
-              where: { id: room.bunkerGame.id },
-              data: {
-                phase: BunkerPhase.VOTING,
-                timerEndsAt: new Date(
-                  Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
-                ),
-                tiebreakCandidateIds: candidates
-              }
-            })
-          ]);
-          this.startTimer(room.code);
-          return;
+          if (eligibleVoters.length > 0 || (!tiebreakActive && allAliveAreTied)) {
+            this.stopTimer(room.code);
+            await prisma.$transaction([
+              prisma.bunkerVote.deleteMany({
+                where: {
+                  roomId: room.id,
+                  roundNumber: room.bunkerGame.roundNumber
+                }
+              }),
+              prisma.bunkerGame.update({
+                where: { id: room.bunkerGame.id },
+                data: {
+                  phase: BunkerPhase.VOTING,
+                  timerEndsAt: new Date(
+                    Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
+                  ),
+                  tiebreakCandidateIds: candidates
+                }
+              })
+            ]);
+            this.startTimer(room.code);
+            return;
+          }
+
+          eliminatedIds = [candidates[randomInt(candidates.length)]];
+        } else {
+          eliminatedIds = [candidates[0]];
         }
-
-        eliminatedId = candidates[randomInt(candidates.length)];
       } else {
-        eliminatedId = candidates[0];
+        const tiers = [...score.entries()].sort((a, b) => b[1] - a[1]);
+        const chosen: string[] = [];
+        let i = 0;
+        while (i < tiers.length && chosen.length < elimsThisRound) {
+          const tierScore = tiers[i][1];
+          const tied: string[] = [];
+          while (i < tiers.length && tiers[i][1] === tierScore) {
+            tied.push(tiers[i][0]);
+            i += 1;
+          }
+          const remainingSlots = elimsThisRound - chosen.length;
+          if (tied.length <= remainingSlots) {
+            chosen.push(...tied);
+          } else {
+            // Boundary tie — pick `remainingSlots` from the tied set uniformly.
+            // Fisher–Yates shuffle keyed by crypto.randomInt for fairness.
+            const shuffled = tied.slice();
+            for (let j = shuffled.length - 1; j > 0; j -= 1) {
+              const k = randomInt(j + 1);
+              [shuffled[j], shuffled[k]] = [shuffled[k], shuffled[j]];
+            }
+            chosen.push(...shuffled.slice(0, remainingSlots));
+          }
+        }
+        eliminatedIds = chosen;
       }
     }
 
-    const eliminatedPlayer = room.players.find((player) => player.id === eliminatedId);
+    const eliminatedPlayers = room.players.filter((player) =>
+      eliminatedIds.includes(player.id)
+    );
     const gameId = room.bunkerGame.id;
+    const lastEliminatedId = eliminatedIds[eliminatedIds.length - 1] ?? null;
 
     this.stopTimer(room.code);
 
     let didFinish = false;
 
     await prisma.$transaction(async (tx) => {
-      await tx.player.update({
-        where: { id: eliminatedId },
-        data: { isAlive: false }
-      });
-
-      if (eliminatedPlayer?.bunkerAttributes) {
-        await tx.bunkerPlayerAttribute.update({
-          where: { id: eliminatedPlayer.bunkerAttributes.id },
-          data: { revealed: CARD_TYPES.slice() as BunkerCardType[] }
+      if (eliminatedIds.length) {
+        await tx.player.updateMany({
+          where: { id: { in: eliminatedIds } },
+          data: { isAlive: false }
         });
+        for (const player of eliminatedPlayers) {
+          if (player.bunkerAttributes) {
+            await tx.bunkerPlayerAttribute.update({
+              where: { id: player.bunkerAttributes.id },
+              data: { revealed: CARD_TYPES.slice() as BunkerCardType[] }
+            });
+          }
+        }
       }
 
       const aliveCount = await tx.player.count({
@@ -1603,7 +1722,7 @@ export class BunkerGameService {
             phase: BunkerPhase.FINISHED,
             timerEndsAt: null,
             currentTurnPlayerId: null,
-            lastEliminatedPlayerId: eliminatedId,
+            lastEliminatedPlayerId: lastEliminatedId,
             tiebreakCandidateIds: []
           }
         });
@@ -1622,7 +1741,7 @@ export class BunkerGameService {
               )
             : null,
           currentTurnPlayerId: null,
-          lastEliminatedPlayerId: eliminatedId,
+          lastEliminatedPlayerId: lastEliminatedId,
           tiebreakCandidateIds: []
         }
       });

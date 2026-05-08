@@ -11,20 +11,20 @@ import {
   SITE_NAME,
   SITE_OG_IMAGE,
   SITE_TITLE,
-  SITE_URL
+  SITE_URL,
 } from "@/lib/site";
 
 import "./globals.css";
 
 const display = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-display"
+  variable: "--font-display",
 });
 
 const mono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
-  variable: "--font-mono"
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -40,16 +40,16 @@ export const metadata: Metadata = {
       {
         url: "/android-chrome-192x192.png",
         sizes: "192x192",
-        type: "image/png"
+        type: "image/png",
       },
       {
         url: "/android-chrome-512x512.png",
         sizes: "512x512",
-        type: "image/png"
-      }
+        type: "image/png",
+      },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
-    shortcut: ["/favicon.ico"]
+    shortcut: ["/favicon.ico"],
   },
   openGraph: {
     type: "website",
@@ -63,16 +63,16 @@ export const metadata: Metadata = {
         url: SITE_OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: "Jamoaviy.uz — Jamoaviy o'yinlar"
-      }
-    ]
+        alt: "Jamoaviy.uz — Jamoaviy o'yinlar",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: [SITE_OG_IMAGE]
-  }
+    images: [SITE_OG_IMAGE],
+  },
 };
 
 export const viewport = {
@@ -81,11 +81,11 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover" as const,
-  themeColor: "#0b0d12"
+  themeColor: "#0b0d12",
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {

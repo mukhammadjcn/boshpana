@@ -193,12 +193,25 @@ export class RealtimeHub {
 
       socket.on(
         "vote",
-        async (payload: SocketActionPayload & { targetPlayerId: string }) => {
+        async (
+          payload: SocketActionPayload & {
+            targetPlayerId?: string;
+            targetPlayerIds?: string[];
+          }
+        ) => {
           await this.handleAction(socket, async () => {
+            // Friends clients still send a single `targetPlayerId`; online
+            // multi-elim rounds send `targetPlayerIds`. Normalise both into
+            // the array shape the service expects.
+            const targetPlayerIds = payload.targetPlayerIds
+              ? payload.targetPlayerIds
+              : payload.targetPlayerId
+                ? [payload.targetPlayerId]
+                : [];
             await this.gameService.submitVote({
               code: payload.roomCode,
               sessionId: payload.sessionId,
-              targetPlayerId: payload.targetPlayerId
+              targetPlayerIds
             });
             await this.broadcastRoomState(payload.roomCode);
           });

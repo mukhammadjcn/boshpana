@@ -88,6 +88,7 @@ export type BunkerRoomState = {
   votes: {
     total: number;
     submittedByMe: boolean;
+    elimsThisRound: number;
   };
   chat: {
     messages: OnlineChatMessage[];

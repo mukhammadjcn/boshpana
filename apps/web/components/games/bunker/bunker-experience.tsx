@@ -1429,9 +1429,10 @@ export function BunkerExperience({
           meId={me.id}
           tiebreakCandidateIds={game.tiebreakCandidateIds}
           secondsLeft={game.remainingSeconds}
-          onVote={(targetPlayerId) => {
+          elimsThisRound={roomState.votes.elimsThisRound}
+          onVote={(targetPlayerIds) => {
             tgHaptic("rigid");
-            emit("vote", { targetPlayerId });
+            emit("vote", { targetPlayerIds });
           }}
         />
       ) : null}

@@ -41,12 +41,15 @@ type TgWebApp = {
   onEvent?: (event: string, cb: () => void) => void;
   offEvent?: (event: string, cb: () => void) => void;
   requestContact?: (
-    callback: (shared: boolean, response?: { responseUnsafe?: { contact?: TgContact } }) => void
+    callback: (
+      shared: boolean,
+      response?: { responseUnsafe?: { contact?: TgContact } },
+    ) => void,
   ) => void;
   openTelegramLink?: (url: string) => void;
   HapticFeedback?: {
     impactOccurred?: (
-      style: "light" | "medium" | "heavy" | "rigid" | "soft"
+      style: "light" | "medium" | "heavy" | "rigid" | "soft",
     ) => void;
     notificationOccurred?: (type: "error" | "success" | "warning") => void;
     selectionChanged?: () => void;
@@ -83,7 +86,7 @@ export function isInsideTelegram(): boolean {
 }
 
 export async function waitForTelegramWebApp(
-  timeoutMs = 5000
+  timeoutMs = 5000,
 ): Promise<TgWebApp | null> {
   if (typeof window === "undefined") return null;
   const immediate = getTelegramWebApp();
@@ -177,7 +180,7 @@ export function setClosingConfirmation(enabled: boolean) {
 //   - "rigid"  : decisive action (vote, advance turn)
 //   - "soft"   : subtle confirmations
 export function tgHaptic(
-  kind: "light" | "medium" | "heavy" | "rigid" | "soft" = "medium"
+  kind: "light" | "medium" | "heavy" | "rigid" | "soft" = "medium",
 ) {
   const wa = getTelegramWebApp();
   if (!wa?.HapticFeedback?.impactOccurred) return;
@@ -219,8 +222,7 @@ export function applyTelegramSafeAreas() {
     root.style.setProperty("--tg-safe-left", `${left}px`);
     root.style.setProperty("--tg-safe-right", `${right}px`);
     const stableHeight =
-      typeof wa.viewportStableHeight === "number" &&
-      wa.viewportStableHeight > 0
+      typeof wa.viewportStableHeight === "number" && wa.viewportStableHeight > 0
         ? wa.viewportStableHeight
         : null;
     const liveHeight =

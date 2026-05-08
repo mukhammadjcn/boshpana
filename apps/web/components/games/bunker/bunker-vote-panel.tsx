@@ -26,7 +26,12 @@ type VotePanelProps = {
   meId?: string;
   tiebreakCandidateIds?: string[];
   secondsLeft?: number | null;
-  onVote: (targetPlayerId: string) => void;
+  // How many players this round eliminates. Online rooms with multi-elim
+  // rounds get >1; friends and tiebreaks always pass 1. The panel switches
+  // to multi-select when this is >1 and gates the submit button on having
+  // exactly that many candidates picked.
+  elimsThisRound?: number;
+  onVote: (targetPlayerIds: string[]) => void;
 };
 
 export function VotePanel({
@@ -36,10 +41,13 @@ export function VotePanel({
   meId,
   tiebreakCandidateIds = [],
   secondsLeft,
+  elimsThisRound = 1,
   onVote
 }: VotePanelProps) {
   const { t } = useI18n();
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const requiredPicks = Math.max(1, elimsThisRound);
+  const isMultiSelect = requiredPicks > 1;
   // Optimistic flag: flipped on click so the button immediately reflects
   // "Ovoz yuborildi" without waiting for the server broadcast (~150–400ms
   // round-trip on Telegram WebApp). The server's `hasVoted` prop catches
@@ -98,8 +106,8 @@ export function VotePanel({
   // mode). Tiebreak transition also clears the optimistic flag so the
   // button re-enables for the second round of voting.
   useEffect(() => {
-    setSelectedPlayerId(null);
-  }, [tiebreakActive, hasVoted]);
+    setSelectedPlayerIds([]);
+  }, [tiebreakActive, hasVoted, requiredPicks]);
   useEffect(() => {
     setOptimisticVoted(false);
   }, [tiebreakActive]);
@@ -113,8 +121,9 @@ export function VotePanel({
     return () => window.clearTimeout(t);
   }, [optimisticVoted, hasVoted]);
 
-  const selectedPlayer =
-    options.find((player) => player.id === selectedPlayerId) ?? null;
+  const selectedPlayers = options.filter((player) =>
+    selectedPlayerIds.includes(player.id)
+  );
 
   const helper = tiebreakActive
     ? meIsCandidate && !allAliveAreTied
@@ -133,7 +142,9 @@ export function VotePanel({
     : effectiveHasVoted
       ? t("siz_ovoz_berdingiz_qolgan_oyinchilarni_7d09")
       : canVote
-        ? t("kim_bunkerda_qolmasligi_kerak_uni_622c")
+        ? isMultiSelect
+          ? t("bu_round_n_kishi_chiqariladi", { count: requiredPicks })
+          : t("kim_bunkerda_qolmasligi_kerak_uni_622c")
         : t("ovoz_natijasini_kuting_bu_bosqichda_9ee3");
 
   const effectiveCanVote = canVote && (!meIsCandidate || allAliveAreTied);
@@ -157,19 +168,31 @@ export function VotePanel({
       footer={
         meIsCandidate && !allAliveAreTied ? null : (
           <button
-            disabled={!effectiveCanVote || effectiveHasVoted || !selectedPlayerId}
+            disabled={
+              !effectiveCanVote ||
+              effectiveHasVoted ||
+              selectedPlayerIds.length !== requiredPicks
+            }
             onClick={() => {
-              if (!selectedPlayerId) return;
+              if (selectedPlayerIds.length !== requiredPicks) return;
               setOptimisticVoted(true);
-              onVote(selectedPlayerId);
+              onVote(selectedPlayerIds);
             }}
             className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
           >
             {effectiveHasVoted
               ? t("ovoz_yuborildi")
-              : selectedPlayer
-                ? t("name_tasdiqlash", { name: selectedPlayer.name })
-                : t("avval_birini_tanlang")}
+              : selectedPlayerIds.length === requiredPicks
+                ? isMultiSelect
+                  ? t("count_ta_tasdiqlash", { count: requiredPicks })
+                  : t("name_tasdiqlash", {
+                      name: selectedPlayers[0]?.name ?? ""
+                    })
+                : isMultiSelect
+                  ? t("yana_n_ta_tanlang", {
+                      count: requiredPicks - selectedPlayerIds.length
+                    })
+                  : t("avval_birini_tanlang")}
           </button>
         )
       }
@@ -236,14 +259,31 @@ export function VotePanel({
           const entries = Object.entries(player.visibleCards).filter(
             ([, value]) => value
           );
-          const active = selectedPlayerId === player.id;
+          const active = selectedPlayerIds.includes(player.id);
           const disabled = !effectiveCanVote || effectiveHasVoted;
+          const cap = active
+            ? false
+            : selectedPlayerIds.length >= requiredPicks;
 
           return (
             <li key={player.id}>
               <button
-                disabled={disabled}
-                onClick={() => setSelectedPlayerId(player.id)}
+                disabled={disabled || cap}
+                onClick={() => {
+                  setSelectedPlayerIds((current) => {
+                    // Single-pick mode: clicking another candidate replaces
+                    // the previous one. Multi-pick mode: toggle in/out and
+                    // refuse to grow past the round's required count.
+                    if (!isMultiSelect) {
+                      return [player.id];
+                    }
+                    if (current.includes(player.id)) {
+                      return current.filter((id) => id !== player.id);
+                    }
+                    if (current.length >= requiredPicks) return current;
+                    return [...current, player.id];
+                  });
+                }}
                 className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] disabled:opacity-50 ${
                   active
                     ? "border-bad bg-bad/10"

@@ -75,6 +75,11 @@ export type BunkerPublicState = {
   votes: {
     total: number;
     submittedByMe: boolean;
+    // How many players this round will eliminate. Online rooms read this
+    // from the back-loaded schedule; friends rooms always show 1. UI uses it
+    // to gate multi-select voting and to render the "X kishi chiqariladi"
+    // info banner before the vote.
+    elimsThisRound: number;
   };
   chat: {
     messages: ChatMessage[];

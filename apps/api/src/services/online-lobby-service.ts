@@ -22,6 +22,60 @@ export function computeBunkerOnlineWinnerTarget(playerCount: number): number {
   return 4;
 }
 
+// Online Bunker has at most 6 rounds (one per card type minus PROFESSION,
+// which is auto-revealed). With many players, eliminating one per round won't
+// fit, so the schedule packs multiple eliminations into the later rounds.
+export const BUNKER_ONLINE_ROUNDS = 6;
+
+// Schedule contract:
+//   - sums to (playerCount - winnerTarget) so the game finishes by round 6
+//   - back-loaded: storytelling/discovery early, dramatic finish late
+//   - if total < 6, the LAST `total` rounds get 1 elim each (early rounds skip
+//     voting entirely); if total >= 6, every round has at least 1
+export function computeBunkerEliminationSchedule(
+  playerCount: number,
+  winnerTarget: number
+): number[] {
+  const total = Math.max(0, playerCount - winnerTarget);
+  if (total === 0) return Array(BUNKER_ONLINE_ROUNDS).fill(0);
+
+  if (total <= BUNKER_ONLINE_ROUNDS) {
+    // Sparse: only the last `total` rounds carry a single elimination.
+    const sched = Array(BUNKER_ONLINE_ROUNDS).fill(0);
+    for (let i = BUNKER_ONLINE_ROUNDS - total; i < BUNKER_ONLINE_ROUNDS; i++) {
+      sched[i] = 1;
+    }
+    return sched;
+  }
+
+  // Dense: baseline 1 per round + extras distributed by quadratic weights so
+  // the curve grows faster toward the end. Largest-remainder method preserves
+  // the exact sum (= total).
+  const extra = total - BUNKER_ONLINE_ROUNDS;
+  const weights = [1, 4, 9, 16, 25, 36]; // (i+1)^2
+  const sumW = weights.reduce((a, b) => a + b, 0); // 91
+  const ideals = weights.map((w) => (extra * w) / sumW);
+  const floors = ideals.map(Math.floor);
+  let remainder = extra - floors.reduce((a, b) => a + b, 0);
+  const fracs = ideals
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac || b.i - a.i);
+  for (let k = 0; k < remainder; k++) floors[fracs[k].i] += 1;
+  return floors.map((v) => v + 1);
+}
+
+// One-shot accessor for game logic — returns how many players the round at
+// `roundNumber` (1-indexed) is supposed to eliminate.
+export function getBunkerEliminationsForRound(
+  playerCount: number,
+  winnerTarget: number,
+  roundNumber: number
+): number {
+  if (roundNumber < 1 || roundNumber > BUNKER_ONLINE_ROUNDS) return 0;
+  const sched = computeBunkerEliminationSchedule(playerCount, winnerTarget);
+  return sched[roundNumber - 1] ?? 0;
+}
+
 // Section 3: Mafia composition scales with lobby size.
 //   4–6  → 1 mafia + sheriff
 //   7–10 → 2 mafia + sheriff + doctor

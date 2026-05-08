@@ -219,7 +219,10 @@ model BunkerVote {
   targetPlayer   Player   @relation("BunkerVotesReceived", fields: [targetPlayerId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
 
-  @@unique([roomId, roundNumber, voterPlayerId])
+  // A voter casts up to N votes per round (one row per (voter, target) pair).
+  // Online rooms with multi-elimination rounds rely on this; friends rooms
+  // and single-elim rounds always insert exactly one row per voter.
+  @@unique([roomId, roundNumber, voterPlayerId, targetPlayerId])
 }
 
 model BunkerCard {

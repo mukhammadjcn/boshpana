@@ -650,5 +650,8 @@
   "xona_yopildi": "Xona yopildi",
   "xona_yopildi_tavsif": "Internet aloqasi uzilgani, uzoq vaqt nofaol bo'lingani yoki host xonani tark etgani sababli xona yopildi. Yangi o'yin boshlash uchun bosh sahifaga qayting.",
   "sizni_oyindan_chiqarishdi": "Sizni o'yindan chiqarishdi",
-  "host_sizni_oyindan_chiqarib_yubordi_f51a": "Host sizni o'yindan chiqarib yubordi. Yangi o'yin boshlash uchun bosh sahifaga qayting."
+  "host_sizni_oyindan_chiqarib_yubordi_f51a": "Host sizni o'yindan chiqarib yubordi. Yangi o'yin boshlash uchun bosh sahifaga qayting.",
+  "bu_round_n_kishi_chiqariladi": "Bu round'da {count} kishi chiqariladi. Eng ko'p ovoz olganlar bunkerni tark etadi.",
+  "count_ta_tasdiqlash": "{count} kishini tasdiqlash",
+  "yana_n_ta_tanlang": "Yana {count} ta tanlang"
 }
