@@ -6,8 +6,10 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "bash scripts/dev.sh",
     "dev:web": "yarn workspace web dev",
     "dev:api": "yarn workspace api dev",
+    "db:push": "bash scripts/db-push.sh",
     "build": "yarn workspace api build && yarn workspace web build",
     "lint": "yarn workspace web lint && yarn workspace api lint",
     "prisma:generate": "yarn workspace api prisma:generate",

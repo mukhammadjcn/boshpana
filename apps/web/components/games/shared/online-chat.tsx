@@ -109,10 +109,16 @@ export function OnlineChat({
     if (!text) return;
     onSend(text);
     setDraft("");
+    // Reset the textarea height in place. We avoid `.focus()` here: in
+    // Telegram WebApp the keyboard collapses the moment focus moves off
+    // the textarea (e.g. when the Yuborish button is tapped), and a
+    // re-focus on the next frame triggers a second viewport jump that
+    // makes the bottom-sheet visibly bounce. The button's onMouseDown
+    // already prevents focus theft, so the textarea keeps focus and the
+    // keyboard never animates.
     requestAnimationFrame(() => {
       if (!inputRef.current) return;
       inputRef.current.style.height = "auto";
-      inputRef.current.focus();
     });
   }
 
@@ -277,6 +283,14 @@ export function OnlineChat({
                 <button
                   type="submit"
                   disabled={!draft.trim()}
+                  // Prevent the button from stealing focus from the
+                  // textarea on tap. In Telegram WebApp a focus change is
+                  // what makes the soft keyboard collapse and the
+                  // bottom-sheet bounce; preventing it here keeps the
+                  // keyboard stable through the send round-trip. On
+                  // touch devices the click still fires — we just block
+                  // the synthesised mousedown that moves focus.
+                  onMouseDown={(event) => event.preventDefault()}
                   className="flex h-[52px] shrink-0 items-center justify-center rounded-2xl bg-brand px-5 text-sm font-semibold text-bg-base transition active:scale-[0.98] disabled:opacity-50"
                 >
                   {t("yuborish")}
