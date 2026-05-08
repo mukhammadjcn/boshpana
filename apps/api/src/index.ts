@@ -52,17 +52,44 @@ async function bootstrap() {
 
   void startTelegramBot();
 
-  const shutdown = async () => {
-    await stopTelegramBot();
-    await games.shutdown();
-    await closeRedis();
-    await prisma.$disconnect();
-    await app.close();
-    process.exit(0);
+  // Graceful shutdown:
+  //   • guard against repeat signals — SIGTERM during a slow drain would
+  //     otherwise re-enter and double-close resources;
+  //   • close socket.io and the HTTP server first so no new requests
+  //     come in while we're flushing state;
+  //   • cap the whole drain at SHUTDOWN_TIMEOUT_MS so a hung client
+  //     can't pin the process forever (k8s would SIGKILL anyway, but a
+  //     clean exit code keeps logs readable).
+  const SHUTDOWN_TIMEOUT_MS = 10_000;
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    app.log.info({ signal }, "graceful shutdown started");
+
+    const force = setTimeout(() => {
+      app.log.warn("shutdown timed out, forcing exit");
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+    force.unref();
+
+    try {
+      io.close();
+      await app.close();
+      await stopTelegramBot();
+      await games.shutdown();
+      await closeRedis();
+      await prisma.$disconnect();
+      app.log.info("graceful shutdown complete");
+      process.exit(0);
+    } catch (error) {
+      app.log.error({ err: error }, "shutdown failed");
+      process.exit(1);
+    }
   };
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
   await app.listen({
     port: env.port,

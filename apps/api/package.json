@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "env XDG_CACHE_HOME=../../.cache prisma generate && tsc -p tsconfig.json",
-    "start": "env XDG_CACHE_HOME=../../.cache prisma db push && node dist/src/index.js",
+    "start": "env XDG_CACHE_HOME=../../.cache prisma db push --accept-data-loss && node dist/src/index.js",
     "lint": "tsc --noEmit",
     "test": "find src -name '*.test.ts' -exec node --import tsx --test {} +",
     "prisma:generate": "env XDG_CACHE_HOME=../../.cache prisma generate",

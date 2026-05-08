@@ -108,7 +108,15 @@ const noopRealtime: RealtimePublisher = {
 export class BunkerGameService {
   private realtime: RealtimePublisher = noopRealtime;
 
-  private readonly timers = new Map<string, NodeJS.Timeout>();
+  // Timer entries cache the `timerEndsAt` deadline so the per-second tick
+  // can broadcast remaining seconds without a DB round-trip. Only the
+  // expiration step (remaining === 0) touches Prisma to read the current
+  // phase and trigger resolution. Without this, every active room burned
+  // one query per second just to re-read its own deadline.
+  private readonly timers = new Map<
+    string,
+    { interval: NodeJS.Timeout; endsAt: number }
+  >();
 
   private cleanupTimer: NodeJS.Timeout | null = null;
 
@@ -195,6 +203,13 @@ export class BunkerGameService {
             })
           );
         }
+
+        // Step 3: prune the in-memory cooldown stores. `cooldownActive`
+        // already prunes a single host's bucket on access, but a host who
+        // never returns leaves their bucket sitting around forever. This
+        // periodic sweep walks every bucket so memory stays bounded by
+        // active users, not lifetime users.
+        BunkerGameService.pruneCooldownStores();
       } catch (error) {
         console.error("cleanup sweep failed", error);
       }
@@ -567,7 +582,7 @@ export class BunkerGameService {
     });
 
     await onlineGovernanceService.clearRoom(room.code);
-    this.startTimer(room.code);
+    this.startTimer(room.code, introEndsAt);
   }
 
   async startRound(input: RoomCodeAction) {
@@ -672,6 +687,9 @@ export class BunkerGameService {
       throw new Error("Hozir voting boshlash mumkin emas.");
     }
 
+    const votingEndsAt = new Date(
+      Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
+    );
     await prisma.$transaction([
       prisma.bunkerVote.deleteMany({
         where: {
@@ -683,14 +701,14 @@ export class BunkerGameService {
         where: { id: room.bunkerGame.id },
         data: {
           phase: BunkerPhase.VOTING,
-          timerEndsAt: new Date(Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000),
+          timerEndsAt: votingEndsAt,
           currentTurnPlayerId: null,
           tiebreakCandidateIds: []
         }
       })
     ]);
 
-    this.startTimer(room.code);
+    this.startTimer(room.code, votingEndsAt);
   }
 
   async skipVoting(input: RoomCodeAction) {
@@ -1118,6 +1136,9 @@ export class BunkerGameService {
       throw new Error("Bu karta allaqachon ochilgan.");
     }
 
+    const pitchEndsAt = new Date(
+      Date.now() + BUNKER_PITCH_DURATION_SECONDS * 1000
+    );
     await prisma.$transaction([
       prisma.bunkerPlayerAttribute.update({
         where: { id: me.bunkerAttributes.id },
@@ -1129,14 +1150,14 @@ export class BunkerGameService {
         where: { id: room.bunkerGame.id },
         data: {
           phase: BunkerPhase.ROUND_PITCH,
-          timerEndsAt: new Date(Date.now() + BUNKER_PITCH_DURATION_SECONDS * 1000),
+          timerEndsAt: pitchEndsAt,
           lastRevealedPlayerId: me.id,
           lastRevealedCardType: input.cardType
         }
       })
     ]);
 
-    this.startTimer(room.code);
+    this.startTimer(room.code, pitchEndsAt);
   }
 
   async submitVote(input: VoteInput) {
@@ -1388,20 +1409,20 @@ export class BunkerGameService {
       throw new Error("Reveal uchun aktiv o'yinchi topilmadi.");
     }
 
+    const revealSeconds = getBunkerRevealDurationSeconds(room.mode);
+    const revealEndsAt = revealSeconds
+      ? new Date(Date.now() + revealSeconds * 1000)
+      : null;
     await prisma.bunkerGame.update({
       where: { id: room.bunkerGame.id },
       data: {
         currentTurnPlayerId: next.id,
-        timerEndsAt: getBunkerRevealDurationSeconds(room.mode)
-          ? new Date(
-              Date.now() + getBunkerRevealDurationSeconds(room.mode)! * 1000
-            )
-          : null
+        timerEndsAt: revealEndsAt
       }
     });
 
-    if (getBunkerRevealDurationSeconds(room.mode)) {
-      this.startTimer(room.code);
+    if (revealEndsAt) {
+      this.startTimer(room.code, revealEndsAt);
     }
   }
 
@@ -1437,6 +1458,9 @@ export class BunkerGameService {
 
     const randomCardType = availableCards[randomInt(availableCards.length)];
 
+    const pitchEndsAt = new Date(
+      Date.now() + BUNKER_PITCH_DURATION_SECONDS * 1000
+    );
     await prisma.$transaction([
       prisma.bunkerPlayerAttribute.update({
         where: { id: currentPlayer.bunkerAttributes.id },
@@ -1448,14 +1472,14 @@ export class BunkerGameService {
         where: { id: game.id },
         data: {
           phase: BunkerPhase.ROUND_PITCH,
-          timerEndsAt: new Date(Date.now() + BUNKER_PITCH_DURATION_SECONDS * 1000),
+          timerEndsAt: pitchEndsAt,
           lastRevealedPlayerId: currentPlayer.id,
           lastRevealedCardType: randomCardType
         }
       })
     ]);
 
-    this.startTimer(room.code);
+    this.startTimer(room.code, pitchEndsAt);
   }
 
   private async advanceTurnForRoom(roomCode: string) {
@@ -1493,36 +1517,39 @@ export class BunkerGameService {
         room.bunkerGame.roundNumber
       ) === 0;
 
+    const revealSeconds = getBunkerRevealDurationSeconds(room.mode);
+    const roundResultSeconds = getBunkerRoundResultDurationSeconds(room.mode);
+    const nextRevealEndsAt =
+      nextTurn && revealSeconds
+        ? new Date(Date.now() + revealSeconds * 1000)
+        : null;
+    const skipVotingEndsAt =
+      !nextTurn && onlineSkipsVoting && roundResultSeconds
+        ? new Date(Date.now() + roundResultSeconds * 1000)
+        : null;
+    const votingEndsAt =
+      !nextTurn && !onlineSkipsVoting && isSelfManagedOnlineRoom(room.mode)
+        ? new Date(Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000)
+        : null;
     await prisma.bunkerGame.update({
       where: { id: room.bunkerGame.id },
       data: nextTurn
         ? {
             phase: BunkerPhase.ROUND_REVEAL,
-            timerEndsAt: getBunkerRevealDurationSeconds(room.mode)
-              ? new Date(
-                  Date.now() + getBunkerRevealDurationSeconds(room.mode)! * 1000
-                )
-              : null,
+            timerEndsAt: nextRevealEndsAt,
             currentTurnPlayerId: nextTurn.id
           }
         : onlineSkipsVoting
           ? {
               phase: BunkerPhase.ROUND_COMPLETE,
-              timerEndsAt: getBunkerRoundResultDurationSeconds(room.mode)
-                ? new Date(
-                    Date.now() +
-                      getBunkerRoundResultDurationSeconds(room.mode)! * 1000
-                  )
-                : null,
+              timerEndsAt: skipVotingEndsAt,
               currentTurnPlayerId: null,
               tiebreakCandidateIds: []
             }
           : isSelfManagedOnlineRoom(room.mode)
             ? {
                 phase: BunkerPhase.VOTING,
-                timerEndsAt: new Date(
-                  Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
-                ),
+                timerEndsAt: votingEndsAt,
                 currentTurnPlayerId: null,
                 tiebreakCandidateIds: []
               }
@@ -1533,8 +1560,12 @@ export class BunkerGameService {
               }
     });
 
-    if (!nextTurn && isSelfManagedOnlineRoom(room.mode)) {
-      this.startTimer(room.code);
+    if (nextTurn && nextRevealEndsAt) {
+      this.startTimer(room.code, nextRevealEndsAt);
+    } else if (!nextTurn && onlineSkipsVoting && skipVotingEndsAt) {
+      this.startTimer(room.code, skipVotingEndsAt);
+    } else if (!nextTurn && isSelfManagedOnlineRoom(room.mode) && votingEndsAt) {
+      this.startTimer(room.code, votingEndsAt);
     }
   }
 
@@ -1576,18 +1607,19 @@ export class BunkerGameService {
       // the round end without elimination.
       if (!isEndgame) {
         const roundResultDelaySeconds = getBunkerRoundResultDurationSeconds(room.mode);
+        const roundResultEndsAt = roundResultDelaySeconds
+          ? new Date(Date.now() + roundResultDelaySeconds * 1000)
+          : null;
         await prisma.bunkerGame.update({
           where: { id: room.bunkerGame.id },
           data: {
             phase: BunkerPhase.ROUND_COMPLETE,
-            timerEndsAt: roundResultDelaySeconds
-              ? new Date(Date.now() + roundResultDelaySeconds * 1000)
-              : null,
+            timerEndsAt: roundResultEndsAt,
             tiebreakCandidateIds: []
           }
         });
-        if (roundResultDelaySeconds) {
-          this.startTimer(room.code);
+        if (roundResultEndsAt) {
+          this.startTimer(room.code, roundResultEndsAt);
         } else {
           this.stopTimer(room.code);
         }
@@ -1623,6 +1655,9 @@ export class BunkerGameService {
 
           if (eligibleVoters.length > 0 || (!tiebreakActive && allAliveAreTied)) {
             this.stopTimer(room.code);
+            const tiebreakEndsAt = new Date(
+              Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
+            );
             await prisma.$transaction([
               prisma.bunkerVote.deleteMany({
                 where: {
@@ -1634,14 +1669,12 @@ export class BunkerGameService {
                 where: { id: room.bunkerGame.id },
                 data: {
                   phase: BunkerPhase.VOTING,
-                  timerEndsAt: new Date(
-                    Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
-                  ),
+                  timerEndsAt: tiebreakEndsAt,
                   tiebreakCandidateIds: candidates
                 }
               })
             ]);
-            this.startTimer(room.code);
+            this.startTimer(room.code, tiebreakEndsAt);
             return;
           }
 
@@ -1685,6 +1718,11 @@ export class BunkerGameService {
     const lastEliminatedId = eliminatedIds[eliminatedIds.length - 1] ?? null;
 
     this.stopTimer(room.code);
+
+    const roundResultSecondsForElim = getBunkerRoundResultDurationSeconds(room.mode);
+    const roundCompleteEndsAt = roundResultSecondsForElim
+      ? new Date(Date.now() + roundResultSecondsForElim * 1000)
+      : null;
 
     let didFinish = false;
 
@@ -1734,12 +1772,7 @@ export class BunkerGameService {
         where: { id: gameId },
         data: {
           phase: BunkerPhase.ROUND_COMPLETE,
-          timerEndsAt: getBunkerRoundResultDurationSeconds(room.mode)
-            ? new Date(
-                Date.now() +
-                  getBunkerRoundResultDurationSeconds(room.mode)! * 1000
-              )
-            : null,
+          timerEndsAt: roundCompleteEndsAt,
           currentTurnPlayerId: null,
           lastEliminatedPlayerId: lastEliminatedId,
           tiebreakCandidateIds: []
@@ -1753,8 +1786,8 @@ export class BunkerGameService {
       return;
     }
 
-    if (isSelfManagedOnlineRoom(room.mode)) {
-      this.startTimer(room.code);
+    if (isSelfManagedOnlineRoom(room.mode) && roundCompleteEndsAt) {
+      this.startTimer(room.code, roundCompleteEndsAt);
     }
   }
 
@@ -1885,6 +1918,31 @@ export class BunkerGameService {
   // of who creates each room.
   private static readonly RECENT_SITUATION_TTL_MS = 30 * 60 * 1000;
   private static recentSituations: Map<string, number> = new Map();
+
+  // Sweep every bucket in every cooldown store, dropping entries past
+  // their TTL and dropping empty buckets. Called from the periodic
+  // cleanup sweeper so abandoned hosts/users don't pile up in memory.
+  private static pruneCooldownStores(): void {
+    const now = Date.now();
+    const sweep = (
+      store: Map<string, Map<string, number>>,
+      ttlMs: number
+    ): void => {
+      for (const [hostKey, bucket] of store) {
+        for (const [id, ts] of bucket) {
+          if (now - ts > ttlMs) bucket.delete(id);
+        }
+        if (bucket.size === 0) store.delete(hostKey);
+      }
+    };
+    sweep(BunkerGameService.recentCardsByUser, BunkerGameService.RECENT_CARD_TTL_MS);
+    sweep(BunkerGameService.recentDisasters, BunkerGameService.RECENT_DISASTER_TTL_MS);
+    for (const [id, ts] of BunkerGameService.recentSituations) {
+      if (now - ts > BunkerGameService.RECENT_SITUATION_TTL_MS) {
+        BunkerGameService.recentSituations.delete(id);
+      }
+    }
+  }
 
   private static cooldownActive(
     store: Map<string, Map<string, number>>,
@@ -2153,29 +2211,33 @@ export class BunkerGameService {
     return Math.max(0, Math.ceil((timerEndsAt.getTime() - Date.now()) / 1000));
   }
 
-  private startTimer(roomCode: string) {
+  // Start a 1Hz countdown for the room. `endsAt` mirrors the value just
+  // written to `bunkerGame.timerEndsAt` — passing it in lets us tick from
+  // memory and skip a per-second DB read for every active room. We only
+  // touch Prisma when the deadline elapses, to read the fresh phase and
+  // dispatch the right resolution method.
+  private startTimer(roomCode: string, endsAt: Date) {
     this.stopTimer(roomCode);
+    const code = roomCode.toUpperCase();
+    const endsAtMs = endsAt.getTime();
 
     const interval = setInterval(async () => {
       try {
-        const room = await prisma.room.findUnique({
-          where: { code: roomCode.toUpperCase() },
-          include: { bunkerGame: true }
-        });
-
-        if (!room?.bunkerGame?.timerEndsAt) {
-          this.stopTimer(roomCode);
-          return;
-        }
-
-        const remainingSeconds = this.getRemainingSeconds(room.bunkerGame.timerEndsAt);
+        const remainingSeconds = Math.max(
+          0,
+          Math.ceil((endsAtMs - Date.now()) / 1000)
+        );
         this.realtime.broadcastTimer(roomCode, remainingSeconds);
 
-        if (remainingSeconds > 0) {
-          return;
-        }
+        if (remainingSeconds > 0) return;
 
         this.stopTimer(roomCode);
+
+        const room = await prisma.room.findUnique({
+          where: { code },
+          include: { bunkerGame: true }
+        });
+        if (!room?.bunkerGame) return;
 
         if (room.bunkerGame.phase === BunkerPhase.INTRO) {
           await this.beginNextRound(roomCode);
@@ -2196,14 +2258,14 @@ export class BunkerGameService {
       }
     }, 1000);
 
-    this.timers.set(roomCode, interval);
+    this.timers.set(roomCode, { interval, endsAt: endsAtMs });
   }
 
   private stopTimer(roomCode: string) {
-    const timer = this.timers.get(roomCode);
+    const entry = this.timers.get(roomCode);
 
-    if (timer) {
-      clearInterval(timer);
+    if (entry) {
+      clearInterval(entry.interval);
       this.timers.delete(roomCode);
     }
   }

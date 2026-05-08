@@ -10,8 +10,10 @@ import {
 
 import { getAuthUser, setAuthUser, type AuthUser } from "@/lib/auth";
 import type { SupportedLanguage } from "@/lib/localized-content";
-import enMessages from "../messages/en.json";
-import ruMessages from "../messages/ru.json";
+// UZ ships in the initial bundle because it's the default language and the
+// first paint can't wait for an async chunk. EN/RU come in via dynamic
+// import only when the user actually switches — keeps the bundle ~2/3 of
+// the size for the typical Telegram WebApp visitor.
 import uzMessages from "../messages/uz.json";
 
 export type AppLanguage = SupportedLanguage;
@@ -50,9 +52,9 @@ function formatTemplate(
 async function loadMessages(language: AppLanguage): Promise<LocaleMessages> {
   switch (language) {
     case "ru":
-      return ruMessages;
+      return (await import("../messages/ru.json")).default;
     case "en":
-      return enMessages;
+      return (await import("../messages/en.json")).default;
     case "uz":
     default:
       return uzMessages;

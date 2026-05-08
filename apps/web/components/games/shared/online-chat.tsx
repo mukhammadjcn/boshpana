@@ -25,6 +25,23 @@ type Props = {
 // Persistent state to keep chat open across remounts during a session
 const chatStatePersistence: Record<string, boolean> = {};
 
+// Hash the senderId into one of 12 evenly-spaced HSL hues (30° apart).
+// Bucketing into discrete steps avoids the "two greens that look the
+// same" problem you'd get from raw `hash % 360`, while still giving us
+// enough slots that a typical 4–12 player room has no collisions. The
+// color is a pure function of senderId so each player keeps the same
+// color for the whole game (and across reconnects).
+const SENDER_HUE_BUCKETS = 12;
+
+function senderColor(senderId: string): string {
+  let hash = 5381;
+  for (let i = 0; i < senderId.length; i += 1) {
+    hash = ((hash << 5) + hash + senderId.charCodeAt(i)) | 0;
+  }
+  const hue = (Math.abs(hash) % SENDER_HUE_BUCKETS) * (360 / SENDER_HUE_BUCKETS);
+  return `hsl(${hue}, 72%, 66%)`;
+}
+
 export function OnlineChat({
   meId,
   messages,
@@ -56,12 +73,28 @@ export function OnlineChat({
     return `${latestMessage.senderName}: ${latestMessage.text}`;
   }, [latestMessage, t]);
 
+  // Smart-scroll: only pin to bottom when the user is already there
+  // (within ~80px of the latest message). If they've scrolled up to read
+  // backlog, leave their position alone — yanking them down on every new
+  // arrival ruins the read.
+  useEffect(() => {
+    if (!open) return;
+    const node = scrollRef.current;
+    if (!node) return;
+    const distanceFromBottom =
+      node.scrollHeight - node.scrollTop - node.clientHeight;
+    if (distanceFromBottom < 80) {
+      node.scrollTop = node.scrollHeight;
+    }
+  }, [messages, open]);
+
+  // When the user opens the sheet, always jump straight to the bottom.
   useEffect(() => {
     if (!open) return;
     const node = scrollRef.current;
     if (!node) return;
     node.scrollTop = node.scrollHeight;
-  }, [messages, open]);
+  }, [open]);
 
   useEffect(() => {
     resizeTextarea();
@@ -242,7 +275,10 @@ export function OnlineChat({
                         }`}
                       >
                         {!isMe && (
-                          <p className="mb-0.5 text-[11px] font-bold tracking-tight text-brand uppercase opacity-90">
+                          <p
+                            className="mb-0.5 text-[11px] font-bold tracking-tight uppercase opacity-90"
+                            style={{ color: senderColor(message.senderId) }}
+                          >
                             {message.senderName}
                           </p>
                         )}
@@ -251,11 +287,14 @@ export function OnlineChat({
                             {message.text}
                           </p>
                           <time className="ml-auto block shrink-0 select-none text-[10px] font-medium opacity-50 tabular-nums">
-                            {new Date(message.timestamp).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: false,
-                            })}
+                            {new Date(message.timestamp).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
+                              },
+                            )}
                           </time>
                         </div>
                       </article>

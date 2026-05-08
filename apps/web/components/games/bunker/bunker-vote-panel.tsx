@@ -178,7 +178,7 @@ export function VotePanel({
               setOptimisticVoted(true);
               onVote(selectedPlayerIds);
             }}
-            className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
+            className="flex h-14 w-full items-center justify-center rounded-2xl bg-bad text-base font-semibold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-ink-muted"
           >
             {effectiveHasVoted
               ? t("ovoz_yuborildi")

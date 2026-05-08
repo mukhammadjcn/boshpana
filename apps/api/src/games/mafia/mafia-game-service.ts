@@ -92,19 +92,23 @@ const noopRealtime: RealtimePublisher = {
 export class MafiaGameService {
   private realtime: RealtimePublisher = noopRealtime;
 
-  // Per-room interval timers — same pattern as Bunker. Each tick checks
-  // the persisted `timerEndsAt` against now, broadcasts the remaining
-  // seconds, and resolves the phase when the deadline passes. We key on
-  // roomCode (uppercase) so reconnects don't double-start.
-  private readonly timers = new Map<string, NodeJS.Timeout>();
+  // Per-room interval timers — same pattern as Bunker. Each tick computes
+  // the remaining seconds from the cached `endsAt` (no DB round-trip) and
+  // only re-reads Prisma when the deadline expires, so we can dispatch
+  // the fresh phase. Keyed on roomCode (uppercase) so reconnects don't
+  // double-start.
+  private readonly timers = new Map<
+    string,
+    { interval: NodeJS.Timeout; endsAt: number }
+  >();
 
   setRealtime(publisher: RealtimePublisher) {
     this.realtime = publisher;
   }
 
   async shutdown() {
-    for (const timer of this.timers.values()) {
-      clearInterval(timer);
+    for (const entry of this.timers.values()) {
+      clearInterval(entry.interval);
     }
     this.timers.clear();
   }
@@ -516,7 +520,7 @@ export class MafiaGameService {
       }
     });
 
-    this.startTimer(game.room.code);
+    this.startTimer(game.room.code, timerEndsAt);
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -821,6 +825,9 @@ export class MafiaGameService {
       "NIGHT_RESULT"
     );
 
+    const nightResultEndsAt = nightResultDelaySeconds
+      ? new Date(Date.now() + nightResultDelaySeconds * 1000)
+      : null;
     await prisma.$transaction(async (tx) => {
       for (const d of deathRows) {
         await tx.mafiaPlayerRole.update({
@@ -841,17 +848,15 @@ export class MafiaGameService {
         where: { id: game.id },
         data: {
           phase: MafiaPhase.NIGHT_RESULT,
-          timerEndsAt: nightResultDelaySeconds
-            ? new Date(Date.now() + nightResultDelaySeconds * 1000)
-            : null,
+          timerEndsAt: nightResultEndsAt,
           sheriffShotsUsed: { increment: sheriffShotIncrement },
           doctorSelfHealsUsed: { increment: doctorSelfHealIncrement },
           lastNightDoctorSaved: doctorSavedAny
         }
       });
     });
-    if (nightResultDelaySeconds) {
-      this.startTimer(roomCode);
+    if (nightResultEndsAt) {
+      this.startTimer(roomCode, nightResultEndsAt);
     }
     await this.realtime.broadcastRoomState(roomCode);
   }
@@ -880,6 +885,9 @@ export class MafiaGameService {
   private async advanceToDayDiscussion(gameId: string, roomCode: string) {
     const game = await prisma.mafiaGame.findUnique({ where: { id: gameId } });
     if (!game) return;
+    const discussionEndsAt = new Date(
+      Date.now() + MAFIA_DAY_DISCUSSION_DURATION_SECONDS * 1000
+    );
     await prisma.mafiaGame.update({
       where: { id: gameId },
       data: {
@@ -887,15 +895,13 @@ export class MafiaGameService {
         dayNumber: game.dayNumber + 1,
         // 4 minute discussion window. Host can advance early via
         // mafia:advance_phase.
-        timerEndsAt: new Date(
-          Date.now() + MAFIA_DAY_DISCUSSION_DURATION_SECONDS * 1000
-        ),
+        timerEndsAt: discussionEndsAt,
         // New day → reset the previous day's tiebreak / saved flags.
         tiebreakCandidateIds: [],
         lastNightDoctorSaved: false
       }
     });
-    this.startTimer(roomCode);
+    this.startTimer(roomCode, discussionEndsAt);
     await this.realtime.broadcastRoomState(roomCode);
   }
 
@@ -903,17 +909,18 @@ export class MafiaGameService {
     const room = await this.getRoomWithState(roomCode);
     if (!room || !room.mafiaGame) return;
     if (room.mafiaGame.phase !== MafiaPhase.DAY_DISCUSSION) return;
+    const dayVoteEndsAt = new Date(
+      Date.now() + MAFIA_DAY_VOTE_DURATION_SECONDS * 1000
+    );
     await prisma.mafiaGame.update({
       where: { id: room.mafiaGame.id },
       data: {
         phase: MafiaPhase.DAY_VOTE,
-        timerEndsAt: new Date(
-          Date.now() + MAFIA_DAY_VOTE_DURATION_SECONDS * 1000
-        ),
+        timerEndsAt: dayVoteEndsAt,
         tiebreakCandidateIds: []
       }
     });
-    this.startTimer(roomCode);
+    this.startTimer(roomCode, dayVoteEndsAt);
     await this.realtime.broadcastRoomState(roomCode);
   }
 
@@ -1084,9 +1091,19 @@ export class MafiaGameService {
     }
 
     // No votes at all (everyone abstained — possible if the timer
-    // expires before anyone submits). Treat as no elimination so the
-    // game keeps moving.
+    // expires before anyone submits). On the first pass we just move on,
+    // but on a tiebreak re-vote with still no votes we're at risk of a
+    // full-disconnect stall, so pick a random alive player to keep the
+    // round count advancing. Mirrors Bunker's force-elim safety net.
     if (topCount === 0) {
+      if (isTiebreak) {
+        const alive = room.players.filter((p) => p.mafiaRole?.isAlive);
+        if (alive.length > 0) {
+          const forced = alive[randomInt(alive.length)];
+          await this.transitionToDayResult(room, forced.id);
+          return;
+        }
+      }
       await this.transitionToDayResult(room, null);
       return;
     }
@@ -1105,17 +1122,18 @@ export class MafiaGameService {
 
     // First-pass tie → enter DAY_TIEBREAK with just the tied targets
     // as valid choices.
+    const tiebreakEndsAt = new Date(
+      Date.now() + MAFIA_DAY_TIEBREAK_DURATION_SECONDS * 1000
+    );
     await prisma.mafiaGame.update({
       where: { id: game.id },
       data: {
         phase: MafiaPhase.DAY_TIEBREAK,
-        timerEndsAt: new Date(
-          Date.now() + MAFIA_DAY_TIEBREAK_DURATION_SECONDS * 1000
-        ),
+        timerEndsAt: tiebreakEndsAt,
         tiebreakCandidateIds: topTargets
       }
     });
-    this.startTimer(roomCode);
+    this.startTimer(roomCode, tiebreakEndsAt);
     await this.realtime.broadcastRoomState(roomCode);
   }
 
@@ -1129,6 +1147,9 @@ export class MafiaGameService {
       room.mode,
       "DAY_RESULT"
     );
+    const dayResultEndsAt = dayResultDelaySeconds
+      ? new Date(Date.now() + dayResultDelaySeconds * 1000)
+      : null;
     await prisma.$transaction(async (tx) => {
       if (eliminatedPlayerId) {
         await tx.mafiaPlayerRole.update({
@@ -1149,15 +1170,13 @@ export class MafiaGameService {
         where: { id: game.id },
         data: {
           phase: MafiaPhase.DAY_RESULT,
-          timerEndsAt: dayResultDelaySeconds
-            ? new Date(Date.now() + dayResultDelaySeconds * 1000)
-            : null,
+          timerEndsAt: dayResultEndsAt,
           tiebreakCandidateIds: []
         }
       });
     });
-    if (dayResultDelaySeconds) {
-      this.startTimer(room.code);
+    if (dayResultEndsAt) {
+      this.startTimer(room.code, dayResultEndsAt);
     }
     await this.realtime.broadcastRoomState(room.code);
   }
@@ -1758,28 +1777,30 @@ export class MafiaGameService {
     }
   }
 
-  // 1Hz tick — broadcasts the remaining seconds to clients and triggers
-  // phase resolution when the deadline elapses. Same shape as Bunker's
+  // 1Hz tick — broadcasts the remaining seconds to clients from the
+  // cached `endsAt` and only re-reads Prisma when the deadline elapses,
+  // to dispatch the right resolution method. Same shape as Bunker's
   // timer so the client only listens to one `timer_update` event type.
-  private startTimer(roomCode: string) {
+  private startTimer(roomCode: string, endsAt: Date) {
     this.stopTimer(roomCode);
     const code = roomCode.toUpperCase();
+    const endsAtMs = endsAt.getTime();
 
     const interval = setInterval(async () => {
       try {
-        const room = await prisma.room.findUnique({
-          where: { code },
-          include: { mafiaGame: true }
-        });
-        if (!room?.mafiaGame?.timerEndsAt) {
-          this.stopTimer(code);
-          return;
-        }
-        const remaining = this.getRemainingSeconds(room.mafiaGame.timerEndsAt);
+        const remaining = Math.max(
+          0,
+          Math.ceil((endsAtMs - Date.now()) / 1000)
+        );
         this.realtime.broadcastTimer(code, remaining);
         if (remaining > 0) return;
 
         this.stopTimer(code);
+        const room = await prisma.room.findUnique({
+          where: { code },
+          include: { mafiaGame: true }
+        });
+        if (!room?.mafiaGame) return;
         const phase = room.mafiaGame.phase;
         if (phase === MafiaPhase.NIGHT) {
           await this.resolveNight(code);
@@ -1801,14 +1822,14 @@ export class MafiaGameService {
       }
     }, 1000);
 
-    this.timers.set(code, interval);
+    this.timers.set(code, { interval, endsAt: endsAtMs });
   }
 
   private stopTimer(roomCode: string) {
     const code = roomCode.toUpperCase();
-    const timer = this.timers.get(code);
-    if (timer) {
-      clearInterval(timer);
+    const entry = this.timers.get(code);
+    if (entry) {
+      clearInterval(entry.interval);
       this.timers.delete(code);
     }
   }

@@ -217,7 +217,7 @@ export function GameHistoryView() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={!canPrev}
-              className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:opacity-40"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:cursor-not-allowed disabled:border-line-subtle disabled:text-ink-dim"
               aria-label={t("oldingi_sahifa")}
             >
               ←
@@ -233,7 +233,7 @@ export function GameHistoryView() {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={!canNext}
-              className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:opacity-40"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-line-strong bg-bg-elevated text-sm disabled:cursor-not-allowed disabled:border-line-subtle disabled:text-ink-dim"
               aria-label={t("keyingi_sahifa")}
             >
               →
