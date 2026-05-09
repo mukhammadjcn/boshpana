@@ -20,6 +20,11 @@ type Props = {
   highlightedPlayerId?: string | null;
   floating?: boolean;
   triggerClassName?: string;
+  // When this value changes, the sheet auto-closes. Parent passes the
+  // current game phase / round token so a phase change (vote opens,
+  // next round starts, elimination revealed) collapses the chat and
+  // surfaces whatever state update is now waiting on the screen.
+  closeOnSignal?: string | number;
 };
 
 // Persistent state to keep chat open across remounts during a session
@@ -50,14 +55,47 @@ export function OnlineChat({
   highlightedPlayerId = null,
   floating = true,
   triggerClassName = "",
+  closeOnSignal,
 }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(() => !!chatStatePersistence[meId]);
   const [draft, setDraft] = useState("");
+  // `mounted` keeps the sheet in the tree for the closing animation,
+  // separate from `open` which drives the open/closed visual state.
+  // `entered` flips on the next frame after mount so the slide-up
+  // transition has a starting frame to interpolate from.
+  const [mounted, setMounted] = useState(open);
+  const [entered, setEntered] = useState(open);
+  const SHEET_TRANSITION_MS = 220;
 
   useEffect(() => {
     chatStatePersistence[meId] = open;
   }, [open, meId]);
+
+  // Drive mount/enter/exit around `open`. Opening: mount → next frame
+  // → entered=true (CSS transitions in). Closing: entered=false → wait
+  // for the transition to finish → unmount.
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      const raf = window.requestAnimationFrame(() => setEntered(true));
+      return () => window.cancelAnimationFrame(raf);
+    }
+    setEntered(false);
+    const id = window.setTimeout(() => setMounted(false), SHEET_TRANSITION_MS);
+    return () => window.clearTimeout(id);
+  }, [open]);
+
+  // Auto-close on parent-driven signal (e.g. game phase change). We
+  // skip the very first render — the parent always supplies a value
+  // on mount, and we don't want to slam the sheet shut just because
+  // the chat re-mounted while the user was reading it.
+  const closeSignalRef = useRef(closeOnSignal);
+  useEffect(() => {
+    if (closeSignalRef.current === closeOnSignal) return;
+    closeSignalRef.current = closeOnSignal;
+    setOpen(false);
+  }, [closeOnSignal]);
   const [unreadCount, setUnreadCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -73,20 +111,24 @@ export function OnlineChat({
     return `${latestMessage.senderName}: ${latestMessage.text}`;
   }, [latestMessage, t]);
 
-  // Smart-scroll: only pin to bottom when the user is already there
-  // (within ~80px of the latest message). If they've scrolled up to read
-  // backlog, leave their position alone — yanking them down on every new
-  // arrival ruins the read.
+  // Smart-scroll for incoming messages: only pin to bottom when the
+  // user is already there (within ~80px). If they've scrolled up to
+  // read backlog, leave their position alone. The exception is when
+  // the newest message was sent by the user themselves — they expect
+  // to see their own send land at the bottom regardless of scroll
+  // position.
   useEffect(() => {
     if (!open) return;
     const node = scrollRef.current;
     if (!node) return;
+    const latest = messages.at(-1);
+    const isOwn = latest?.senderId === meId;
     const distanceFromBottom =
       node.scrollHeight - node.scrollTop - node.clientHeight;
-    if (distanceFromBottom < 80) {
+    if (isOwn || distanceFromBottom < 80) {
       node.scrollTop = node.scrollHeight;
     }
-  }, [messages, open]);
+  }, [messages, open, meId]);
 
   // When the user opens the sheet, always jump straight to the bottom.
   useEffect(() => {
@@ -217,15 +259,19 @@ export function OnlineChat({
         trigger
       )}
 
-      {open ? (
+      {mounted ? (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex flex-col justify-end bg-bg-overlay backdrop-blur-sm m-auto max-w-2xl"
+          className={`fixed inset-0 z-50 flex flex-col justify-end m-auto max-w-2xl transition-[background-color,backdrop-filter] duration-200 ${
+            entered ? "bg-bg-overlay backdrop-blur-sm" : "bg-transparent"
+          }`}
         >
           <div className="absolute inset-0" onClick={() => setOpen(false)} />
           <div
-            className="relative z-10 flex flex-col rounded-t-3xl border-t border-line-subtle bg-bg-surface"
+            className={`relative z-10 flex flex-col rounded-t-3xl border-t border-line-subtle bg-bg-surface transition-transform duration-200 ease-out ${
+              entered ? "translate-y-0" : "translate-y-full"
+            }`}
             style={{ maxHeight: sheetMaxHeight }}
           >
             <div className="px-5 pt-4 pb-3">

@@ -147,6 +147,12 @@ export function BunkerExperience({
   const router = useRouter();
   const { language, t } = useI18n();
   const isOnlineVariant = uiVariant === "online";
+  // Public matchmaking rooms have no host concept from the player's
+  // perspective — the system manages timers and phase changes, the
+  // creator is just another participant. Hide all host-only badges,
+  // styling, and "you created this room" affordances. Friends and
+  // private-online rooms keep their normal host UI.
+  const hideHostUi = isOnlineVariant && visibility === "PUBLIC";
   const normalizedRoomCode = roomCode.toUpperCase();
   const [sessionId, setSessionId] = useState("");
   const [joinName, setJoinName] = useState("");
@@ -438,6 +444,26 @@ export function BunkerExperience({
     setError,
     setRoomState,
   ]);
+
+  // Local 1Hz tick driven by the authoritative `timerEndsAt`. The server
+  // also broadcasts `timer_update` once per second, but a single dropped
+  // packet (or a Telegram WebApp tab that just resumed from background)
+  // would otherwise leave the visible timer frozen until the phase
+  // resolves. Computing locally from the deadline keeps the countdown
+  // smooth, and any server broadcast that arrives still overrides via
+  // patchTimer above.
+  const timerEndsAtIso = roomState?.game.timerEndsAt ?? null;
+  useEffect(() => {
+    if (!timerEndsAtIso) return;
+    const endsAt = new Date(timerEndsAtIso).getTime();
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      patchTimer(remaining);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [timerEndsAtIso, patchTimer]);
 
   // Auto-route based on status
   useEffect(() => {
@@ -1246,7 +1272,7 @@ export function BunkerExperience({
               <PlayerCard
                 key={p.id}
                 name={p.name}
-                isHost={p.isHost}
+                isHost={hideHostUi ? false : p.isHost}
                 isAlive={p.isAlive}
                 isMe={p.id === me.id}
                 revealedCards={p.visibleCards}
@@ -1322,9 +1348,13 @@ export function BunkerExperience({
             </div>
           ) : null}
 
-          {!me.isHost &&
-          game.phase === "ROUND_PITCH" &&
-          game.currentTurnPlayerId === me.id ? (
+          {/* In online mode, the host plays as a regular player too — when
+              it's their pitch turn they need the same "finish pitch" affordance
+              as everyone else. The friends-mode host has the dedicated host
+              control panel above and never reaches a turn of their own. */}
+          {game.phase === "ROUND_PITCH" &&
+          game.currentTurnPlayerId === me.id &&
+          (!me.isHost || isOnlineVariant) ? (
             <button
               type="button"
               onClick={() => emit("advance_turn")}
@@ -1358,24 +1388,28 @@ export function BunkerExperience({
                       : null
                   }
                   triggerClassName="h-14"
+                  // Collapse the chat sheet whenever the phase or the
+                  // active speaker changes — the user needs to see the
+                  // new state (vote opens, elimination revealed, next
+                  // pitch starts) instead of staring at chat in the
+                  // background.
+                  closeOnSignal={`${game.phase}:${game.currentTurnPlayerId ?? ""}:${game.roundNumber}`}
                 />
               ) : null}
+              {/* Compact in the bottom action grid — the chat trigger sits
+                  next to it on mobile and we need both labels to fit at 360px
+                  without truncation. Single-row layout, no badge. */}
               <button
                 type="button"
                 onClick={openMyCards}
-                className="flex h-14 w-full items-center justify-between rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
+                className="flex h-14 w-full items-center justify-between gap-3 rounded-2xl border border-line-strong bg-bg-surface px-4 text-left transition active:scale-[0.99]"
               >
-                <div>
-                  <p className="text-xs text-ink-muted">
-                    {t("mening_kartalarim")}
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {t("count_6_ochilgan", { count: myRevealedCount })}
-                    {!me.isAlive ? ` · ${t("chiqqansiz")}` : ""}
-                  </p>
-                </div>
-                <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-                  {t("korish")}
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                  {t("kartalarim")}
+                  {!me.isAlive ? ` · ${t("chiqqansiz")}` : ""}
+                </span>
+                <span className="shrink-0 rounded-full bg-bg-base px-2.5 py-1 text-xs font-semibold text-ink-secondary">
+                  {myRevealedCount}/6
                 </span>
               </button>
             </div>

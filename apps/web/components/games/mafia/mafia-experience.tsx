@@ -357,6 +357,23 @@ export function MafiaExperience({
     };
   }, [normalizedRoomCode, patchTimer, roomCode, sessionId]);
 
+  // Local 1Hz tick driven by `timerEndsAt`. Same rationale as Bunker:
+  // server broadcasts can drop on a flaky network or a Telegram WebApp
+  // tab returning from background, leaving the visible timer frozen.
+  // Local computation from the deadline keeps the countdown smooth.
+  const timerEndsAtIso = roomState?.game.timerEndsAt ?? null;
+  useEffect(() => {
+    if (!timerEndsAtIso) return;
+    const endsAt = new Date(timerEndsAtIso).getTime();
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      patchTimer(remaining);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [timerEndsAtIso, patchTimer]);
+
   function emit(event: string, payload?: Record<string, unknown>) {
     if (!sessionId) return;
     const socket = getSocket();
@@ -679,6 +696,10 @@ export function MafiaExperience({
   }
 
   const { room, players, me, game } = roomState;
+  // Collapse the sheet whenever the phase or day/night counter changes —
+  // a vote opens, day breaks, night falls; the user needs to see the
+  // new screen instead of an open chat covering it.
+  const chatCloseSignal = `${game.phase}:${game.dayNumber}:${game.nightNumber}`;
   const onlineChatFloating =
     uiVariant === "online" && me ? (
       <OnlineChat
@@ -686,6 +707,7 @@ export function MafiaExperience({
         meId={me.id}
         messages={roomState.chat.messages}
         onSend={(text) => emit("chat:send", { text })}
+        closeOnSignal={chatCloseSignal}
         bottomOffsetPx={
           room.status === "LOBBY" ||
           game.phase === "ASSIGN_ROLES" ||
@@ -705,6 +727,7 @@ export function MafiaExperience({
         messages={roomState.chat.messages}
         onSend={(text) => emit("chat:send", { text })}
         floating={false}
+        closeOnSignal={chatCloseSignal}
       />
     ) : null;
   const onlineHeaderAction =

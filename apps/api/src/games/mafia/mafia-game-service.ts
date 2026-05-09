@@ -113,6 +113,49 @@ export class MafiaGameService {
     this.timers.clear();
   }
 
+  // On server boot, restart timers for every PLAYING room. Without this,
+  // a deploy / crash mid-night leaves the phase frozen so resolveNight /
+  // resolveDayVote never fires. Same shape as Bunker's resumeTimers.
+  async resumeTimers() {
+    const rooms = await prisma.room.findMany({
+      where: {
+        status: RoomStatus.PLAYING,
+        mafiaGame: { timerEndsAt: { not: null } }
+      },
+      select: { code: true, mafiaGame: { select: { phase: true, timerEndsAt: true } } }
+    });
+
+    for (const room of rooms) {
+      const endsAt = room.mafiaGame?.timerEndsAt;
+      const phase = room.mafiaGame?.phase;
+      if (!endsAt || !phase) continue;
+
+      if (endsAt.getTime() <= Date.now()) {
+        try {
+          if (phase === MafiaPhase.NIGHT) {
+            await this.resolveNight(room.code);
+          } else if (phase === MafiaPhase.NIGHT_RESULT) {
+            await this.advanceFromNightResult(room.code);
+          } else if (phase === MafiaPhase.DAY_DISCUSSION) {
+            await this.advanceToDayVote(room.code);
+          } else if (
+            phase === MafiaPhase.DAY_VOTE ||
+            phase === MafiaPhase.DAY_TIEBREAK
+          ) {
+            await this.resolveDayVote(room.code);
+          } else if (phase === MafiaPhase.DAY_RESULT) {
+            await this.advanceFromDayResult(room.code);
+          }
+          await this.realtime.broadcastRoomState(room.code);
+        } catch (error) {
+          console.error(`mafia resumeTimers failed for ${room.code}`, error);
+        }
+      } else {
+        this.startTimer(room.code, endsAt);
+      }
+    }
+  }
+
   // ────────────────────────────────────────────────────────────────
   // Room lifecycle (lobby)
   // ────────────────────────────────────────────────────────────────
@@ -1283,6 +1326,7 @@ export class MafiaGameService {
           startedAt: room.mafiaGame.startedAt,
           endedAt: new Date(),
           outcome: GameOutcome.PLAYED,
+          visibility: room.visibility,
           roomCode: room.code,
           playerCount: room.players.length,
           metadata: { winner }
@@ -1329,6 +1373,7 @@ export class MafiaGameService {
           startedAt: room.mafiaGame.startedAt,
           endedAt: null,
           outcome: GameOutcome.CANCELLED,
+          visibility: room.visibility,
           roomCode: room.code,
           playerCount: room.players.length,
           metadata: Prisma.JsonNull

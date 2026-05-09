@@ -1066,6 +1066,7 @@ export class BunkerGameService {
           endedAt: kind === "cancelled" ? null : endedAt,
           durationSeconds,
           outcome,
+          visibility: room.visibility,
           roomCode: room.code,
           playerCount: room.players.length,
           metadata: disaster
@@ -1286,6 +1287,53 @@ export class BunkerGameService {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
+    }
+  }
+
+  // On server boot, restart timers for every PLAYING room. Without this,
+  // a deploy / crash mid-round leaves the phase frozen (timerEndsAt in
+  // the past, no interval ticking) so resolveVoting / advanceTurn never
+  // fires and the client sees a hung "Ovoz berish" sheet. We treat each
+  // bucket as either:
+  //   • already past → fire the same resolution the tick would have, then
+  //     broadcast (catches up missed deadlines);
+  //   • still in the future → start a fresh interval pointing at the
+  //     persisted endsAt.
+  // Called from index.ts after RealtimeHub is wired in.
+  async resumeTimers() {
+    const rooms = await prisma.room.findMany({
+      where: {
+        status: RoomStatus.PLAYING,
+        bunkerGame: { timerEndsAt: { not: null } }
+      },
+      select: { code: true, bunkerGame: { select: { phase: true, timerEndsAt: true } } }
+    });
+
+    for (const room of rooms) {
+      const endsAt = room.bunkerGame?.timerEndsAt;
+      const phase = room.bunkerGame?.phase;
+      if (!endsAt || !phase) continue;
+
+      if (endsAt.getTime() <= Date.now()) {
+        try {
+          if (phase === BunkerPhase.INTRO) {
+            await this.beginNextRound(room.code);
+          } else if (phase === BunkerPhase.ROUND_REVEAL) {
+            await this.autoRevealCurrentTurn(room.code);
+          } else if (phase === BunkerPhase.ROUND_PITCH) {
+            await this.advanceTurnForRoom(room.code);
+          } else if (phase === BunkerPhase.VOTING) {
+            await this.resolveVoting(room.code);
+          } else if (phase === BunkerPhase.ROUND_COMPLETE) {
+            await this.beginNextRound(room.code);
+          }
+          await this.realtime.broadcastRoomState(room.code);
+        } catch (error) {
+          console.error(`bunker resumeTimers failed for ${room.code}`, error);
+        }
+      } else {
+        this.startTimer(room.code, endsAt);
+      }
     }
   }
 

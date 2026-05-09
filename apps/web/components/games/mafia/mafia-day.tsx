@@ -194,16 +194,6 @@ function Discussion({
               key={p.id}
               className="flex items-center gap-3 rounded-2xl border border-line-subtle bg-bg-surface p-3"
             >
-              {onReportPlayer && p.id !== me?.id ? (
-                <button
-                  type="button"
-                  onClick={() => onReportPlayer(p.id)}
-                  aria-label={t("kick_uchun_ovoz_boshlash")}
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-warn/30 bg-warn/10 text-[10px] text-warn transition active:scale-[0.98]"
-                >
-                  !
-                </button>
-              ) : null}
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-soft text-xs font-semibold uppercase text-brand">
                 {p.name.slice(0, 2)}
               </span>
@@ -217,6 +207,16 @@ function Discussion({
               >
                 {p.online ? t("onlayn") : t("offlayn")}
               </span>
+              {onReportPlayer && p.id !== me?.id ? (
+                <button
+                  type="button"
+                  onClick={() => onReportPlayer(p.id)}
+                  aria-label={t("kick_uchun_ovoz_boshlash")}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-warn/30 bg-warn/10 text-[10px] text-warn transition active:scale-[0.98]"
+                >
+                  !
+                </button>
+              ) : null}
             </li>
           ))}
       </ul>

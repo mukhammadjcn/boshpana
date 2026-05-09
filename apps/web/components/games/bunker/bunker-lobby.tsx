@@ -50,6 +50,9 @@ export function BunkerLobby({
   const router = useRouter();
   const { t } = useI18n();
   const isOnlineVariant = uiVariant === "online";
+  // Public matchmaking rooms have no host concept from the player's
+  // perspective — hide the host badge and visual distinction.
+  const hideHostUi = isOnlineVariant && visibility === "PUBLIC";
   const inviteUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/room/${room.code}`
@@ -128,7 +131,7 @@ export function BunkerLobby({
               <LobbyPlayerCard
                 key={player.id}
                 name={player.name}
-                isHost={player.isHost}
+                isHost={hideHostUi ? false : player.isHost}
                 online={player.online}
                 isReady={!!player.readyAt}
                 isMe={player.id === me.id}
@@ -152,7 +155,7 @@ export function BunkerLobby({
         {isOnlineVariant ? (
           <div className="mt-6 grid gap-3">
             <SharedAlert className="py-3" variant="info">
-              {me.isHost
+              {me.isHost && !hideHostUi
                 ? t("online_lobbida_hamma_tayyor_bolsa_7195")
                 : t("online_oyinda_barcha_tayy_9f6b")}
             </SharedAlert>

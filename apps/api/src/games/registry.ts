@@ -32,6 +32,13 @@ export class GameRegistry {
     await Promise.all([this.bunker.shutdown(), this.mafia.shutdown()]);
   }
 
+  // Restart in-flight timers after a deploy / crash. Without this, the
+  // server boots with empty `timers` Maps and any room mid-round has
+  // its phase frozen forever (timerEndsAt in the past, no interval).
+  async resumeTimers() {
+    await Promise.all([this.bunker.resumeTimers(), this.mafia.resumeTimers()]);
+  }
+
   // Returns the per-game service that owns the action surface for the
   // given game type. Realtime hub and routes use this to dispatch
   // game-specific calls (reveal_card, vote, etc.) to the right module.

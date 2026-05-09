@@ -50,6 +50,10 @@ export function MafiaLobby({
 }: MafiaLobbyProps) {
   const router = useRouter();
   const { t } = useI18n();
+  // Public matchmaking rooms have no host concept from the player's
+  // perspective — hide the host badge and visual distinction. The
+  // matchmaker is the de-facto host.
+  const hideHostUi = uiVariant === "online" && visibility === "PUBLIC";
   const config = game.config;
   const specialRoles =
     config.mafiaCount +
@@ -154,7 +158,7 @@ export function MafiaLobby({
               <LobbyPlayerCard
                 key={player.id}
                 name={player.name}
-                isHost={player.isHost}
+                isHost={hideHostUi ? false : player.isHost}
                 isMe={me?.id === player.id}
                 online={player.online}
                 isReady={!!player.readyAt}

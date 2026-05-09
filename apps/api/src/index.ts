@@ -50,6 +50,14 @@ async function bootstrap() {
   games.setRealtime(realtimeHub);
   realtimeHub.register();
 
+  // Restart timers for any rooms that were mid-round when the previous
+  // process exited. Must run AFTER setRealtime so resolution paths can
+  // broadcast the catch-up state. Any failure here shouldn't block boot
+  // — the cleanup sweeper will eventually reap stalled rooms anyway.
+  void games.resumeTimers().catch((error) => {
+    app.log.error({ err: error }, "resumeTimers failed");
+  });
+
   void startTelegramBot();
 
   // Graceful shutdown:

@@ -746,6 +746,14 @@ function SpectatorPanel({
             key={player.id}
             className="flex items-center gap-3 rounded-2xl border border-line-subtle bg-bg-base/60 px-3 py-2"
           >
+            <span className="flex-1 truncate text-sm font-medium">{player.name}</span>
+            <span
+              className={`text-[11px] font-medium uppercase tracking-wider ${
+                player.isAlive ? "text-ok" : "text-bad"
+              }`}
+            >
+              {player.isAlive ? t("tirik") : t("olgan")}
+            </span>
             {onReportPlayer && player.id !== mePlayerId ? (
               <button
                 type="button"
@@ -756,14 +764,6 @@ function SpectatorPanel({
                 !
               </button>
             ) : null}
-            <span className="flex-1 truncate text-sm font-medium">{player.name}</span>
-            <span
-              className={`text-[11px] font-medium uppercase tracking-wider ${
-                player.isAlive ? "text-ok" : "text-bad"
-              }`}
-            >
-              {player.isAlive ? t("tirik") : t("olgan")}
-            </span>
           </div>
         ))}
       </div>

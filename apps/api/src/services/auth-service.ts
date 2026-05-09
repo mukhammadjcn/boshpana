@@ -172,20 +172,27 @@ export async function countHostedRoomsLast30d(userId: string): Promise<number> {
   //   - currently PLAYING rooms (in flight, will land in history shortly)
   // Pure LOBBY rooms are excluded, including stale lobbies that the
   // sweeper auto-cancels at the 2h mark.
+  //
+  // PUBLIC matchmaking rooms also don't count — the user is just a
+  // participant in a system-managed pool, not a host with real
+  // privileges. Burning their monthly quota for joining matchmaking
+  // would discourage casual play.
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [historyCount, playingCount] = await Promise.all([
     prisma.gameHistory.count({
       where: {
         userId,
         playedAt: { gte: since },
-        outcome: { not: "CANCELLED" }
+        outcome: { not: "CANCELLED" },
+        visibility: "PRIVATE"
       }
     }),
     prisma.room.count({
       where: {
         hostUserId: userId,
         status: "PLAYING",
-        createdAt: { gte: since }
+        createdAt: { gte: since },
+        visibility: "PRIVATE"
       }
     })
   ]);
