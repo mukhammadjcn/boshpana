@@ -656,5 +656,6 @@
   "host_sizni_oyindan_chiqarib_yubordi_f51a": "The host removed you from the game. Return to the home screen to start a new one.",
   "bu_round_n_kishi_chiqariladi": "{count} players will leave the bunker this round. The most-voted candidates are eliminated.",
   "count_ta_tasdiqlash": "Confirm {count}",
-  "yana_n_ta_tanlang": "Pick {count} more"
+  "yana_n_ta_tanlang": "Pick {count} more",
+  "max_n_ta_tanlay_olasiz": "You can pick only {count}. Tap a selected one to deselect first."
 }

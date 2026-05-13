@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
 import { GameActionModal } from "@/components/games/shared/game-action-modal";
+import { pushToast } from "@/store/useToastStore";
 
 const cardLabels: Record<string, string> = {
   PROFESSION: "Kasb",
@@ -261,28 +262,37 @@ export function VotePanel({
           );
           const active = selectedPlayerIds.includes(player.id);
           const disabled = !effectiveCanVote || effectiveHasVoted;
-          const cap = active
-            ? false
-            : selectedPlayerIds.length >= requiredPicks;
 
           return (
             <li key={player.id}>
               <button
-                disabled={disabled || cap}
+                disabled={disabled}
                 onClick={() => {
-                  setSelectedPlayerIds((current) => {
-                    // Single-pick mode: clicking another candidate replaces
-                    // the previous one. Multi-pick mode: toggle in/out and
-                    // refuse to grow past the round's required count.
-                    if (!isMultiSelect) {
-                      return [player.id];
-                    }
-                    if (current.includes(player.id)) {
-                      return current.filter((id) => id !== player.id);
-                    }
-                    if (current.length >= requiredPicks) return current;
-                    return [...current, player.id];
-                  });
+                  // Single-pick mode: clicking another candidate replaces
+                  // the previous one. Multi-pick mode: toggle in/out, and
+                  // when the user is already at the cap, surface a toast
+                  // instead of silently ignoring the tap — they need to
+                  // explicitly unselect someone to make room.
+                  if (!isMultiSelect) {
+                    setSelectedPlayerIds([player.id]);
+                    return;
+                  }
+                  if (active) {
+                    setSelectedPlayerIds((current) =>
+                      current.filter((id) => id !== player.id)
+                    );
+                    return;
+                  }
+                  if (selectedPlayerIds.length >= requiredPicks) {
+                    pushToast({
+                      kind: "warn",
+                      text: t("max_n_ta_tanlay_olasiz", {
+                        count: requiredPicks
+                      })
+                    });
+                    return;
+                  }
+                  setSelectedPlayerIds((current) => [...current, player.id]);
                 }}
                 className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] disabled:opacity-50 ${
                   active
