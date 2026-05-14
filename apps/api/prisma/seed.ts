@@ -31,6 +31,7 @@ async function main() {
       text: item.uz,
       textRu: item.ru,
       textEn: item.en,
+      tags: item.tags ?? [],
       isAdult: item.isAdult ?? false
     }));
   });
@@ -66,7 +67,8 @@ async function main() {
         },
         update: {
           textRu: card.textRu,
-          textEn: card.textEn
+          textEn: card.textEn,
+          tags: card.tags
         },
         create: card
       });
@@ -74,12 +76,15 @@ async function main() {
   }
 
   const disasters = content.disasters.map((item) => ({
+    key: item.key,
     name: item.name.uz,
     nameRu: item.name.ru,
     nameEn: item.name.en,
     description: item.description.uz,
     descriptionRu: item.description.ru,
     descriptionEn: item.description.en,
+    usefulTags: item.usefulTags ?? [],
+    vulnerableTags: item.vulnerableTags ?? [],
     isAdult: item.isAdult ?? false
   }));
 
@@ -93,10 +98,13 @@ async function main() {
       await prisma.bunkerDisaster.upsert({
         where: { name: disaster.name },
         update: {
+          key: disaster.key,
           nameRu: disaster.nameRu,
           nameEn: disaster.nameEn,
           descriptionRu: disaster.descriptionRu,
-          descriptionEn: disaster.descriptionEn
+          descriptionEn: disaster.descriptionEn,
+          usefulTags: disaster.usefulTags,
+          vulnerableTags: disaster.vulnerableTags
         },
         create: disaster
       });
@@ -108,6 +116,13 @@ async function main() {
     textRu: situation.text.ru,
     textEn: situation.text.en,
     difficulty: situation.difficulty ?? BunkerDifficulty.MEDIUM,
+    disasterTags: situation.disasterTags ?? [],
+    tier: situation.tier ?? null,
+    highlightTags: situation.highlightTags ?? [],
+    weakTags: situation.weakTags ?? [],
+    voteReason: situation.voteReason?.uz ?? null,
+    voteReasonRu: situation.voteReason?.ru ?? null,
+    voteReasonEn: situation.voteReason?.en ?? null,
     isAdult: situation.isAdult ?? false
   }));
 
@@ -122,7 +137,14 @@ async function main() {
         where: { text: situation.text },
         update: {
           textRu: situation.textRu,
-          textEn: situation.textEn
+          textEn: situation.textEn,
+          disasterTags: situation.disasterTags,
+          tier: situation.tier,
+          highlightTags: situation.highlightTags,
+          weakTags: situation.weakTags,
+          voteReason: situation.voteReason,
+          voteReasonRu: situation.voteReasonRu,
+          voteReasonEn: situation.voteReasonEn
         },
         create: situation
       });

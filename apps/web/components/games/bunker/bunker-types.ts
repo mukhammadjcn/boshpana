@@ -62,6 +62,10 @@ export type BunkerRoomState = {
       id: string;
       text: LocalizedText;
       difficulty: string;
+      tier: number | null;
+      highlightTags: string[];
+      weakTags: string[];
+      voteReason: LocalizedText | null;
     } | null;
   };
   me: {
@@ -71,6 +75,7 @@ export type BunkerRoomState = {
     isAlive: boolean;
     sessionId: string;
     cards: Record<string, LocalizedText>;
+    cardTags: Record<string, string[]>;
     revealed: BunkerCardType[];
   } | null;
   players: Array<{
@@ -83,7 +88,9 @@ export type BunkerRoomState = {
     seatOrder: number;
     visibleCards: Partial<Record<string, LocalizedText>>;
     revealedCards: Partial<Record<string, LocalizedText>>;
+    revealedCardTags: Partial<Record<string, string[]>>;
     revealedCount: number;
+    situationBadge: "green" | "red" | "neutral";
   }>;
   votes: {
     total: number;

@@ -49,6 +49,10 @@ export type BunkerPublicState = {
       id: string;
       text: LocalizedText;
       difficulty: BunkerDifficulty;
+      tier: number | null;
+      highlightTags: string[];
+      weakTags: string[];
+      voteReason: LocalizedText | null;
     } | null;
   };
   me: {
@@ -58,6 +62,7 @@ export type BunkerPublicState = {
     isAlive: boolean;
     sessionId: string;
     cards: Record<string, LocalizedText>;
+    cardTags: Record<string, string[]>;
     revealed: BunkerCardType[];
   } | null;
   players: Array<{
@@ -70,7 +75,12 @@ export type BunkerPublicState = {
     seatOrder: number;
     visibleCards: Partial<Record<string, LocalizedText>>;
     revealedCards: Partial<Record<string, LocalizedText>>;
+    revealedCardTags: Partial<Record<string, string[]>>;
     revealedCount: number;
+    // Server-computed badge for THIS round's situation: counts the
+    // player's revealed-card tags against the situation's highlight/weak
+    // tags. Pure UI hint — voting stays free-form.
+    situationBadge: "green" | "red" | "neutral";
   }>;
   votes: {
     total: number;

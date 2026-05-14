@@ -27,6 +27,9 @@ type PlayerCardProps = {
   online?: boolean;
   showPresence?: boolean;
   isReady?: boolean;
+  // Server-computed hint based on this round's situation tags vs the
+  // player's revealed-card tags. Pure discussion hint — voting stays free.
+  situationBadge?: "green" | "red" | "neutral";
   onKick?: () => void;
   onReport?: () => void;
 };
@@ -43,6 +46,7 @@ export function PlayerCard({
   online,
   showPresence = false,
   isReady = false,
+  situationBadge = "neutral",
   onKick,
   onReport
 }: PlayerCardProps) {
@@ -167,6 +171,16 @@ export function PlayerCard({
             {isHost ? (
               <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-[10px] font-semibold uppercase text-ink-secondary">
                 {t("host")}
+              </span>
+            ) : null}
+            {situationBadge === "green" ? (
+              <span className="rounded-full bg-ok/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-ok">
+                ✓
+              </span>
+            ) : null}
+            {situationBadge === "red" ? (
+              <span className="rounded-full bg-bad/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-bad">
+                !
               </span>
             ) : null}
           </div>

@@ -163,6 +163,7 @@ type SituationModalProps = {
   closing: boolean;
   roundNumber: number;
   text: string;
+  voteReason?: string | null;
   onClose: () => void;
 };
 
@@ -171,6 +172,7 @@ export function BunkerSituationModal({
   closing,
   roundNumber,
   text,
+  voteReason,
   onClose,
 }: SituationModalProps) {
   const { t } = useI18n();
@@ -186,6 +188,11 @@ export function BunkerSituationModal({
           {t("round_roundnumber_vaziyati", { roundNumber })}
         </p>
         <p className="mt-3 text-base leading-7 text-ink-primary">{text}</p>
+        {voteReason ? (
+          <p className="mt-3 rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-sm leading-6 text-warn">
+            {voteReason}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={onClose}

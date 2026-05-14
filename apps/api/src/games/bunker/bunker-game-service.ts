@@ -98,6 +98,7 @@ type RoomWithState = Prisma.RoomGetPayload<{
 }>;
 
 type CardTranslationMap = Map<string, LocalizedText>;
+type CardTagsMap = Map<string, string[]>;
 
 const noopRealtime: RealtimePublisher = {
   broadcastRoomState: async () => undefined,
@@ -283,13 +284,17 @@ export class BunkerGameService {
       throw new Error("Room state topilmadi.");
     }
 
-    const cardTranslations = await this.loadCardTranslations();
+    const [cardTranslations, cardTags] = await Promise.all([
+      this.loadCardTranslations(),
+      this.loadCardTagsMap()
+    ]);
     const chatMessages = await chatService.getRecentMessages(room.code);
     const governance = await onlineGovernanceService.getState(room.code);
     return this.buildRoomState(
       room,
       sessionId,
       cardTranslations,
+      cardTags,
       chatMessages,
       governance
     );
@@ -307,7 +312,10 @@ export class BunkerGameService {
     if (!room || !room.bunkerGame) {
       throw new Error("Room state topilmadi.");
     }
-    const cardTranslations = await this.loadCardTranslations();
+    const [cardTranslations, cardTags] = await Promise.all([
+      this.loadCardTranslations(),
+      this.loadCardTagsMap()
+    ]);
     const chatMessages = await chatService.getRecentMessages(room.code);
     const governance = await onlineGovernanceService.getState(room.code);
     return {
@@ -317,6 +325,7 @@ export class BunkerGameService {
           room,
           sessionId,
           cardTranslations,
+          cardTags,
           chatMessages,
           governance
         )
@@ -327,6 +336,7 @@ export class BunkerGameService {
     room: NonNullable<Awaited<ReturnType<BunkerGameService["getRoomWithState"]>>>,
     sessionId: string,
     cardTranslations: CardTranslationMap,
+    cardTags: CardTagsMap,
     chatMessages: Awaited<ReturnType<typeof chatService.getRecentMessages>>,
     governance: Awaited<ReturnType<typeof onlineGovernanceService.getState>>
   ): BunkerPublicState {
@@ -380,7 +390,17 @@ export class BunkerGameService {
                 room.bunkerGame.currentSituation.textRu,
                 room.bunkerGame.currentSituation.textEn
               ),
-              difficulty: room.bunkerGame.currentSituation.difficulty
+              difficulty: room.bunkerGame.currentSituation.difficulty,
+              tier: room.bunkerGame.currentSituation.tier,
+              highlightTags: room.bunkerGame.currentSituation.highlightTags,
+              weakTags: room.bunkerGame.currentSituation.weakTags,
+              voteReason: room.bunkerGame.currentSituation.voteReason
+                ? buildLocalizedText(
+                    room.bunkerGame.currentSituation.voteReason,
+                    room.bunkerGame.currentSituation.voteReasonRu,
+                    room.bunkerGame.currentSituation.voteReasonEn
+                  )
+                : null
             }
           : null
       },
@@ -392,6 +412,7 @@ export class BunkerGameService {
             isAlive: me.isAlive,
             sessionId: me.sessionId,
             cards: this.extractCards(me.bunkerAttributes, cardTranslations),
+            cardTags: this.extractCardTags(me.bunkerAttributes, cardTags),
             revealed: me.bunkerAttributes?.revealed ?? []
           }
         : null,
@@ -404,6 +425,18 @@ export class BunkerGameService {
         const showAll = gameOver || !player.isAlive;
         const isOnline =
           this.realtime.isSessionOnline?.(room.code, player.sessionId) ?? true;
+        const revealedTags = this.extractRevealedCardTags(
+          player.bunkerAttributes,
+          cardTags
+        );
+        const situation = room.bunkerGame?.currentSituation ?? null;
+        const badge = situation
+          ? this.computeSituationBadge(
+              revealedTags,
+              situation.highlightTags,
+              situation.weakTags
+            )
+          : "neutral";
         return {
           id: player.id,
           name: player.name,
@@ -419,7 +452,9 @@ export class BunkerGameService {
             player.bunkerAttributes,
             cardTranslations
           ),
-          revealedCount: player.bunkerAttributes?.revealed.length ?? 0
+          revealedCardTags: revealedTags,
+          revealedCount: player.bunkerAttributes?.revealed.length ?? 0,
+          situationBadge: badge
         };
       }),
       votes: {
@@ -474,7 +509,7 @@ export class BunkerGameService {
       prisma.bunkerDisaster.findMany({ where: adultFilter }),
       prisma.bunkerCard.findMany({
         where: adultFilter,
-        select: { id: true, type: true, text: true, isAdult: true }
+        select: { id: true, type: true, text: true, isAdult: true, tags: true }
       })
     ]);
 
@@ -512,7 +547,11 @@ export class BunkerGameService {
       userKey: p.userId ?? `session:${p.sessionId}`
     }));
     const deal = this.buildUniqueDeal(cards, dealPlayers, {
-      adultMode: !!room.isAdult
+      adultMode: !!room.isAdult,
+      disasterTags: [
+        ...(selectedDisaster.usefulTags ?? []),
+        ...(selectedDisaster.vulnerableTags ?? [])
+      ]
     });
 
     await prisma.$transaction(async (tx) => {
@@ -1376,10 +1415,18 @@ export class BunkerGameService {
     }
 
     const nextRound = room.round + 1;
-    const nextSituation = await this.pickSituation(
-      room.bunkerGame.currentSituationId ?? undefined,
-      room.isAdult
-    );
+    const currentDisaster = room.bunkerGame.disasterId
+      ? await prisma.bunkerDisaster.findUnique({
+          where: { id: room.bunkerGame.disasterId },
+          select: { key: true }
+        })
+      : null;
+    const nextSituation = await this.pickSituation({
+      excludeId: room.bunkerGame.currentSituationId ?? undefined,
+      isAdult: room.isAdult,
+      disasterKey: currentDisaster?.key ?? null,
+      roundNumber: nextRound
+    });
 
     const stillEligible = room.players.some(
       (player) =>
@@ -1881,6 +1928,18 @@ export class BunkerGameService {
     });
   }
 
+  private async loadCardTagsMap(): Promise<CardTagsMap> {
+    const cards = await prisma.bunkerCard.findMany({
+      select: { type: true, text: true, tags: true }
+    });
+    return new Map(
+      cards.map((card) => [
+        this.cardTranslationKey(card.type, card.text),
+        card.tags
+      ])
+    );
+  }
+
   private async loadCardTranslations(): Promise<CardTranslationMap> {
     const cards = await prisma.bunkerCard.findMany({
       select: {
@@ -1899,30 +1958,80 @@ export class BunkerGameService {
     );
   }
 
-  private async pickSituation(excludeId: string | undefined, isAdult: boolean) {
+  private async pickSituation(opts: {
+    excludeId?: string;
+    isAdult: boolean;
+    disasterKey?: string | null;
+    roundNumber: number;
+  }) {
     const where: { id?: { not: string }; isAdult?: false } = {};
-    if (excludeId) where.id = { not: excludeId };
-    if (!isAdult) where.isAdult = false;
-    const situations = await prisma.bunkerSituation.findMany({ where });
+    if (opts.excludeId) where.id = { not: opts.excludeId };
+    if (!opts.isAdult) where.isAdult = false;
+    const all = await prisma.bunkerSituation.findMany({ where });
 
-    if (!situations.length) {
+    if (!all.length) {
       throw new Error("Situation ma'lumotlari topilmadi.");
     }
 
-    // Server-wide cooldown: any situation used recently by anyone is de-
-    // prioritised so the whole game-night cycles through fresh prompts.
-    // Falls back to the full pool when cooldown filters everything.
+    // Tier filter — only show situations whose tier <= current round.
+    // Untagged tier (legacy/null) is always allowed so older content still
+    // works. Higher-tier situations are reserved for later rounds for
+    // dramatic escalation.
+    const tierMatches = (s: { tier: number | null }) =>
+      s.tier == null || s.tier <= opts.roundNumber;
+
+    // Split pool: disaster-specific vs universal ("all"). 70/30 mix means
+    // most prompts feel thematic but a universal one still surfaces
+    // occasionally. If either bucket is empty we fall back to the other.
+    const disasterKey = opts.disasterKey ?? null;
+    const matchesDisaster = (s: { disasterTags: string[] }) =>
+      disasterKey != null && s.disasterTags.includes(disasterKey);
+    const matchesUniversal = (s: { disasterTags: string[] }) =>
+      s.disasterTags.length === 0 || s.disasterTags.includes("all");
+
+    const tierPool = all.filter(tierMatches);
+    let disasterPool = tierPool.filter(matchesDisaster);
+    let universalPool = tierPool.filter(
+      (s) => matchesUniversal(s) && !matchesDisaster(s)
+    );
+
+    // If tier filter wiped everything, fall back to the unfiltered set so
+    // the game never crashes mid-round just because content is thin.
+    if (disasterPool.length === 0 && universalPool.length === 0) {
+      disasterPool = all.filter(matchesDisaster);
+      universalPool = all.filter(
+        (s) => matchesUniversal(s) && !matchesDisaster(s)
+      );
+    }
+
+    // Server-wide cooldown: filter recently-used out of each pool first.
     const now = Date.now();
     for (const [id, ts] of BunkerGameService.recentSituations) {
       if (now - ts > BunkerGameService.RECENT_SITUATION_TTL_MS) {
         BunkerGameService.recentSituations.delete(id);
       }
     }
-    const fresh = situations.filter(
-      (s) => !BunkerGameService.recentSituations.has(s.id)
-    );
-    const pool = fresh.length > 0 ? fresh : situations;
-    const picked = pool[randomInt(pool.length)];
+    const filterFresh = <T extends { id: string }>(pool: T[]): T[] => {
+      const fresh = pool.filter(
+        (s) => !BunkerGameService.recentSituations.has(s.id)
+      );
+      return fresh.length > 0 ? fresh : pool;
+    };
+    disasterPool = filterFresh(disasterPool);
+    universalPool = filterFresh(universalPool);
+
+    // 70/30 mix; if one bucket is empty, draw entirely from the other.
+    let pickedPool: typeof all;
+    if (disasterPool.length === 0) pickedPool = universalPool;
+    else if (universalPool.length === 0) pickedPool = disasterPool;
+    else pickedPool = Math.random() < 0.7 ? disasterPool : universalPool;
+
+    if (pickedPool.length === 0) {
+      // Final safety net — should never trigger after the fallbacks above.
+      pickedPool = all;
+    }
+
+    const picked = pickedPool[randomInt(pickedPool.length)];
     BunkerGameService.recentSituations.set(picked.id, now);
     return picked;
   }
@@ -2047,10 +2156,32 @@ export class BunkerGameService {
   // card from the cards still available in the pool, preferring ones they
   // haven't seen recently.
   private buildUniqueDeal(
-    cards: Array<{ id: string; type: BunkerCardType; text: string; isAdult: boolean }>,
+    cards: Array<{ id: string; type: BunkerCardType; text: string; isAdult: boolean; tags: string[] }>,
     players: Array<{ userKey: string }>,
-    options: { adultMode: boolean }
+    options: { adultMode: boolean; disasterTags: string[] }
   ): Record<BunkerCardType, string[]> {
+    // Each tag overlap between a card and the disaster's useful/vulnerable
+    // tags bumps the card's pick weight. Higher = more thematic skew.
+    // Keep it modest so unrelated cards still appear for drama (e.g. a
+    // ballerina in a nuclear war).
+    const TAG_WEIGHT_BOOST = 2;
+    const disasterTagSet = new Set(options.disasterTags);
+    const weightFor = (card: { tags: string[] }): number => {
+      let overlap = 0;
+      for (const t of card.tags) if (disasterTagSet.has(t)) overlap += 1;
+      return 1 + overlap * TAG_WEIGHT_BOOST;
+    };
+    const weightedPick = <T extends { id: string; tags: string[] }>(pool: T[]): T => {
+      if (pool.length === 1) return pool[0];
+      const weights = pool.map(weightFor);
+      const total = weights.reduce((a, b) => a + b, 0);
+      let roll = Math.random() * total;
+      for (let i = 0; i < pool.length; i += 1) {
+        roll -= weights[i];
+        if (roll <= 0) return pool[i];
+      }
+      return pool[pool.length - 1];
+    };
     const playerCount = players.length;
     const deal = {} as Record<BunkerCardType, string[]>;
 
@@ -2150,7 +2281,9 @@ export class BunkerGameService {
           candidates = fresh.length > 0 ? fresh : remaining;
         }
 
-        const picked = candidates[randomInt(candidates.length)];
+        const picked = disasterTagSet.size > 0
+          ? weightedPick(candidates)
+          : candidates[randomInt(candidates.length)];
         result[idx] = picked.text;
         used.add(picked.id);
 
@@ -2234,6 +2367,63 @@ export class BunkerGameService {
     const revealed = bunkerAttributes?.revealed ?? [];
 
     return Object.fromEntries(revealed.map((type) => [type, cards[type]]));
+  }
+
+  private extractCardTags(
+    bunkerAttributes:
+      | Prisma.BunkerPlayerAttributeGetPayload<Record<string, never>>
+      | null
+      | undefined,
+    cardTags: CardTagsMap
+  ): Record<string, string[]> {
+    if (!bunkerAttributes) return {};
+    const lookup = (type: BunkerCardType, text: string) =>
+      cardTags.get(this.cardTranslationKey(type, text)) ?? [];
+    return {
+      [BunkerCardType.PROFESSION]: lookup(BunkerCardType.PROFESSION, bunkerAttributes.profession),
+      [BunkerCardType.HEALTH]: lookup(BunkerCardType.HEALTH, bunkerAttributes.health),
+      [BunkerCardType.CHARACTER]: lookup(BunkerCardType.CHARACTER, bunkerAttributes.character),
+      [BunkerCardType.SKILL]: lookup(BunkerCardType.SKILL, bunkerAttributes.skill),
+      [BunkerCardType.BAGGAGE]: lookup(BunkerCardType.BAGGAGE, bunkerAttributes.baggage),
+      [BunkerCardType.FACT]: lookup(BunkerCardType.FACT, bunkerAttributes.fact)
+    };
+  }
+
+  private extractRevealedCardTags(
+    bunkerAttributes:
+      | Prisma.BunkerPlayerAttributeGetPayload<Record<string, never>>
+      | null
+      | undefined,
+    cardTags: CardTagsMap
+  ): Record<string, string[]> {
+    const all = this.extractCardTags(bunkerAttributes, cardTags);
+    const revealed = bunkerAttributes?.revealed ?? [];
+    return Object.fromEntries(revealed.map((type) => [type, all[type] ?? []]));
+  }
+
+  // Compares a player's REVEALED tags against the current situation's
+  // highlight/weak tag pools. Green > Red means the player's exposed cards
+  // are net-useful for this situation; Red > Green means they look like a
+  // liability. UI uses this purely as a discussion hint — voting is free.
+  private computeSituationBadge(
+    revealedTagsByType: Record<string, string[]>,
+    highlightTags: string[],
+    weakTags: string[]
+  ): "green" | "red" | "neutral" {
+    if (highlightTags.length === 0 && weakTags.length === 0) return "neutral";
+    const highlight = new Set(highlightTags);
+    const weak = new Set(weakTags);
+    let green = 0;
+    let red = 0;
+    for (const tags of Object.values(revealedTagsByType)) {
+      for (const t of tags) {
+        if (highlight.has(t)) green += 1;
+        if (weak.has(t)) red += 1;
+      }
+    }
+    if (red > green) return "red";
+    if (green > red) return "green";
+    return "neutral";
   }
 
   private cardTranslationKey(type: BunkerCardType, text: string) {

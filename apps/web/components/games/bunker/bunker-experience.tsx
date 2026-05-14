@@ -818,6 +818,9 @@ export function BunkerExperience({
   const localizedSituationText = game?.situation
     ? getLocalizedText(game.situation.text, language)
     : "";
+  const localizedVoteReason = game?.situation?.voteReason
+    ? getLocalizedText(game.situation.voteReason, language)
+    : null;
 
   const myCards = useMemo(() => {
     if (!me) return [];
@@ -1276,6 +1279,11 @@ export function BunkerExperience({
                 isAlive={p.isAlive}
                 isMe={p.id === me.id}
                 revealedCards={p.visibleCards}
+                situationBadge={
+                  game.situation && p.isAlive && p.revealedCount > 0
+                    ? p.situationBadge
+                    : "neutral"
+                }
                 isCurrentTurn={p.id === game.currentTurnPlayerId}
                 gameOver={room.status === "FINISHED"}
                 onReport={
@@ -1438,6 +1446,7 @@ export function BunkerExperience({
         closing={situationClosing}
         roundNumber={game.roundNumber}
         text={localizedSituationText}
+        voteReason={localizedVoteReason}
         onClose={closeSituation}
       />
 

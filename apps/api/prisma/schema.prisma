@@ -237,6 +237,7 @@ model BunkerCard {
   text      String
   textRu    String?
   textEn    String?
+  tags      String[] @default([])
   isAdult   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -246,29 +247,39 @@ model BunkerCard {
 }
 
 model BunkerDisaster {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  nameRu      String?
-  nameEn      String?
-  description String
-  descriptionRu String?
-  descriptionEn String?
-  isAdult     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  games       BunkerGame[]
+  id              String   @id @default(cuid())
+  key             String?  @unique
+  name            String   @unique
+  nameRu          String?
+  nameEn          String?
+  description     String
+  descriptionRu   String?
+  descriptionEn   String?
+  usefulTags      String[] @default([])
+  vulnerableTags  String[] @default([])
+  isAdult         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  games           BunkerGame[]
 }
 
 model BunkerSituation {
-  id         String     @id @default(cuid())
-  text       String     @unique
-  textRu     String?
-  textEn     String?
-  difficulty BunkerDifficulty @default(MEDIUM)
-  isAdult    Boolean    @default(false)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  games      BunkerGame[]
+  id             String     @id @default(cuid())
+  text           String     @unique
+  textRu         String?
+  textEn         String?
+  difficulty     BunkerDifficulty @default(MEDIUM)
+  disasterTags   String[] @default([])
+  tier           Int?
+  highlightTags  String[] @default([])
+  weakTags       String[] @default([])
+  voteReason     String?
+  voteReasonRu   String?
+  voteReasonEn   String?
+  isAdult        Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  games          BunkerGame[]
 }
 
 // ─────────────────────────────────────────────────────────────────────
