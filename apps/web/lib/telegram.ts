@@ -21,6 +21,7 @@ type TgWebApp = {
   initData: string;
   initDataUnsafe?: { user?: TgUser; start_param?: string };
   version?: string;
+  platform?: string;
   isFullscreen?: boolean;
   viewportHeight?: number;
   viewportStableHeight?: number;
@@ -125,21 +126,24 @@ export function readyExpand() {
   try {
     wa.ready();
     wa.expand();
-    // On newer Telegram clients (Bot API 7.5+ / SDK 7.0+) we can ask for true
-    // fullscreen, not just the maximum sheet height.
+    // Fullscreen — faqat mobil Telegram'da (android/ios). Desktop/web
+    // Telegram'da fullscreen scroll'ni buzadi (bottom oxirigacha tushmaydi).
     const version = parseFloat(wa.version || "0");
-    if (version >= 7.0 && wa.requestFullscreen) {
-      wa.requestFullscreen();
+    const platform = (wa.platform || "").toLowerCase();
+    const canFullscreen =
+      version >= 7.0 &&
+      !!wa.requestFullscreen &&
+      (platform === "android" || platform === "ios");
+    if (canFullscreen) {
+      wa.requestFullscreen!();
     }
     // Some clients ignore the first fullscreen request if it races the
     // initial layout. Retry once after the app has settled a bit.
     window.setTimeout(() => {
       try {
-        if (!wa.isFullscreen) {
+        if (canFullscreen && !wa.isFullscreen) {
           wa.expand();
-          if (version >= 7.0 && wa.requestFullscreen) {
-            wa.requestFullscreen();
-          }
+          wa.requestFullscreen!();
         }
       } catch {
         // ignore

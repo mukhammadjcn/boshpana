@@ -110,7 +110,10 @@ export default function RootLayout({
                 wa.ready && wa.ready();
                 wa.expand && wa.expand();
                 var version = parseFloat(wa.version || "0");
-                if (version >= 7.0 && wa.requestFullscreen) {
+                var platform = (wa.platform || "").toLowerCase();
+                // Fullscreen faqat mobil Telegram'da (android/ios) — desktop/web
+                // Telegram'da scroll buziladi (bottom oxirigacha tushmaydi).
+                if (version >= 7.0 && wa.requestFullscreen && (platform === "android" || platform === "ios")) {
                   wa.requestFullscreen();
                 }
                 wa.disableVerticalSwipes && wa.disableVerticalSwipes();
