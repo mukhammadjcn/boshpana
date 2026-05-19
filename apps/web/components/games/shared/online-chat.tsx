@@ -146,6 +146,18 @@ export function OnlineChat({
   }, [closeOnSignal]);
   const [unreadCount, setUnreadCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Whether the user is currently "stuck" to the bottom of the log.
+  // Updated from real scroll events (i.e. measured BEFORE a new message
+  // is appended) so that following the conversation stays reliable even
+  // when the incoming message is tall — a post-hoc height check would
+  // mis-fire there.
+  const stuckToBottomRef = useRef(true);
+  const handleScroll = () => {
+    const node = scrollRef.current;
+    if (!node) return;
+    stuckToBottomRef.current =
+      node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+  };
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const viewportHeight = "var(--tg-viewport-height, 100vh)";
   const sheetMaxHeight = `min(82vh, ${viewportHeight})`;
@@ -171,20 +183,38 @@ export function OnlineChat({
     if (!node) return;
     const latest = messages.at(-1);
     const isOwn = latest?.senderId === meId;
-    const distanceFromBottom =
-      node.scrollHeight - node.scrollTop - node.clientHeight;
-    if (isOwn || distanceFromBottom < 80) {
+    if (isOwn || stuckToBottomRef.current) {
       node.scrollTop = node.scrollHeight;
+      stuckToBottomRef.current = true;
     }
   }, [messages, open, meId]);
 
-  // When the user opens the sheet, always jump straight to the bottom.
+  // Jump straight to the newest message every time the sheet opens.
+  // Keyed on `mounted` (not `open`): when the user taps to open, `open`
+  // flips first but the sheet — and therefore `scrollRef` — isn't in the
+  // DOM yet, so an `[open]`-keyed effect ran with a null node and never
+  // scrolled (the bug: chat opened pinned to the oldest message). By the
+  // time `mounted` is true the scroll container exists; an rAF lets the
+  // message list finish laying out before we pin to the bottom.
   useEffect(() => {
-    if (!open) return;
-    const node = scrollRef.current;
-    if (!node) return;
-    node.scrollTop = node.scrollHeight;
-  }, [open]);
+    if (!mounted || !open) return;
+    let raf2 = 0;
+    stuckToBottomRef.current = true;
+    const raf1 = window.requestAnimationFrame(() => {
+      const node = scrollRef.current;
+      if (node) node.scrollTop = node.scrollHeight;
+      // A second frame catches any reflow from the slide-in / safe-area
+      // insets so we land exactly at the bottom, not a few px short.
+      raf2 = window.requestAnimationFrame(() => {
+        const n = scrollRef.current;
+        if (n) n.scrollTop = n.scrollHeight;
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      if (raf2) window.cancelAnimationFrame(raf2);
+    };
+  }, [mounted, open]);
 
   useEffect(() => {
     resizeTextarea();
@@ -360,6 +390,7 @@ export function OnlineChat({
 
             <div
               ref={scrollRef}
+              onScroll={handleScroll}
               className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 pb-4"
             >
               {messages.length === 0 ? (
