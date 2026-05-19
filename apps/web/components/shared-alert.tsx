@@ -11,8 +11,8 @@ type SharedAlertProps = {
 
 const VARIANTS = {
   info: {
+    border: "border-cyan-400/[0.28]",
     shell: [
-      "border-cyan-400/[0.28]",
       "bg-[linear-gradient(135deg,rgba(14,28,40,0.97)_0%,rgba(10,20,30,0.99)_100%)]",
       "shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_20px_50px_rgba(0,0,0,0.4),0_0_30px_rgba(34,211,238,0.06)]",
     ],
@@ -24,8 +24,8 @@ const VARIANTS = {
     symbol: "!",
   },
   success: {
+    border: "border-emerald-400/[0.28]",
     shell: [
-      "border-emerald-400/[0.28]",
       "bg-[linear-gradient(135deg,rgba(12,28,22,0.97)_0%,rgba(10,20,18,0.99)_100%)]",
       "shadow-[0_0_0_1px_rgba(52,211,153,0.06)_inset,0_20px_50px_rgba(0,0,0,0.4),0_0_30px_rgba(52,211,153,0.06)]",
     ],
@@ -37,8 +37,8 @@ const VARIANTS = {
     symbol: "✓",
   },
   warning: {
+    border: "border-amber-400/[0.28]",
     shell: [
-      "border-amber-400/[0.28]",
       "bg-[linear-gradient(135deg,rgba(30,22,10,0.97)_0%,rgba(24,18,8,0.99)_100%)]",
       "shadow-[0_0_0_1px_rgba(251,191,36,0.06)_inset,0_20px_50px_rgba(0,0,0,0.4),0_0_30px_rgba(251,191,36,0.08)]",
     ],
@@ -50,8 +50,8 @@ const VARIANTS = {
     symbol: "!",
   },
   danger: {
+    border: "border-rose-400/[0.28]",
     shell: [
-      "border-rose-400/[0.28]",
       "bg-[linear-gradient(135deg,rgba(32,14,20,0.97)_0%,rgba(26,12,18,0.99)_100%)]",
       "shadow-[0_0_0_1px_rgba(251,113,133,0.06)_inset,0_20px_50px_rgba(0,0,0,0.4),0_0_30px_rgba(251,113,133,0.06)]",
     ],
@@ -75,7 +75,7 @@ export function SharedAlert({
   return (
     <div
       className={[
-        "relative rounded-[20px] border",
+        "relative rounded-[20px]",
         "flex items-center gap-4 px-4 py-4",
         ...v.shell,
         className,
@@ -84,10 +84,7 @@ export function SharedAlert({
         .join(" ")}
     >
       {/* Decorative layer: scan-line texture + corner glow blob, clipped
-          to the rounded box. Kept on its OWN overflow-hidden layer so the
-          clip doesn't slice the border or the icon's soft outer glow —
-          putting overflow-hidden on the shell flattened the icon halo
-          against the card edge ("border kesilmyapti"). */}
+          to the rounded box on its OWN overflow-hidden layer. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 overflow-hidden rounded-[20px] bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(255,255,255,0.015)_2px,rgba(255,255,255,0.015)_4px)]"
@@ -120,6 +117,13 @@ export function SharedAlert({
         )}
         <div className="text-sm leading-[1.55] text-white/65">{children}</div>
       </div>
+
+      {/* Border drawn as the TOP layer so the corner glow can never
+          wash it out or visually "cut" it at the rounded corners. */}
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 rounded-[20px] border ${v.border}`}
+      />
     </div>
   );
 }
