@@ -153,6 +153,11 @@ export function readyExpand() {
     // shouldn't dismiss the WebApp. Only available on Bot API ≥ 7.7,
     // call is wrapped in optional-chain so older clients ignore it.
     wa.disableVerticalSwipes?.();
+    // Ask Telegram to show its own native "Changes you made may not be
+    // saved" confirmation whenever the user tries to fully close the
+    // Mini App. Set here (canonical init, every page, runs once) rather
+    // than per-screen so it can never be left disabled. Bot API ≥ 6.2.
+    wa.enableClosingConfirmation?.();
     // Match the app's themeColor so the Telegram header doesn't visually
     // separate from the page background.
     wa.setHeaderColor?.("#0b0d12");

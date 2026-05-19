@@ -4,12 +4,16 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { getTelegramWebApp, setClosingConfirmation } from "@/lib/telegram";
+import { getTelegramWebApp } from "@/lib/telegram";
 
+// Note: `closingConfirmation` is accepted for backward compatibility but
+// no longer drives anything here. The Telegram close confirmation is now
+// enabled app-wide in the Telegram init (layout bootstrap script +
+// readyExpand), so the old per-screen toggling — which kept *disabling*
+// it on plain pages — was removed.
 export function TelegramChrome({
   backHref,
-  showBackButton = true,
-  closingConfirmation = false
+  showBackButton = true
 }: {
   backHref?: string;
   showBackButton?: boolean;
@@ -55,11 +59,6 @@ export function TelegramChrome({
       }
     };
   }, [router, backHref, showBackButton]);
-
-  useEffect(() => {
-    setClosingConfirmation(closingConfirmation);
-    return () => setClosingConfirmation(false);
-  }, [closingConfirmation]);
 
   return null;
 }

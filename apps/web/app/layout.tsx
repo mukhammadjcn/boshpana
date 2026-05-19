@@ -117,6 +117,7 @@ export default function RootLayout({
                   wa.requestFullscreen();
                 }
                 wa.disableVerticalSwipes && wa.disableVerticalSwipes();
+                wa.enableClosingConfirmation && wa.enableClosingConfirmation();
                 wa.setHeaderColor && wa.setHeaderColor("#0b0d12");
                 wa.setBackgroundColor && wa.setBackgroundColor("#0b0d12");
                 wa.setBottomBarColor && wa.setBottomBarColor("#0b0d12");
