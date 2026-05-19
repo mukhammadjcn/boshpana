@@ -260,8 +260,13 @@ export function BunkerExperience({
       socket.connect();
       return;
     }
+    // Connected but possibly dropped from the room (server restart we
+    // auto-recovered from, a backgrounded webview that froze our
+    // heartbeat). `join_room` is idempotent and re-marks us online, so
+    // re-assert membership before refetching.
+    socket.emit("join_room", { roomCode, sessionId });
     refreshState();
-  }, [refreshState, sessionId]);
+  }, [refreshState, roomCode, sessionId]);
 
   // Init session
   useEffect(() => {
@@ -413,6 +418,10 @@ export function BunkerExperience({
       if (!socket.connected) {
         socket.connect();
       } else {
+        // Looks connected, but a backgrounded webview may have been
+        // silently dropped from the room while frozen — re-join, not
+        // just refetch.
+        socket.emit("join_room", { roomCode, sessionId });
         refreshState();
       }
     };
@@ -423,7 +432,20 @@ export function BunkerExperience({
     socket.on("timer_update", onTimer);
     socket.on("action_error", onErr);
     document.addEventListener("visibilitychange", onVisibility);
-    socket.connect();
+    // The socket.io client is a singleton shared across the whole app.
+    // After finishing a game and entering the next room WITHOUT a full
+    // page reload it's usually still connected, so `connect()` is a no-op
+    // and `connect` never fires again — `join_room` for the new room would
+    // never be sent and the server keeps us in (and "online" in) the old
+    // room while the new lobby shows us offline until a manual refresh.
+    // Handle the already-connected case explicitly.
+    if (socket.connected) {
+      setSocketConnected(true);
+      socket.emit("join_room", { roomCode, sessionId });
+      refreshState();
+    } else {
+      socket.connect();
+    }
     connectedRef.current = true;
 
     return () => {
@@ -780,6 +802,11 @@ export function BunkerExperience({
       showRecoveryModal={showRecoveryModal}
       onRetryNow={retryNow}
       onReloadPage={reloadPage}
+      onGoHome={() => {
+        isLeavingRef.current = true;
+        emit("leave_room");
+        router.push("/dashboard" as Route);
+      }}
     />
   );
 

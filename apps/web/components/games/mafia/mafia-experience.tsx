@@ -161,8 +161,14 @@ export function MafiaExperience({
       socket.connect();
       return;
     }
+    // Socket is connected but we may have been silently dropped from the
+    // room (server restart we auto-recovered from, a backgrounded webview
+    // that froze our heartbeat). `join_room` is idempotent server-side and
+    // also flips this session back to "online", so re-assert membership
+    // before refetching instead of only pulling state.
+    socket.emit("join_room", { roomCode, sessionId });
     refreshState();
-  }, [refreshState, sessionId]);
+  }, [refreshState, roomCode, sessionId]);
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
@@ -297,16 +303,24 @@ export function MafiaExperience({
     const socket = getSocket();
     let isReconnect = false;
 
-    const onConnect = () => {
+    // Re-assert room membership and (optionally) pull a fresh snapshot.
+    // The server's `join_room` is idempotent: it joins the socket to the
+    // room, cancels any pending offline timer and flips the session back
+    // to "online". Safe to call on every (re)entry.
+    const resync = (recover: boolean) => {
       setSocketConnected(true);
       socket.emit("join_room", { roomCode, sessionId });
-      if (isReconnect) {
+      if (recover) {
         void apiRequest<MafiaPublicState>(
           `/api/rooms/${roomCode}/state?sessionId=${sessionId}`,
         )
           .then((s) => setRoomState(s))
           .catch(() => undefined);
       }
+    };
+
+    const onConnect = () => {
+      resync(isReconnect);
       isReconnect = true;
     };
 
@@ -315,9 +329,6 @@ export function MafiaExperience({
       if (s.room.code !== normalizedRoomCode) return;
       setRoomState(s);
       setLoading(false);
-    };
-    const onTimer = ({ remainingSeconds }: { remainingSeconds: number }) => {
-      patchTimer(remainingSeconds);
     };
     const onErr = ({ message }: { message: string }) => {
       pushToast({ kind: "error", text: message });
@@ -329,38 +340,49 @@ export function MafiaExperience({
       if (!socket.connected) {
         socket.connect();
       } else {
-        void apiRequest<MafiaPublicState>(
-          `/api/rooms/${roomCode}/state?sessionId=${sessionId}`,
-        )
-          .then((s) => setRoomState(s))
-          .catch(() => undefined);
+        // Returned from a backgrounded Telegram webview: the connection
+        // looks alive but the server may have dropped us from the room
+        // while the tab was frozen. Re-join, don't just refetch.
+        resync(true);
       }
     };
 
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("room_state", onState);
-    socket.on("timer_update", onTimer);
     socket.on("action_error", onErr);
     document.addEventListener("visibilitychange", onVisibility);
-    socket.connect();
+
+    // One socket.io client is shared across the whole app. After finishing
+    // a game and walking into the next room WITHOUT a full page reload the
+    // singleton is still connected, so `connect()` is a no-op and the
+    // `connect` event never fires again — meaning `join_room` for the new
+    // room would never be sent and the server keeps us subscribed to (and
+    // "online" in) the OLD room while the new lobby shows us offline until
+    // a manual refresh. Detect the already-connected case and join now.
+    if (socket.connected) {
+      resync(true);
+    } else {
+      socket.connect();
+    }
     connectedRef.current = true;
 
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("room_state", onState);
-      socket.off("timer_update", onTimer);
       socket.off("action_error", onErr);
       document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
-  }, [normalizedRoomCode, patchTimer, roomCode, sessionId]);
+  }, [normalizedRoomCode, roomCode, sessionId]);
 
-  // Local 1Hz tick driven by `timerEndsAt`. Same rationale as Bunker:
-  // server broadcasts can drop on a flaky network or a Telegram WebApp
-  // tab returning from background, leaving the visible timer frozen.
-  // Local computation from the deadline keeps the countdown smooth.
+  // The countdown's single source of truth: a local 1Hz tick computed
+  // from the absolute `timerEndsAt` deadline. We deliberately ignore the
+  // server's `timer_update` broadcasts for display — under jittery mobile
+  // networks they arrive bunched/late and made the number stutter and
+  // jump backwards. A deadline-derived tick is monotonic and stays smooth
+  // even when broadcasts drop or the tab returns from background.
   const timerEndsAtIso = roomState?.game.timerEndsAt ?? null;
   useEffect(() => {
     if (!timerEndsAtIso) return;
@@ -649,6 +671,11 @@ export function MafiaExperience({
       showRecoveryModal={showRecoveryModal}
       onRetryNow={retryNow}
       onReloadPage={reloadPage}
+      onGoHome={() => {
+        isLeavingRef.current = true;
+        emit("leave_room");
+        router.push("/dashboard" as Route);
+      }}
     />
   );
   const roleReminderModal = roomState ? (
@@ -679,6 +706,27 @@ export function MafiaExperience({
         emit("end_game");
       }}
       onClose={() => setEndGameConfirmOpen(false)}
+    />
+  );
+  // Rendered in EVERY phase block (not just the lobby) — the in-game
+  // header shows a leave button during PLAYING, and without this modal
+  // present those taps did nothing, so a player in a started game could
+  // not leave the room at all.
+  const leaveConfirmModal = (
+    <ConfirmModal
+      open={leaveConfirmOpen}
+      title={t("roomdan_chiqasizmi")}
+      description={t("siz_xonadan_chiqasiz_va_oyin_a97d")}
+      confirmLabel={t("ha_chiqish")}
+      cancelLabel={t("bekor_qilish")}
+      tone="danger"
+      onConfirm={() => {
+        isLeavingRef.current = true;
+        emit("leave_room");
+        setLeaveConfirmOpen(false);
+        router.push("/dashboard" as Route);
+      }}
+      onClose={() => setLeaveConfirmOpen(false)}
     />
   );
 
@@ -915,21 +963,7 @@ export function MafiaExperience({
           }}
           onClose={() => setKickTarget(null)}
         />
-        <ConfirmModal
-          open={leaveConfirmOpen}
-          title={t("roomdan_chiqasizmi")}
-          description={t("siz_xonadan_chiqasiz_va_oyin_a97d")}
-          confirmLabel={t("ha_chiqish")}
-          cancelLabel={t("bekor_qilish")}
-          tone="danger"
-          onConfirm={() => {
-            isLeavingRef.current = true;
-            emit("leave_room");
-            setLeaveConfirmOpen(false);
-            router.push("/dashboard" as Route);
-          }}
-          onClose={() => setLeaveConfirmOpen(false)}
-        />
+        {leaveConfirmModal}
       </>
     );
   }
@@ -1005,6 +1039,7 @@ export function MafiaExperience({
         {selfEliminationModal}
         {phaseIntroModal}
         {connectionFeedback}
+        {leaveConfirmModal}
       </>
     );
   }
@@ -1056,6 +1091,7 @@ export function MafiaExperience({
         {roleReminderModal}
         {phaseIntroModal}
         {connectionFeedback}
+        {leaveConfirmModal}
       </>
     );
   }
@@ -1124,6 +1160,7 @@ export function MafiaExperience({
         {roleReminderModal}
         {phaseIntroModal}
         {connectionFeedback}
+        {leaveConfirmModal}
       </>
     );
   }
@@ -1139,6 +1176,7 @@ export function MafiaExperience({
         <TelegramChrome backHref="/dashboard" />
         <MafiaFinished state={roomState} />
         {connectionFeedback}
+        {leaveConfirmModal}
       </>
     );
   }
@@ -1252,6 +1290,7 @@ export function MafiaExperience({
         {roleReminderModal}
         {phaseIntroModal}
         {connectionFeedback}
+        {leaveConfirmModal}
       </>
     );
   }
@@ -1275,6 +1314,7 @@ export function MafiaExperience({
           }}
         />
         {connectionFeedback}
+        {leaveConfirmModal}
       </>
     );
   }
@@ -1298,6 +1338,7 @@ export function MafiaExperience({
           }}
         />
         {connectionFeedback}
+        {leaveConfirmModal}
       </>
     );
   }
@@ -1366,6 +1407,7 @@ export function MafiaExperience({
       {onlineGovernanceModal}
       {selfEliminationModal}
       {connectionFeedback}
+      {leaveConfirmModal}
     </>
   );
 }

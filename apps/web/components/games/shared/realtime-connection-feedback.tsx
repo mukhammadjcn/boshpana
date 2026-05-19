@@ -129,6 +129,11 @@ type RealtimeConnectionFeedbackProps = {
   showRecoveryModal: boolean;
   onRetryNow: () => void;
   onReloadPage: () => void;
+  // Escape hatch so a stuck connection never traps the player behind the
+  // full-screen recovery modal (they reported not being able to leave the
+  // room because this overlay covered the header). Optional — callers that
+  // don't pass it simply don't show the button.
+  onGoHome?: () => void;
 };
 
 export function RealtimeConnectionFeedback({
@@ -136,7 +141,8 @@ export function RealtimeConnectionFeedback({
   browserOnline,
   showRecoveryModal,
   onRetryNow,
-  onReloadPage
+  onReloadPage,
+  onGoHome
 }: RealtimeConnectionFeedbackProps) {
   const { t } = useI18n();
 
@@ -213,6 +219,15 @@ export function RealtimeConnectionFeedback({
               >
                 {browserOnline ? t("sahifani_yangilash") : t("qayta_urinish")}
               </button>
+              {onGoHome ? (
+                <button
+                  type="button"
+                  onClick={onGoHome}
+                  className="flex h-12 w-full items-center justify-center rounded-2xl text-sm font-semibold text-ink-secondary transition active:scale-[0.98]"
+                >
+                  {t("bosh_sahifaga_qaytish")}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

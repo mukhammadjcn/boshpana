@@ -65,7 +65,15 @@ function slotName(kind: OnlineProposalKind) {
   return "kickProposal";
 }
 
-function majorityFor(eligiblePlayerIds: string[]) {
+// END_GAME / KICK pass on a simple majority. SKIP_TO_VOTE is different:
+// jumping the table straight to voting silences everyone still talking,
+// so it only passes when EVERY eligible (alive) player agrees. If even
+// one refuses, the round just waits for the discussion timer instead.
+function passThresholdFor(
+  kind: OnlineProposalKind,
+  eligiblePlayerIds: string[]
+) {
+  if (kind === "SKIP_TO_VOTE") return eligiblePlayerIds.length;
   return Math.floor(eligiblePlayerIds.length / 2) + 1;
 }
 
@@ -116,7 +124,7 @@ export const onlineGovernanceService = {
       approvals: [input.proposerPlayerId],
       rejections: [],
       createdAt: new Date().toISOString(),
-      majority: majorityFor(input.eligiblePlayerIds)
+      majority: passThresholdFor(input.kind, input.eligiblePlayerIds)
     };
 
     state[slot] = proposal;
@@ -156,7 +164,12 @@ export const onlineGovernanceService = {
       return { status: "passed", proposal };
     }
 
-    if (proposal.rejections.length >= proposal.majority) {
+    // SKIP_TO_VOTE needs unanimous approval, so a single "no" already
+    // makes it impossible — cancel immediately instead of leaving a dead
+    // proposal on screen. END_GAME / KICK still need a rejecting majority.
+    const rejectThreshold =
+      proposal.kind === "SKIP_TO_VOTE" ? 1 : proposal.majority;
+    if (proposal.rejections.length >= rejectThreshold) {
       state[slot] = null;
       await write(input.roomCode, state);
       return { status: "rejected", proposal };
