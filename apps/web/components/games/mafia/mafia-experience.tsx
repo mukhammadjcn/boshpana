@@ -111,6 +111,10 @@ export function MafiaExperience({
   const [dismissedSkipToVoteProposalId, setDismissedSkipToVoteProposalId] =
     useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  // Optimistically lock the composer the instant a dead player fires
+  // their last words, so a fast double-tap can't slip a second message
+  // through before the server broadcast (which also enforces it) lands.
+  const [lastWordsSent, setLastWordsSent] = useState(false);
   const [showFinalResults, setShowFinalResults] = useState(false);
   const [phaseIntro, setPhaseIntro] = useState<{
     kind: "night" | "day" | "tiebreak";
@@ -490,6 +494,17 @@ export function MafiaExperience({
     setRoleModalOpen(false);
   }, [eliminatedModalOpen]);
 
+  // The optimistic last-words lock only makes sense while this player is
+  // dead in an active game. Clear it otherwise (a fresh game, lobby,
+  // post-game review) so the composer reopens.
+  const meAliveFlag = roomState?.me?.isAlive ?? true;
+  const roomStatusFlag = roomState?.room.status ?? null;
+  useEffect(() => {
+    if (meAliveFlag || roomStatusFlag !== "PLAYING") {
+      setLastWordsSent(false);
+    }
+  }, [meAliveFlag, roomStatusFlag]);
+
   useEffect(() => {
     if (roleModalOpen) {
       setRoleModalVisible(true);
@@ -748,13 +763,38 @@ export function MafiaExperience({
   // a vote opens, day breaks, night falls; the user needs to see the
   // new screen instead of an open chat covering it.
   const chatCloseSignal = `${game.phase}:${game.dayNumber}:${game.nightNumber}`;
+  // Mafia: an eliminated player is silenced for the rest of the game,
+  // but gets one farewell message the whole table can read. Show the
+  // warning while that one message is still available, then lock the
+  // composer (the server enforces this too — this is just UX).
+  const meIsDeadInPlay =
+    uiVariant === "online" && !!me && !me.isAlive && room.status === "PLAYING";
+  const meUsedLastWords =
+    !!me &&
+    roomState.chat.messages.some(
+      (m) => m.senderId === me.id && m.kind === "last_words",
+    );
+  const chatComposerDisabled =
+    meIsDeadInPlay && (meUsedLastWords || lastWordsSent);
+  const chatNoticeText = !meIsDeadInPlay
+    ? null
+    : chatComposerDisabled
+      ? t("siz_chiqdingiz_chatga_yoza_olmaysiz")
+      : t("songgi_sozingizni_yozing_keyin_yoza_olmaysiz");
+  const handleChatSend = (text: string) => {
+    if (chatComposerDisabled) return;
+    if (meIsDeadInPlay) setLastWordsSent(true);
+    emit("chat:send", { text });
+  };
   const onlineChatFloating =
     uiVariant === "online" && me ? (
       <OnlineChat
         key="global-online-chat"
         meId={me.id}
         messages={roomState.chat.messages}
-        onSend={(text) => emit("chat:send", { text })}
+        onSend={handleChatSend}
+        noticeText={chatNoticeText}
+        composerDisabled={chatComposerDisabled}
         closeOnSignal={chatCloseSignal}
         bottomOffsetPx={
           room.status === "LOBBY" ||
@@ -773,7 +813,9 @@ export function MafiaExperience({
         key="global-online-chat"
         meId={me.id}
         messages={roomState.chat.messages}
-        onSend={(text) => emit("chat:send", { text })}
+        onSend={handleChatSend}
+        noticeText={chatNoticeText}
+        composerDisabled={chatComposerDisabled}
         floating={false}
         closeOnSignal={chatCloseSignal}
       />

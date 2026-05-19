@@ -10,6 +10,9 @@ export type OnlineChatMessage = {
   senderName: string;
   text: string;
   timestamp: string;
+  // Mafia: an eliminated player's single farewell message. Shown to the
+  // whole table as their "last words". Absent on normal messages.
+  kind?: "last_words";
 };
 
 type Props = {
@@ -20,6 +23,12 @@ type Props = {
   highlightedPlayerId?: string | null;
   floating?: boolean;
   triggerClassName?: string;
+  // Small info line shown just above the composer (Mafia uses it to
+  // warn an eliminated player that their next message is their last).
+  noticeText?: string | null;
+  // Hard-disable the composer (e.g. a dead player who already spent
+  // their last words). The notice still explains why.
+  composerDisabled?: boolean;
   // When this value changes, the sheet auto-closes. Parent passes the
   // current game phase / round token so a phase change (vote opens,
   // next round starts, elimination revealed) collapses the chat and
@@ -56,6 +65,8 @@ export function OnlineChat({
   floating = true,
   triggerClassName = "",
   closeOnSignal,
+  noticeText = null,
+  composerDisabled = false,
 }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(() => !!chatStatePersistence[meId]);
@@ -176,6 +187,7 @@ export function OnlineChat({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (composerDisabled) return;
     const text = draft
       .split("\n")
       .map((line) => line.trimEnd())
@@ -306,6 +318,7 @@ export function OnlineChat({
                   const isMe = message.senderId === meId;
                   const isHighlighted =
                     highlightedPlayerId === message.senderId;
+                  const isLastWords = message.kind === "last_words";
                   return (
                     <div
                       key={message.id}
@@ -313,11 +326,13 @@ export function OnlineChat({
                     >
                       <article
                         className={`relative max-w-[85%] rounded-2xl px-3.5 py-2 shadow-sm ${
-                          isMe
-                            ? "rounded-tr-sm border border-brand/20 bg-brand-soft text-ink-primary"
-                            : isHighlighted
-                              ? "rounded-tl-sm border border-warn/30 bg-warn/10 text-ink-primary"
-                              : "rounded-tl-sm border border-line-subtle bg-bg-base text-ink-primary"
+                          isLastWords
+                            ? `border border-bad/45 bg-bad/10 text-ink-primary ${isMe ? "rounded-tr-sm" : "rounded-tl-sm"}`
+                            : isMe
+                              ? "rounded-tr-sm border border-brand/20 bg-brand-soft text-ink-primary"
+                              : isHighlighted
+                                ? "rounded-tl-sm border border-warn/30 bg-warn/10 text-ink-primary"
+                                : "rounded-tl-sm border border-line-subtle bg-bg-base text-ink-primary"
                         }`}
                       >
                         {!isMe && (
@@ -326,6 +341,12 @@ export function OnlineChat({
                             style={{ color: senderColor(message.senderId) }}
                           >
                             {message.senderName}
+                          </p>
+                        )}
+                        {isLastWords && (
+                          <p className="mb-0.5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-bad">
+                            <span aria-hidden>☠</span>
+                            {t("songgi_soz")}
                           </p>
                         )}
                         <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-0.5">
@@ -354,6 +375,11 @@ export function OnlineChat({
               onSubmit={handleSubmit}
               className="border-t border-line-subtle bg-bg-surface px-5 pt-3 pb-safe"
             >
+              {noticeText ? (
+                <p className="mb-2 rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-center text-[12px] font-medium leading-snug text-bad">
+                  {noticeText}
+                </p>
+              ) : null}
               <div className="flex items-end gap-3">
                 <textarea
                   ref={inputRef}
@@ -362,12 +388,13 @@ export function OnlineChat({
                   onInput={resizeTextarea}
                   maxLength={300}
                   rows={1}
+                  disabled={composerDisabled}
                   placeholder={t("chat_xabar_placeholder")}
-                  className="min-h-[52px] flex-1 resize-none rounded-2xl border border-line-strong bg-bg-base px-4 py-3 text-base text-ink-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring"
+                  className="min-h-[52px] flex-1 resize-none rounded-2xl border border-line-strong bg-bg-base px-4 py-3 text-base text-ink-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-ring disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <button
                   type="submit"
-                  disabled={!draft.trim()}
+                  disabled={composerDisabled || !draft.trim()}
                   // Prevent the button from stealing focus from the
                   // textarea on tap. In Telegram WebApp a focus change is
                   // what makes the soft keyboard collapse and the

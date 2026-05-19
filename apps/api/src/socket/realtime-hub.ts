@@ -317,7 +317,8 @@ export class RealtimeHub {
               payload.roomCode.toUpperCase()
             );
             const state = prepared.perSession(payload.sessionId) as {
-              me: { id: string; name: string } | null;
+              room: { status: string };
+              me: { id: string; name: string; isAlive?: boolean } | null;
             };
             if (!state.me) {
               throw new Error("Chatga yozish uchun avval roomga kiring.");
@@ -331,10 +332,34 @@ export class RealtimeHub {
               throw new Error("Xabar 300 ta belgidan oshmasligi kerak.");
             }
 
+            // Mafia: a player eliminated mid-game is silenced — except
+            // for one final "last words" message. Once they've spent it
+            // they can no longer write. Alive players, the lobby and the
+            // post-game (FINISHED) review chat are all unrestricted.
+            const isMafia = service === this.games.mafia;
+            const isDeadInPlay =
+              isMafia &&
+              state.me.isAlive === false &&
+              state.room.status === "PLAYING";
+            let kind: "last_words" | undefined;
+            if (isDeadInPlay) {
+              const claimed = await chatService.claimLastWords(
+                payload.roomCode,
+                state.me.id
+              );
+              if (!claimed) {
+                throw new Error(
+                  "Siz so'nggi so'zingizni allaqachon yozdingiz. Endi chatga yoza olmaysiz."
+                );
+              }
+              kind = "last_words";
+            }
+
             const message = chatService.createMessage({
               senderId: state.me.id,
               senderName: state.me.name,
-              text
+              text,
+              kind
             });
             await chatService.appendMessage(payload.roomCode, message);
             await this.broadcastRoomState(payload.roomCode);
