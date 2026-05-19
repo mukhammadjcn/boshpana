@@ -75,21 +75,27 @@ export function SharedAlert({
   return (
     <div
       className={[
-        "relative overflow-hidden rounded-[20px] border",
+        "relative rounded-[20px] border",
         "flex items-center gap-4 px-4 py-4",
-        // scan-line texture via bg-image
-        "bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(255,255,255,0.015)_2px,rgba(255,255,255,0.015)_4px)]",
         ...v.shell,
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      {/* glow blob */}
+      {/* Decorative layer: scan-line texture + corner glow blob, clipped
+          to the rounded box. Kept on its OWN overflow-hidden layer so the
+          clip doesn't slice the border or the icon's soft outer glow —
+          putting overflow-hidden on the shell flattened the icon halo
+          against the card edge ("border kesilmyapti"). */}
       <div
         aria-hidden
-        className={`pointer-events-none absolute -left-5 -top-5 h-20 w-20 rounded-full blur-[28px] ${v.blob}`}
-      />
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-[20px] bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(255,255,255,0.015)_2px,rgba(255,255,255,0.015)_4px)]"
+      >
+        <div
+          className={`absolute -left-5 -top-5 h-20 w-20 rounded-full blur-[28px] ${v.blob}`}
+        />
+      </div>
 
       {/* icon */}
       <div
