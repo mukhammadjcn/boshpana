@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { useI18n } from "@/lib/i18n";
 
@@ -34,6 +41,12 @@ type Props = {
   // next round starts, elimination revealed) collapses the chat and
   // surfaces whatever state update is now waiting on the screen.
   closeOnSignal?: string | number;
+  // Fired (throttled internally) while the user is actively typing, so
+  // the parent can broadcast a lightweight "typing" ping to the room.
+  onTyping?: () => void;
+  // Display names of OTHER players currently typing (parent owns the
+  // socket subscription + expiry). Renders the animated indicator.
+  typingNames?: string[];
 };
 
 // Persistent state to keep chat open across remounts during a session
@@ -67,6 +80,8 @@ export function OnlineChat({
   closeOnSignal,
   noticeText = null,
   composerDisabled = false,
+  onTyping,
+  typingNames = [],
 }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(() => !!chatStatePersistence[meId]);
@@ -77,7 +92,29 @@ export function OnlineChat({
   // transition has a starting frame to interpolate from.
   const [mounted, setMounted] = useState(open);
   const [entered, setEntered] = useState(open);
-  const SHEET_TRANSITION_MS = 220;
+  const SHEET_TRANSITION_MS = 280;
+
+  // Throttle the "typing" ping to at most one every 1.5s so a fast
+  // typist doesn't spam the socket.
+  const lastTypingEmitRef = useRef(0);
+  const notifyTyping = () => {
+    if (!onTyping) return;
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current < 1500) return;
+    lastTypingEmitRef.current = now;
+    onTyping();
+  };
+
+  // Animate only messages that arrive while the user is watching — the
+  // backlog already on screen when the sheet opens must not all fly in
+  // at once. `seenIds` is seeded post-render; anything not yet in it on
+  // a given render is "new" and gets the entrance animation.
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const seededRef = useRef(false);
+  useEffect(() => {
+    for (const m of messages) seenIdsRef.current.add(m.id);
+    seededRef.current = true;
+  }, [messages]);
 
   useEffect(() => {
     chatStatePersistence[meId] = open;
@@ -185,8 +222,7 @@ export function OnlineChat({
     };
   }, [open]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function sendDraft() {
     if (composerDisabled) return;
     const text = draft
       .split("\n")
@@ -207,6 +243,21 @@ export function OnlineChat({
       if (!inputRef.current) return;
       inputRef.current.style.height = "auto";
     });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    sendDraft();
+  }
+
+  // Desktop shortcut: Shift+Enter sends. Plain Enter keeps inserting a
+  // newline (multi-line messages still work), and mobile soft keyboards
+  // don't produce Shift+Enter so this naturally stays desktop-only.
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && event.shiftKey) {
+      event.preventDefault();
+      sendDraft();
+    }
   }
 
   function resizeTextarea() {
@@ -275,14 +326,16 @@ export function OnlineChat({
         <div
           role="dialog"
           aria-modal="true"
-          className={`fixed inset-0 z-50 flex flex-col justify-end m-auto max-w-2xl transition-[background-color,backdrop-filter] duration-200 ${
+          className={`fixed inset-0 z-50 flex flex-col justify-end m-auto max-w-2xl transition-[background-color,backdrop-filter] duration-300 ${
             entered ? "bg-bg-overlay backdrop-blur-sm" : "bg-transparent"
           }`}
         >
           <div className="absolute inset-0" onClick={() => setOpen(false)} />
           <div
-            className={`relative z-10 flex flex-col rounded-t-3xl border-t border-line-subtle bg-bg-surface transition-transform duration-200 ease-out ${
-              entered ? "translate-y-0" : "translate-y-full"
+            className={`relative z-10 flex flex-col rounded-t-3xl border-t border-line-subtle bg-bg-surface transition-[transform,opacity] duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] will-change-transform ${
+              entered
+                ? "translate-y-0 opacity-100"
+                : "translate-y-full opacity-90"
             }`}
             style={{ maxHeight: sheetMaxHeight }}
           >
@@ -319,10 +372,14 @@ export function OnlineChat({
                   const isHighlighted =
                     highlightedPlayerId === message.senderId;
                   const isLastWords = message.kind === "last_words";
+                  const isNew =
+                    seededRef.current && !seenIdsRef.current.has(message.id);
                   return (
                     <div
                       key={message.id}
-                      className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}
+                      className={`flex w-full ${isMe ? "justify-end" : "justify-start"} ${
+                        isNew ? "animate-chat-msg-in" : ""
+                      }`}
                     >
                       <article
                         className={`relative max-w-[85%] rounded-2xl px-3.5 py-2 shadow-sm ${
@@ -371,6 +428,32 @@ export function OnlineChat({
               )}
             </div>
 
+            {typingNames.length > 0 ? (
+              <div className="flex items-center gap-2 px-5 pb-2 text-xs text-ink-secondary">
+                <span className="flex items-end gap-1">
+                  <span
+                    className="h-1.5 w-1.5 rounded-full bg-brand animate-typing-dot"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 rounded-full bg-brand animate-typing-dot"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 rounded-full bg-brand animate-typing-dot"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </span>
+                <span className="min-w-0 truncate">
+                  {typingNames.length === 1
+                    ? t("name_yozyapti", { name: typingNames[0] })
+                    : typingNames.length === 2
+                      ? t("name_yozyapti", { name: typingNames.join(", ") })
+                      : t("bir_nechta_kishi_yozyapti")}
+                </span>
+              </div>
+            ) : null}
+
             <form
               onSubmit={handleSubmit}
               className="border-t border-line-subtle bg-bg-surface px-5 pt-3 pb-safe"
@@ -384,7 +467,11 @@ export function OnlineChat({
                 <textarea
                   ref={inputRef}
                   value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    if (event.target.value.trim()) notifyTyping();
+                  }}
+                  onKeyDown={handleKeyDown}
                   onInput={resizeTextarea}
                   maxLength={300}
                   rows={1}

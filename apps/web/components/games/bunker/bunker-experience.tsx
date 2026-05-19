@@ -172,6 +172,11 @@ export function BunkerExperience({
   const [myCardsClosing, setMyCardsClosing] = useState(false);
   const [eliminatedModalOpen, setEliminatedModalOpen] = useState(false);
   const [winnerModalOpen, setWinnerModalOpen] = useState(false);
+  // Other players currently typing in chat: playerId → { name, expiresAt }.
+  // Fed by the ephemeral `chat:typing` socket ping, pruned on a 1s tick.
+  const [typingPlayers, setTypingPlayers] = useState<
+    Record<string, { name: string; expiresAt: number }>
+  >({});
   const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
@@ -409,6 +414,19 @@ export function BunkerExperience({
       pushToast({ kind: "error", text: message });
       setError(message);
     };
+    const onTyping = ({
+      playerId,
+      name,
+    }: {
+      playerId?: string;
+      name?: string;
+    }) => {
+      if (!playerId || !name) return;
+      setTypingPlayers((prev) => ({
+        ...prev,
+        [playerId]: { name, expiresAt: Date.now() + 3500 },
+      }));
+    };
 
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
@@ -431,6 +449,7 @@ export function BunkerExperience({
     socket.on("room_state", onState);
     socket.on("timer_update", onTimer);
     socket.on("action_error", onErr);
+    socket.on("chat:typing", onTyping);
     document.addEventListener("visibilitychange", onVisibility);
     // The socket.io client is a singleton shared across the whole app.
     // After finishing a game and entering the next room WITHOUT a full
@@ -454,6 +473,7 @@ export function BunkerExperience({
       socket.off("room_state", onState);
       socket.off("timer_update", onTimer);
       socket.off("action_error", onErr);
+      socket.off("chat:typing", onTyping);
       document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
@@ -819,6 +839,46 @@ export function BunkerExperience({
   const players = roomState?.players ?? [];
   const meReady =
     !!me && players.some((player) => player.id === me.id && !!player.readyAt);
+  const handleChatTyping = () => {
+    if (!me) return;
+    emit("chat:typing", { playerId: me.id, name: me.name });
+  };
+  const typingNowMs = Date.now();
+  const chatTypingNames = Object.entries(typingPlayers)
+    .filter(([pid, v]) => v.expiresAt > typingNowMs && pid !== me?.id)
+    .map(([, v]) => v.name);
+  // Expire stale "typing" entries. Only ticks while someone is typing.
+  const hasTypers = Object.keys(typingPlayers).length > 0;
+  useEffect(() => {
+    if (!hasTypers) return;
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setTypingPlayers((prev) => {
+        const next = Object.fromEntries(
+          Object.entries(prev).filter(([, v]) => v.expiresAt > now),
+        );
+        return Object.keys(next).length === Object.keys(prev).length
+          ? prev
+          : next;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [hasTypers]);
+  // The moment a player's message lands, drop their "typing" entry so
+  // the indicator disappears with the message instead of lingering for
+  // the ~3.5s expiry window.
+  const lastChatMsg = roomState?.chat.messages.at(-1) ?? null;
+  const lastChatMsgId = lastChatMsg?.id ?? null;
+  const lastChatSenderId = lastChatMsg?.senderId ?? null;
+  useEffect(() => {
+    if (!lastChatSenderId) return;
+    setTypingPlayers((prev) => {
+      if (!prev[lastChatSenderId]) return prev;
+      const next = { ...prev };
+      delete next[lastChatSenderId];
+      return next;
+    });
+  }, [lastChatMsgId, lastChatSenderId]);
   const localizedPlayers = useMemo(
     () =>
       players.map((player) => ({
@@ -1416,6 +1476,8 @@ export function BunkerExperience({
                   meId={me.id}
                   messages={roomState.chat.messages}
                   onSend={(text) => emit("chat:send", { text })}
+                  onTyping={handleChatTyping}
+                  typingNames={chatTypingNames}
                   floating={false}
                   highlightedPlayerId={
                     game.phase === "ROUND_PITCH"

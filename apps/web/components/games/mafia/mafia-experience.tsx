@@ -115,6 +115,11 @@ export function MafiaExperience({
   // their last words, so a fast double-tap can't slip a second message
   // through before the server broadcast (which also enforces it) lands.
   const [lastWordsSent, setLastWordsSent] = useState(false);
+  // Other players currently typing in chat: playerId → { name, expiresAt }.
+  // Fed by the ephemeral `chat:typing` socket ping, pruned on a 1s tick.
+  const [typingPlayers, setTypingPlayers] = useState<
+    Record<string, { name: string; expiresAt: number }>
+  >({});
   const [showFinalResults, setShowFinalResults] = useState(false);
   const [phaseIntro, setPhaseIntro] = useState<{
     kind: "night" | "day" | "tiebreak";
@@ -339,6 +344,19 @@ export function MafiaExperience({
       setError(message);
       setPendingAction(null);
     };
+    const onTyping = ({
+      playerId,
+      name,
+    }: {
+      playerId?: string;
+      name?: string;
+    }) => {
+      if (!playerId || !name) return;
+      setTypingPlayers((prev) => ({
+        ...prev,
+        [playerId]: { name, expiresAt: Date.now() + 3500 },
+      }));
+    };
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
       if (!socket.connected) {
@@ -355,6 +373,7 @@ export function MafiaExperience({
     socket.on("disconnect", onDisconnect);
     socket.on("room_state", onState);
     socket.on("action_error", onErr);
+    socket.on("chat:typing", onTyping);
     document.addEventListener("visibilitychange", onVisibility);
 
     // One socket.io client is shared across the whole app. After finishing
@@ -376,6 +395,7 @@ export function MafiaExperience({
       socket.off("disconnect", onDisconnect);
       socket.off("room_state", onState);
       socket.off("action_error", onErr);
+      socket.off("chat:typing", onTyping);
       document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
@@ -504,6 +524,41 @@ export function MafiaExperience({
       setLastWordsSent(false);
     }
   }, [meAliveFlag, roomStatusFlag]);
+
+  // Expire stale "typing" entries. Only ticks while someone is typing,
+  // then stops — no idle interval churn.
+  const hasTypers = Object.keys(typingPlayers).length > 0;
+  useEffect(() => {
+    if (!hasTypers) return;
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setTypingPlayers((prev) => {
+        const next = Object.fromEntries(
+          Object.entries(prev).filter(([, v]) => v.expiresAt > now),
+        );
+        return Object.keys(next).length === Object.keys(prev).length
+          ? prev
+          : next;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [hasTypers]);
+
+  // The moment a player's message lands, drop their "typing" entry so
+  // the indicator vanishes the instant the message appears instead of
+  // lingering for the ~3.5s expiry window.
+  const lastChatMsg = roomState?.chat.messages.at(-1) ?? null;
+  const lastChatMsgId = lastChatMsg?.id ?? null;
+  const lastChatSenderId = lastChatMsg?.senderId ?? null;
+  useEffect(() => {
+    if (!lastChatSenderId) return;
+    setTypingPlayers((prev) => {
+      if (!prev[lastChatSenderId]) return prev;
+      const next = { ...prev };
+      delete next[lastChatSenderId];
+      return next;
+    });
+  }, [lastChatMsgId, lastChatSenderId]);
 
   useEffect(() => {
     if (roleModalOpen) {
@@ -786,6 +841,14 @@ export function MafiaExperience({
     if (meIsDeadInPlay) setLastWordsSent(true);
     emit("chat:send", { text });
   };
+  const handleChatTyping = () => {
+    if (!me) return;
+    emit("chat:typing", { playerId: me.id, name: me.name });
+  };
+  const nowMs = Date.now();
+  const chatTypingNames = Object.entries(typingPlayers)
+    .filter(([pid, v]) => v.expiresAt > nowMs && pid !== me?.id)
+    .map(([, v]) => v.name);
   const onlineChatFloating =
     uiVariant === "online" && me ? (
       <OnlineChat
@@ -793,6 +856,8 @@ export function MafiaExperience({
         meId={me.id}
         messages={roomState.chat.messages}
         onSend={handleChatSend}
+        onTyping={handleChatTyping}
+        typingNames={chatTypingNames}
         noticeText={chatNoticeText}
         composerDisabled={chatComposerDisabled}
         closeOnSignal={chatCloseSignal}
@@ -814,6 +879,8 @@ export function MafiaExperience({
         meId={me.id}
         messages={roomState.chat.messages}
         onSend={handleChatSend}
+        onTyping={handleChatTyping}
+        typingNames={chatTypingNames}
         noticeText={chatNoticeText}
         composerDisabled={chatComposerDisabled}
         floating={false}

@@ -367,6 +367,26 @@ export class RealtimeHub {
         }
       );
 
+      // Ephemeral "X is typing" ping. Deliberately NOT routed through
+      // handleAction / room-state: it's a fire-and-forget UI hint that
+      // we relay to everyone else in the room and never persist. The
+      // client already throttles these to ~1 every 1.5s.
+      socket.on(
+        "chat:typing",
+        (payload: SocketActionPayload & { playerId?: string; name?: string }) => {
+          const roomCode = socket.data.roomCode as string | undefined;
+          if (!roomCode) return;
+          const playerId =
+            typeof payload?.playerId === "string" ? payload.playerId : null;
+          const name =
+            typeof payload?.name === "string"
+              ? payload.name.trim().slice(0, 40)
+              : null;
+          if (!playerId || !name) return;
+          socket.to(roomCode).emit("chat:typing", { playerId, name });
+        }
+      );
+
       socket.on("online:request_end_game_vote", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
           const result = await this.onlineGovernanceActions.requestEndGameVote({

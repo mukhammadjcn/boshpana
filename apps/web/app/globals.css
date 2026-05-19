@@ -175,3 +175,45 @@ code {
 .animate-sheet-out {
   animation: sheet-out 220ms ease-in forwards;
 }
+
+/* Chat message entrance — only applied to messages that arrive while the
+   sheet is open (backlog renders instantly). Soft rise + fade + a hair
+   of scale so a new line "pops" in without feeling jumpy. */
+@keyframes chat-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-chat-msg-in {
+  animation: chat-msg-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* "… is typing" indicator: three dots that bounce in sequence. The
+   staggered negative delays keep the wave continuous on mount. */
+@keyframes typing-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+.animate-typing-dot {
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-chat-msg-in,
+  .animate-typing-dot {
+    animation: none;
+  }
+}

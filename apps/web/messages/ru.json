@@ -624,6 +624,8 @@
   "songgi_soz": "Последнее слово",
   "songgi_sozingizni_yozing_keyin_yoza_olmaysiz": "Вы выбыли из игры. Напишите последнее слово — после этого вы не сможете писать в чат.",
   "siz_chiqdingiz_chatga_yoza_olmaysiz": "Вы выбыли из игры — вы больше не можете писать в чат.",
+  "name_yozyapti": "{name} печатает…",
+  "bir_nechta_kishi_yozyapti": "Несколько человек печатают…",
   "chiqish_menyusi": "Меню выхода",
   "ha_rozi": "Да, согласен",
   "yoq_qarshiman": "Нет, против",
