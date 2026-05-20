@@ -27,6 +27,7 @@ import {
   getBunkerRoundResultDurationSeconds,
   isSelfManagedOnlineRoom
 } from "../online/online-self-managed-rules";
+import { dealActionCards } from "./bunker-action-service";
 import {
   BUNKER_PITCH_DURATION_SECONDS,
   BUNKER_VOTING_DURATION_SECONDS,
@@ -52,6 +53,8 @@ type CreateRoomInput = {
   maxPlayers?: number;
   hostUserId?: string;
   isAdult?: boolean;
+  // Maxsus kartalar (action cards) yoqilganmi. Friends mode'da host tanlaydi.
+  actionCardsEnabled?: boolean;
 };
 
 type JoinRoomInput = {
@@ -82,6 +85,9 @@ type RoomWithState = Prisma.RoomGetPayload<{
     players: {
       include: {
         bunkerAttributes: true;
+        bunkerActionCards: {
+          include: { actionCard: true };
+        };
       };
       orderBy: {
         seatOrder: "asc";
@@ -232,6 +238,7 @@ export class BunkerGameService {
         winnerTarget,
         maxPlayers,
         isAdult: !!input.isAdult,
+        actionCardsEnabled: !!input.actionCardsEnabled,
         players: {
           create: {
             name: input.hostName.trim(),
@@ -356,6 +363,7 @@ export class BunkerGameService {
         winnerTarget: room.winnerTarget,
         maxPlayers: room.maxPlayers,
         isAdult: room.isAdult,
+        actionCardsEnabled: room.actionCardsEnabled,
       },
       game: {
         phase: room.bunkerGame.phase,
@@ -413,7 +421,25 @@ export class BunkerGameService {
             sessionId: me.sessionId,
             cards: this.extractCards(me.bunkerAttributes, cardTranslations),
             cardTags: this.extractCardTags(me.bunkerAttributes, cardTags),
-            revealed: me.bunkerAttributes?.revealed ?? []
+            revealed: me.bunkerAttributes?.revealed ?? [],
+            actionCards: (me.bunkerActionCards ?? []).map((inst) => ({
+              instanceId: inst.id,
+              cardKey: inst.actionCard.key,
+              title: buildLocalizedText(
+                inst.actionCard.titleUz,
+                inst.actionCard.titleRu,
+                inst.actionCard.titleEn
+              ),
+              description: buildLocalizedText(
+                inst.actionCard.descriptionUz,
+                inst.actionCard.descriptionRu,
+                inst.actionCard.descriptionEn
+              ),
+              effect: inst.actionCard.effect,
+              targetScope: inst.actionCard.targetScope,
+              tier: inst.actionCard.tier,
+              status: inst.status
+            }))
           }
         : null,
       players: room.players.map((player) => {
@@ -584,7 +610,8 @@ export class BunkerGameService {
               phase: BunkerPhase.INTRO,
               timerEndsAt: introEndsAt,
               startedAt,
-              roundNumber: 0
+              roundNumber: 0,
+              actionCardsEnabled: room.actionCardsEnabled
             }
           });
 
@@ -608,6 +635,18 @@ export class BunkerGameService {
             fact: deal[BunkerCardType.FACT][index],
             revealed: [BunkerCardType.PROFESSION]
           }
+        });
+      }
+
+      // Maxsus kartalar (action cards) — faqat host yoqgan xonalarda tarqatamiz.
+      // Eski xonalar/o'yinlar default false bilan keladi, hech qanday yangi
+      // jadval to'ldirilmaydi.
+      if (room.actionCardsEnabled) {
+        await dealActionCards({
+          tx,
+          gameId: game.id,
+          playerIds: room.players.map((p) => p.id),
+          isAdult: room.isAdult
         });
       }
 
@@ -1913,7 +1952,8 @@ export class BunkerGameService {
       include: {
         players: {
           include: {
-            bunkerAttributes: true
+            bunkerAttributes: true,
+            bunkerActionCards: { include: { actionCard: true } }
           },
           orderBy: { seatOrder: "asc" }
         },

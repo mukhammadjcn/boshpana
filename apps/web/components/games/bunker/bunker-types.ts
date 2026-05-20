@@ -33,6 +33,17 @@ export type BunkerCardType =
   | "BAGGAGE"
   | "FACT";
 
+export type BunkerActionCardView = {
+  instanceId: string;
+  cardKey: string;
+  title: LocalizedText;
+  description: LocalizedText;
+  effect: string;
+  targetScope: "SELF" | "OTHER" | "ANY" | "ALL";
+  tier: number;
+  status: "HELD" | "PLAYED" | "DISCARDED";
+};
+
 export type BunkerRoomState = {
   room: {
     id: string;
@@ -42,6 +53,7 @@ export type BunkerRoomState = {
     winnerTarget: number;
     maxPlayers: number;
     isAdult: boolean;
+    actionCardsEnabled: boolean;
   };
   game: {
     phase: BunkerPhase;
@@ -77,6 +89,7 @@ export type BunkerRoomState = {
     cards: Record<string, LocalizedText>;
     cardTags: Record<string, string[]>;
     revealed: BunkerCardType[];
+    actionCards: BunkerActionCardView[];
   } | null;
   players: Array<{
     id: string;

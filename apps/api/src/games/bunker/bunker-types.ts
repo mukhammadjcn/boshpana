@@ -20,6 +20,19 @@ export const BUNKER_PITCH_DURATION_SECONDS = 120;
 export const BUNKER_VOTING_DURATION_SECONDS = 45;
 export const BUNKER_ONLINE_ROUND_RESULT_DURATION_SECONDS = 6;
 
+// O'yinchi o'zining qo'lidagi maxsus karta nusxasi.
+// Faza 2 da read-only — Ishlatish tugmasi qisqa muddatda passiv qoladi.
+export type BunkerActionCardView = {
+  instanceId: string;
+  cardKey: string;
+  title: LocalizedText;
+  description: LocalizedText;
+  effect: string; // BunkerActionEffect enum sifatida — frontend tip qatlamida cheklaymiz
+  targetScope: "SELF" | "OTHER" | "ANY" | "ALL";
+  tier: number;
+  status: "HELD" | "PLAYED" | "DISCARDED";
+};
+
 export type BunkerPublicState = {
   room: {
     id: string;
@@ -29,6 +42,7 @@ export type BunkerPublicState = {
     winnerTarget: number;
     maxPlayers: number;
     isAdult: boolean;
+    actionCardsEnabled: boolean;
   };
   game: {
     phase: BunkerPhase;
@@ -64,6 +78,9 @@ export type BunkerPublicState = {
     cards: Record<string, LocalizedText>;
     cardTags: Record<string, string[]>;
     revealed: BunkerCardType[];
+    // Faqat o'yinchining o'z action kartalari. Boshqalarning kartalari yashirin
+    // qoladi — bu Faza 2 da read-only, ishlatish keyingi fazalarda.
+    actionCards: BunkerActionCardView[];
   } | null;
   players: Array<{
     id: string;

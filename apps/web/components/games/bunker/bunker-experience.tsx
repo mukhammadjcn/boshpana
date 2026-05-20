@@ -23,6 +23,7 @@ import {
   type SupportedLanguage,
 } from "@/lib/localized-content";
 import { HostControls } from "./bunker-host-controls";
+import { BunkerActionCardsPanel } from "./bunker-action-cards-panel";
 import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
@@ -1394,6 +1395,13 @@ export function BunkerExperience({
             ))}
           </ul>
         </section>
+
+        {/* Maxsus kartalar paneli — faqat host xona yaratganda yoqilgan bo'lsa */}
+        {room.actionCardsEnabled && me.actionCards && me.actionCards.length > 0 ? (
+          <section className="mt-4">
+            <BunkerActionCardsPanel cards={me.actionCards} canPlay={false} />
+          </section>
+        ) : null}
 
         {error ? (
           <p className="mt-4 rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">

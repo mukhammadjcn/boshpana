@@ -43,6 +43,7 @@ export function BunkerFriendsCreate() {
   const [hostName, setHostName] = useState("");
   const [winnerTarget, setWinnerTarget] = useState(2);
   const [isAdult, setIsAdult] = useState(false);
+  const [actionCardsEnabled, setActionCardsEnabled] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -100,6 +101,7 @@ export function BunkerFriendsCreate() {
             sessionId,
             winnerTarget,
             isAdult,
+            actionCardsEnabled,
             ...(confirmLeaveExisting ? { confirmLeaveExisting: true } : {}),
           }),
         },
@@ -288,6 +290,49 @@ export function BunkerFriendsCreate() {
                 <span className="text-sm font-semibold">18+</span>
                 <span className="text-[11px] text-ink-muted">
                   {t("aralash_kartalar_tavsif")}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Maxsus kartalar toggle — host xona yaratganda yoqadi. */}
+          <div className="grid gap-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
+              {t("maxsus_kartalar") ?? "Maxsus kartalar"}
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setActionCardsEnabled(false)}
+                aria-pressed={!actionCardsEnabled}
+                className={`flex h-14 flex-col items-center justify-center rounded-xl border text-center transition active:scale-[0.98] ${
+                  !actionCardsEnabled
+                    ? "border-brand bg-brand-soft text-brand"
+                    : "border-line-strong bg-bg-base text-ink-secondary"
+                }`}
+              >
+                <span className="text-sm font-semibold">
+                  {t("ochiq_emas") ?? "O‘chiq"}
+                </span>
+                <span className="text-[11px] text-ink-muted">
+                  {t("klassik_oyin_tavsif") ?? "Klassik 6 kartali o‘yin"}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActionCardsEnabled(true)}
+                aria-pressed={actionCardsEnabled}
+                className={`flex h-14 flex-col items-center justify-center rounded-xl border text-center transition active:scale-[0.98] ${
+                  actionCardsEnabled
+                    ? "border-brand bg-brand-soft text-brand"
+                    : "border-line-strong bg-bg-base text-ink-secondary"
+                }`}
+              >
+                <span className="text-sm font-semibold">
+                  {t("yoqilgan") ?? "Yoqilgan"}
+                </span>
+                <span className="text-[11px] text-ink-muted">
+                  {t("maxsus_kartalar_tavsif") ?? "Har o‘yinchiga 1 ta harakat"}
                 </span>
               </button>
             </div>

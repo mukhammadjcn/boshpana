@@ -32,6 +32,7 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
       // Bunker-only fields (ignored for Mafia)
       winnerTarget?: number;
       isAdult?: boolean;
+      actionCardsEnabled?: boolean;
       // Mafia-only fields (ignored for Bunker)
       mafiaCount?: number;
       hasSheriff?: boolean;
@@ -114,7 +115,8 @@ export async function registerPublicRoutes(app: FastifyInstance, deps: RouteDeps
           hostUserId: user.id,
           maxPlayers: body.maxPlayers,
           winnerTarget: body.winnerTarget ?? 1,
-          isAdult: body.isAdult
+          isAdult: body.isAdult,
+          actionCardsEnabled: body.actionCardsEnabled
         });
         return reply.send(result);
       } catch (error) {
