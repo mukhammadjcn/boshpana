@@ -1,4 +1,4 @@
-import type { BunkerActionEffect, Prisma, PrismaClient } from "@prisma/client";
+import { BunkerCardType, type BunkerActionEffect, type Prisma, type PrismaClient } from "@prisma/client";
 
 import {
   parseRoundModifiers,
@@ -234,11 +234,80 @@ async function runEffect(
       return { applied: "extra_votes_against", targetPlayerId: targetId, count: 2 };
     }
 
+    case "REPLACE_OTHER_FACT": {
+      const targetId = requireTarget(input.targetPlayerId);
+      const newText = await drawReplacement(tx, gameId, "FACT");
+      const prev = await tx.bunkerPlayerAttribute.findUnique({
+        where: { playerId: targetId },
+        select: { fact: true }
+      });
+      await tx.bunkerPlayerAttribute.update({
+        where: { playerId: targetId },
+        data: { fact: newText }
+      });
+      return {
+        applied: "replace_other_fact",
+        targetPlayerId: targetId,
+        from: prev?.fact ?? null,
+        to: newText
+      };
+    }
+
+    case "REPLACE_OTHER_PROFESSION": {
+      const targetId = requireTarget(input.targetPlayerId);
+      const newText = await drawReplacement(tx, gameId, "PROFESSION");
+      const prev = await tx.bunkerPlayerAttribute.findUnique({
+        where: { playerId: targetId },
+        select: { profession: true }
+      });
+      await tx.bunkerPlayerAttribute.update({
+        where: { playerId: targetId },
+        data: { profession: newText }
+      });
+      return {
+        applied: "replace_other_profession",
+        targetPlayerId: targetId,
+        from: prev?.profession ?? null,
+        to: newText
+      };
+    }
+
+    case "REVEAL_HIDDEN_CARD": {
+      // Shantaj: target o'yinchining hali ochilmagan kartalaridan birini
+      // majburan ochiramiz (server tasodifiy tanlaydi). Faza 7'da target
+      // tanlangach attacker karta turini tanlash imkoniyati qo'shiladi.
+      const targetId = requireTarget(input.targetPlayerId);
+      const attrs = await tx.bunkerPlayerAttribute.findUnique({
+        where: { playerId: targetId },
+        select: { revealed: true }
+      });
+      if (!attrs) throw new Error("Target o'yinchining kartalari topilmadi.");
+      const allTypes: BunkerCardType[] = [
+        BunkerCardType.PROFESSION,
+        BunkerCardType.HEALTH,
+        BunkerCardType.BIOLOGY,
+        BunkerCardType.SKILL,
+        BunkerCardType.BAGGAGE,
+        BunkerCardType.FACT
+      ];
+      const hidden = allTypes.filter((t) => !attrs.revealed.includes(t));
+      if (hidden.length === 0) {
+        return { applied: "reveal_hidden_card", targetPlayerId: targetId, note: "no_hidden_cards" };
+      }
+      const picked = hidden[Math.floor(Math.random() * hidden.length)];
+      await tx.bunkerPlayerAttribute.update({
+        where: { playerId: targetId },
+        data: { revealed: { push: picked } }
+      });
+      return {
+        applied: "reveal_hidden_card",
+        targetPlayerId: targetId,
+        revealedType: picked
+      };
+    }
+
     // ─── V2/V3 hali NO-OP ──────────────────────────────────────
-    case "REPLACE_OTHER_FACT":
-    case "REPLACE_OTHER_PROFESSION":
     case "STEAL_BAGGAGE":
-    case "REVEAL_HIDDEN_CARD":
     case "REDIRECT_VOTES":
     case "INSTANT_EXILE":
     case "CANCEL_ROUND_VOTES":

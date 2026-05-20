@@ -151,7 +151,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "REPLACE_OTHER_FACT",
     targetScope: "OTHER",
     tier: 2,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "hr_mistake",
@@ -167,7 +167,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "REPLACE_OTHER_PROFESSION",
     targetScope: "ANY",
     tier: 3,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "marauder",
@@ -199,7 +199,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "REVEAL_HIDDEN_CARD",
     targetScope: "OTHER",
     tier: 2,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "silence",
