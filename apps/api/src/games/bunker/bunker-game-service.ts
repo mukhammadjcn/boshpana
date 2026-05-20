@@ -32,6 +32,10 @@ import {
   playActionCard
 } from "./bunker-action-service";
 import {
+  emptyRoundModifiers,
+  parseRoundModifiers
+} from "./bunker-round-modifiers";
+import {
   BUNKER_PITCH_DURATION_SECONDS,
   BUNKER_VOTING_DURATION_SECONDS,
   CARD_TYPES,
@@ -1283,6 +1287,12 @@ export class BunkerGameService {
       throw new Error("Faqat tirik o'yinchi ovoz bera oladi.");
     }
 
+    // Action card modifierlari: silenced/skipRound o'yinchilar ovoz bera olmaydi.
+    const modifiers = parseRoundModifiers(room.bunkerGame.roundModifiers);
+    if (modifiers.silenced.includes(me.id) || modifiers.skipRound.includes(me.id)) {
+      throw new Error("Bu raundda ovoz bera olmaysiz (maxsus karta ta'siri).");
+    }
+
     // Deduplicate targets up front so a client double-tap can't inflate counts.
     const targetIds = Array.from(new Set(input.targetPlayerIds));
     if (!targetIds.length) {
@@ -1296,6 +1306,10 @@ export class BunkerGameService {
     );
     if (targets.some((t) => !t || !t.isAlive)) {
       throw new Error("Noto'g'ri target tanlandi.");
+    }
+    // Immunitet maydonidagi o'yinchilarga ovoz berib bo'lmaydi.
+    if (targetIds.some((id) => modifiers.immune.includes(id))) {
+      throw new Error("Bu o'yinchi bu raundda daxlsiz (maxsus karta).");
     }
 
     const tiebreakCandidates = room.bunkerGame.tiebreakCandidateIds;
@@ -1529,7 +1543,9 @@ export class BunkerGameService {
             isSelfManagedOnlineRoom(room.mode) ? nextRevealPlayer?.id ?? null : null,
           lastEliminatedPlayerId: null,
           lastRevealedPlayerId: null,
-          lastRevealedCardType: null
+          lastRevealedCardType: null,
+          // Maxsus karta modifierlari faqat shu raund uchun edi — tozalaymiz.
+          roundModifiers: emptyRoundModifiers() as unknown as Prisma.InputJsonValue
         }
       })
     ]);
@@ -1736,6 +1752,14 @@ export class BunkerGameService {
       (vote) => vote.roundNumber === room.bunkerGame?.roundNumber
     );
 
+    // Action card modifierlari — bu raundga oid vaqtinchalik state.
+    // immune: ovozlari hisobga olinmaydi (effective kasal qarshi ovoz = 0).
+    // doubleVote: shu o'yinchilarning ovozi 2 ga teng.
+    // Raund yakunida modifiers tozalanadi (pastda).
+    const modifiers = parseRoundModifiers(room.bunkerGame.roundModifiers);
+    const immuneSet = new Set(modifiers.immune);
+    const doubleVoteSet = new Set(modifiers.doubleVote);
+
     const aliveBeforeVote = room.players.filter((p) => p.isAlive);
     const isEndgame = aliveBeforeVote.length <= room.winnerTarget + 1;
     const tiebreakActive = room.bunkerGame.tiebreakCandidateIds.length > 0;
@@ -1786,10 +1810,19 @@ export class BunkerGameService {
     } else {
       const score = new Map<string, number>();
       for (const vote of currentRoundVotes) {
+        // Immunitet ostidagi o'yinchiga berilgan ovozlar e'tibordan tashqari.
+        if (immuneSet.has(vote.targetPlayerId)) continue;
+        // Double-vote yoqilgan o'yinchining ovozi 2 ga teng.
+        const weight = doubleVoteSet.has(vote.voterPlayerId) ? 2 : 1;
         score.set(
           vote.targetPlayerId,
-          (score.get(vote.targetPlayerId) ?? 0) + 1
+          (score.get(vote.targetPlayerId) ?? 0) + weight
         );
+      }
+      // extraVotesAgainst — auto qarshi ovozlar (smear campaign kabi V2 effekt).
+      for (const [pid, count] of Object.entries(modifiers.extraVotesAgainst)) {
+        if (immuneSet.has(pid)) continue;
+        score.set(pid, (score.get(pid) ?? 0) + count);
       }
 
       // Single-elim rounds preserve the existing tiebreak phase so two-player
