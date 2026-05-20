@@ -27,7 +27,10 @@ import {
   getBunkerRoundResultDurationSeconds,
   isSelfManagedOnlineRoom
 } from "../online/online-self-managed-rules";
-import { dealActionCards } from "./bunker-action-service";
+import {
+  dealActionCards,
+  playActionCard
+} from "./bunker-action-service";
 import {
   BUNKER_PITCH_DURATION_SECONDS,
   BUNKER_VOTING_DURATION_SECONDS,
@@ -1184,6 +1187,25 @@ export class BunkerGameService {
     if (room.bunkerGame.phase === BunkerPhase.VOTING) {
       await this.resolveVoting(room.code);
     }
+  }
+
+  /**
+   * Maxsus karta ishlatish — barcha logika alohida `playActionCard` ichida.
+   * Hozirgi faza/taymer o'zgartirilmaydi: o'yin o'z holida davom etadi,
+   * faqat realtime hub natijani toast/event sifatida tarqatadi.
+   */
+  async playActionCard(input: {
+    code: string;
+    sessionId: string;
+    instanceId: string;
+    targetPlayerId?: string | null;
+  }) {
+    return playActionCard({
+      roomCode: input.code,
+      sessionId: input.sessionId,
+      instanceId: input.instanceId,
+      targetPlayerId: input.targetPlayerId
+    });
   }
 
   async revealCard(input: RevealInput) {

@@ -9,6 +9,7 @@ import {
   GameBottomSheetShell,
   GameModalShell,
 } from "../shared/game-modal-shell";
+import type { BunkerActionCardView } from "./bunker-types";
 
 type MyCardsSheetProps = {
   open: boolean;
@@ -20,7 +21,29 @@ type MyCardsSheetProps = {
     value: string;
     isRevealed: boolean;
   }>;
+  actionCards?: BunkerActionCardView[];
+  canPlayActionCards?: boolean;
+  onPlayActionCard?: (instanceId: string) => void;
   onClose: () => void;
+};
+
+// Tier ranglari — har darajaga sezilmaydigan tint, lekin alohida belgilanib turadi.
+const ACTION_TIER_TINT: Record<number, string> = {
+  1: "border-line-subtle bg-bg-base",
+  2: "border-amber-500/50 bg-amber-500/5",
+  3: "border-rose-500/50 bg-rose-500/5",
+};
+
+const ACTION_TIER_BADGE: Record<number, string> = {
+  1: "bg-bg-elevated text-ink-muted",
+  2: "bg-amber-500/20 text-amber-400",
+  3: "bg-rose-500/20 text-rose-400",
+};
+
+const TIER_LABEL_KEY: Record<number, string> = {
+  1: "tier_oddiy",
+  2: "tier_ortacha",
+  3: "tier_kuchli",
 };
 
 export function BunkerMyCardsSheet({
@@ -28,6 +51,9 @@ export function BunkerMyCardsSheet({
   closing,
   revealedCount,
   cards,
+  actionCards,
+  canPlayActionCards = false,
+  onPlayActionCard,
   onClose,
 }: MyCardsSheetProps) {
   const { t } = useI18n();
@@ -91,6 +117,53 @@ export function BunkerMyCardsSheet({
               <p className="mt-1.5 text-sm text-ink-primary">{card.value}</p>
             </div>
           ))}
+
+          {(actionCards ?? []).map((ac) => {
+            const isPlayed = ac.status !== "HELD";
+            const tint = ACTION_TIER_TINT[ac.tier] ?? ACTION_TIER_TINT[1];
+            const badge = ACTION_TIER_BADGE[ac.tier] ?? ACTION_TIER_BADGE[1];
+            const tierLabel = t(TIER_LABEL_KEY[ac.tier] ?? "tier_oddiy");
+            const title = ac.title.uz; // pickText keyingi commit'da bo'ladi
+            const description = ac.description.uz;
+            return (
+              <div
+                key={ac.instanceId}
+                className={`rounded-2xl border p-3 ${tint} ${
+                  isPlayed ? "opacity-50" : ""
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                    {t("maxsus_kartalar")}
+                  </p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge}`}
+                  >
+                    {tierLabel}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-sm font-semibold text-ink-primary">
+                  {title}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-secondary leading-snug">
+                  {description}
+                </p>
+                {!isPlayed && canPlayActionCards && onPlayActionCard ? (
+                  <button
+                    type="button"
+                    onClick={() => onPlayActionCard(ac.instanceId)}
+                    className="mt-2 w-full rounded-lg bg-brand px-2 py-1.5 text-xs font-semibold text-bg-base transition active:scale-[0.98]"
+                  >
+                    {t("ishlatish")}
+                  </button>
+                ) : isPlayed ? (
+                  <p className="mt-1.5 text-[11px] text-ink-muted">
+                    {t("ishlatilgan")}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
     </GameModalShell>
   );

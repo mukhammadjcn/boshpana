@@ -38,6 +38,10 @@ enum BunkerPhase {
   ROUND_PITCH
   ROUND_COMPLETE
   VOTING
+  // Maxsus karta ishlatilganda kiriladigan qisqa "interruption" fazasi.
+  // Animatsiya/effekt vizualizatsiyasi uchun ~3-5 soniya; tugagach
+  // BunkerGame.previousPhase ga qaytadi.
+  ACTION_INTERRUPT
   FINISHED
 }
 
@@ -248,6 +252,8 @@ model BunkerGame {
   // Joriy raundga oid vaqtinchalik modifikatorlar (immunitet, double vote, silence va h.k.).
   // Raund tugaganda tozalanadi. Shakli: { immune: string[], doubleVote: string[], silenced: string[], extraVotesAgainst: Record<string, number>, exiled: string[], skipRound: string[] }
   roundModifiers     Json             @default("{}")
+  // ACTION_INTERRUPT fazasi tugaganda asl faza tiklash uchun.
+  previousPhase      BunkerPhase?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   playerAttributes   BunkerPlayerAttribute[]

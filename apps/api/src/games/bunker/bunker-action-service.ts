@@ -1,4 +1,8 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { BunkerPhase, type Prisma, type PrismaClient } from "@prisma/client";
+
+import { prisma } from "../../lib/prisma";
+import { withRoomActionLock } from "../../services/room-action-lock-service";
+import { applyActionEffect } from "./bunker-action-effects";
 
 // Har bir o'yinchiga tarqatiladigan action card soni. Hozircha qotirilgan;
 // keyinchalik xona sozlamalariga ko'chirish mumkin.
@@ -68,4 +72,93 @@ function pickRandom<T>(arr: readonly T[], n: number): T[] {
     copy.splice(idx, 1);
   }
   return out;
+}
+
+export type PlayActionCardInput = {
+  roomCode: string;
+  sessionId: string;
+  instanceId: string;
+  targetPlayerId?: string | null;
+};
+
+export type PlayActionCardResult = {
+  effect: string;
+  resultMeta: Prisma.JsonValue;
+  // Karta ishlatuvchisi (boshqalar uchun toast'ga).
+  sourcePlayerId: string;
+  sourcePlayerName: string;
+  // Karta nomi (uz/ru/en) — barcha o'yinchilar ko'radigan toastda ishlatamiz.
+  cardKey: string;
+  titleUz: string;
+  titleRu: string;
+  titleEn: string;
+  // Maqsadli o'yinchi (SELF effektlarda null).
+  targetPlayerId: string | null;
+};
+
+/**
+ * Maxsus karta ishlatish orchestrator'i.
+ *
+ * Yengil yondashuv: fazani o'zgartirmaymiz, taymerga tegmaymiz.
+ * Faqat:
+ *   1. Validatsiya (tirik o'yinchi, actionCardsEnabled, hozirgi faza karta ruxsat beradi)
+ *   2. Effekt reducer (Faza 3 NO-OP; Faza 4-6 real)
+ *   3. Audit ma'lumotini qaytarish — caller broadcast qiladi.
+ *
+ * Asosiy o'yin (intro, reveal, voting) o'z holida davom etadi; faqat
+ * o'yinchilarga toast ko'rsatamiz "X ishlatti Y kartani".
+ */
+export async function playActionCard(input: PlayActionCardInput): Promise<PlayActionCardResult> {
+  return withRoomActionLock(input.roomCode, async () => {
+    return prisma.$transaction(async (tx) => {
+      const room = await tx.room.findUnique({
+        where: { code: input.roomCode.toUpperCase() },
+        include: {
+          bunkerGame: true,
+          players: { where: { sessionId: input.sessionId } }
+        }
+      });
+      if (!room) throw new Error("Xona topilmadi.");
+      if (!room.bunkerGame) throw new Error("Bunker o'yini boshlanmagan.");
+      if (!room.actionCardsEnabled) throw new Error("Maxsus kartalar yoqilmagan.");
+
+      const me = room.players[0];
+      if (!me) throw new Error("Siz xonada emassiz.");
+      if (!me.isAlive) throw new Error("O'yindan chiqib ketgansiz.");
+
+      if (
+        room.bunkerGame.phase === BunkerPhase.LOBBY ||
+        room.bunkerGame.phase === BunkerPhase.FINISHED
+      ) {
+        throw new Error("Hozir maxsus karta ishlatib bo'lmaydi.");
+      }
+
+      const effectResult = await applyActionEffect({
+        tx,
+        gameId: room.bunkerGame.id,
+        instanceId: input.instanceId,
+        sourcePlayerId: me.id,
+        targetPlayerId: input.targetPlayerId ?? null
+      });
+
+      // Karta ma'lumotlarini olamiz — caller broadcast/toast uchun.
+      const instance = await tx.bunkerActionCardInstance.findUnique({
+        where: { id: input.instanceId },
+        include: { actionCard: true }
+      });
+      if (!instance) throw new Error("Karta nusxasi yo'qoldi.");
+
+      return {
+        effect: effectResult.effect,
+        resultMeta: effectResult.resultMeta as Prisma.JsonValue,
+        sourcePlayerId: me.id,
+        sourcePlayerName: me.name,
+        cardKey: instance.actionCard.key,
+        titleUz: instance.actionCard.titleUz,
+        titleRu: instance.actionCard.titleRu,
+        titleEn: instance.actionCard.titleEn,
+        targetPlayerId: input.targetPlayerId ?? null
+      };
+    });
+  });
 }

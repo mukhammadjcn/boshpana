@@ -298,7 +298,7 @@ export function BunkerFriendsCreate() {
           {/* Maxsus kartalar toggle — host xona yaratganda yoqadi. */}
           <div className="grid gap-2">
             <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-              {t("maxsus_kartalar") ?? "Maxsus kartalar"}
+              {t("maxsus_kartalar")}
             </span>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -311,11 +311,9 @@ export function BunkerFriendsCreate() {
                     : "border-line-strong bg-bg-base text-ink-secondary"
                 }`}
               >
-                <span className="text-sm font-semibold">
-                  {t("ochiq_emas") ?? "O‘chiq"}
-                </span>
+                <span className="text-sm font-semibold">{t("ochiq_emas")}</span>
                 <span className="text-[11px] text-ink-muted">
-                  {t("klassik_oyin_tavsif") ?? "Klassik 6 kartali o‘yin"}
+                  {t("klassik_oyin_tavsif")}
                 </span>
               </button>
               <button
@@ -328,11 +326,9 @@ export function BunkerFriendsCreate() {
                     : "border-line-strong bg-bg-base text-ink-secondary"
                 }`}
               >
-                <span className="text-sm font-semibold">
-                  {t("yoqilgan") ?? "Yoqilgan"}
-                </span>
+                <span className="text-sm font-semibold">{t("yoqilgan")}</span>
                 <span className="text-[11px] text-ink-muted">
-                  {t("maxsus_kartalar_tavsif") ?? "Har o‘yinchiga 1 ta harakat"}
+                  {t("maxsus_kartalar_tavsif")}
                 </span>
               </button>
             </div>

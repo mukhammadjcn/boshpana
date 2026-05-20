@@ -23,7 +23,7 @@ import {
   type SupportedLanguage,
 } from "@/lib/localized-content";
 import { HostControls } from "./bunker-host-controls";
-import { BunkerActionCardsPanel } from "./bunker-action-cards-panel";
+import { BunkerActionToast } from "./bunker-action-toast";
 import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
 import { getAuthToken, getAuthUser } from "@/lib/auth";
@@ -111,6 +111,7 @@ const phaseHelp: Record<BunkerPhase, string> = {
   ROUND_PITCH: "Pitch — 2 daqiqa",
   ROUND_COMPLETE: "Round yakuni",
   VOTING: "Ovoz berish",
+  ACTION_INTERRUPT: "Maxsus karta",
   FINISHED: "Yakun",
 };
 
@@ -178,6 +179,7 @@ export function BunkerExperience({
   const [typingPlayers, setTypingPlayers] = useState<
     Record<string, { name: string; expiresAt: number }>
   >({});
+  const [actionToast, setActionToast] = useState<import("./bunker-action-toast").ActionToastData | null>(null);
   const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
@@ -445,12 +447,28 @@ export function BunkerExperience({
       }
     };
 
+    const onActionPlayed = (payload: {
+      sourcePlayerId: string;
+      sourcePlayerName: string;
+      titleUz: string;
+      titleRu: string;
+      titleEn: string;
+    }) => {
+      setActionToast({
+        id: `${payload.sourcePlayerId}-${Date.now()}`,
+        playerName: payload.sourcePlayerName,
+        title: { uz: payload.titleUz, ru: payload.titleRu, en: payload.titleEn },
+        receivedAt: Date.now(),
+      });
+    };
+
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("room_state", onState);
     socket.on("timer_update", onTimer);
     socket.on("action_error", onErr);
     socket.on("chat:typing", onTyping);
+    socket.on("action_played", onActionPlayed);
     document.addEventListener("visibilitychange", onVisibility);
     // The socket.io client is a singleton shared across the whole app.
     // After finishing a game and entering the next room WITHOUT a full
@@ -475,6 +493,7 @@ export function BunkerExperience({
       socket.off("timer_update", onTimer);
       socket.off("action_error", onErr);
       socket.off("chat:typing", onTyping);
+      socket.off("action_played", onActionPlayed);
       document.removeEventListener("visibilitychange", onVisibility);
       connectedRef.current = false;
     };
@@ -1233,6 +1252,10 @@ export function BunkerExperience({
         closingConfirmation={closingConfirmation}
       />
       {connectionFeedback}
+      <BunkerActionToast
+        toast={actionToast}
+        onDismiss={() => setActionToast(null)}
+      />
       {/* Sticky header */}
       <header className="sticky top-0 z-30 border-b border-line-subtle bg-bg-base/95 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 pt-safe pb-2.5">
@@ -1396,13 +1419,6 @@ export function BunkerExperience({
           </ul>
         </section>
 
-        {/* Maxsus kartalar paneli — faqat host xona yaratganda yoqilgan bo'lsa */}
-        {room.actionCardsEnabled && me.actionCards && me.actionCards.length > 0 ? (
-          <section className="mt-4">
-            <BunkerActionCardsPanel cards={me.actionCards} canPlay={false} />
-          </section>
-        ) : null}
-
         {error ? (
           <p className="mt-4 rounded-xl border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
             {error}
@@ -1527,6 +1543,16 @@ export function BunkerExperience({
         closing={myCardsClosing}
         revealedCount={myRevealedCount}
         cards={myCards}
+        actionCards={room.actionCardsEnabled ? me.actionCards : undefined}
+        canPlayActionCards={
+          me.isAlive &&
+          game.phase !== "ACTION_INTERRUPT" &&
+          game.phase !== "LOBBY" &&
+          game.phase !== "FINISHED"
+        }
+        onPlayActionCard={(instanceId) =>
+          emit("play_action_card", { instanceId })
+        }
         onClose={closeMyCards}
       />
 

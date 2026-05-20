@@ -23,6 +23,8 @@ export type BunkerPhase =
   | "ROUND_PITCH"
   | "ROUND_COMPLETE"
   | "VOTING"
+  // Schema'da hali bor (kelajakda kuchli effektlar uchun); hozir ishlatilmaydi.
+  | "ACTION_INTERRUPT"
   | "FINISHED";
 
 export type BunkerCardType =

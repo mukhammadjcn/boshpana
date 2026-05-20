@@ -228,6 +228,38 @@ export class RealtimeHub {
         });
       });
 
+      socket.on(
+        "play_action_card",
+        async (
+          payload: SocketActionPayload & {
+            instanceId: string;
+            targetPlayerId?: string;
+          }
+        ) => {
+          await this.handleAction(socket, async () => {
+            const result = await this.gameService.playActionCard({
+              code: payload.roomCode,
+              sessionId: payload.sessionId,
+              instanceId: payload.instanceId,
+              targetPlayerId: payload.targetPlayerId
+            });
+            // Xonadagi barchaga "kim qaysi karta ishlatdi" toast eventi.
+            // Faza o'zgarmaydi; bu shunchaki ko'rsatish uchun.
+            this.io.to(payload.roomCode.toUpperCase()).emit("action_played", {
+              sourcePlayerId: result.sourcePlayerId,
+              sourcePlayerName: result.sourcePlayerName,
+              cardKey: result.cardKey,
+              titleUz: result.titleUz,
+              titleRu: result.titleRu,
+              titleEn: result.titleEn,
+              targetPlayerId: result.targetPlayerId,
+              effect: result.effect
+            });
+            await this.broadcastRoomState(payload.roomCode);
+          });
+        }
+      );
+
       socket.on("start_voting", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
           await this.gameService.startVoting({
