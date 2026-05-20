@@ -102,7 +102,7 @@ function DayShell({
   return (
     <main className="min-h-screen bg-bg-base text-ink-primary">
       <div
-        className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 pt-safe sm:px-6 lg:px-8"
+        className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-5 sm:px-6 lg:px-8"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
       >
         <header className="sticky top-0 z-10 -mx-5 border-b border-line-subtle bg-bg-base/95 px-5 pt-safe pb-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
