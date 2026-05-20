@@ -306,14 +306,107 @@ async function runEffect(
       };
     }
 
+    // ─── V3 ─────────────────────────────────────────────────────
+    case "CANCEL_ROUND_VOTES": {
+      // Siyosiy inqiroz: shu raunddagi barcha ovozlar bekor qilinadi va
+      // hech kim haydalmaydi. Faqat hozirgi raundga ta'sir qiladi.
+      const game = await tx.bunkerGame.findUnique({
+        where: { id: gameId },
+        select: { roundNumber: true, room: { select: { id: true } } }
+      });
+      if (!game) throw new Error("O'yin topilmadi.");
+      const deleted = await tx.bunkerVote.deleteMany({
+        where: {
+          roomId: game.room.id,
+          roundNumber: game.roundNumber
+        }
+      });
+      // Hammani immunitetga qo'yamiz — qoladigan ovoz kelganda ham
+      // hech kim haydalmasin.
+      const alive = await tx.player.findMany({
+        where: { roomId: game.room.id, isAlive: true },
+        select: { id: true }
+      });
+      await mutateRoundModifiers(tx, gameId, (mods) => {
+        for (const p of alive) {
+          if (!mods.immune.includes(p.id)) mods.immune.push(p.id);
+        }
+      });
+      return {
+        applied: "cancel_round_votes",
+        deletedVotes: deleted.count,
+        protectedPlayers: alive.length
+      };
+    }
+
+    case "FORCE_REVEAL_ALL_OWN": {
+      // To'liq oshkoralik: o'zining barcha kartalarini birdaniga ochib qo'yadi.
+      const allTypes: BunkerCardType[] = [
+        BunkerCardType.PROFESSION,
+        BunkerCardType.HEALTH,
+        BunkerCardType.BIOLOGY,
+        BunkerCardType.SKILL,
+        BunkerCardType.BAGGAGE,
+        BunkerCardType.FACT
+      ];
+      await tx.bunkerPlayerAttribute.update({
+        where: { playerId: sourcePlayerId },
+        data: { revealed: { set: allTypes } }
+      });
+      return { applied: "force_reveal_all_own", playerId: sourcePlayerId };
+    }
+
+    case "REROLL_TARGET_CARD": {
+      // Adolatsiz almashinuv: tanlangan o'yinchining tasodifiy bitta
+      // ochilmagan kartasini yangisi bilan almashtiradi. Faza 7'da
+      // attacker karta turini tanlash imkoniyati qo'shiladi.
+      const targetId = requireTarget(input.targetPlayerId);
+      const attrs = await tx.bunkerPlayerAttribute.findUnique({
+        where: { playerId: targetId },
+        select: { revealed: true, profession: true, health: true, biology: true, skill: true, baggage: true, fact: true }
+      });
+      if (!attrs) throw new Error("Target o'yinchining kartalari topilmadi.");
+      const allTypes: BunkerCardType[] = [
+        BunkerCardType.PROFESSION,
+        BunkerCardType.HEALTH,
+        BunkerCardType.BIOLOGY,
+        BunkerCardType.SKILL,
+        BunkerCardType.BAGGAGE,
+        BunkerCardType.FACT
+      ];
+      const hidden = allTypes.filter((t) => !attrs.revealed.includes(t));
+      if (hidden.length === 0) {
+        return { applied: "reroll_target_card", targetPlayerId: targetId, note: "no_hidden_cards" };
+      }
+      const picked = hidden[Math.floor(Math.random() * hidden.length)];
+      const newText = await drawReplacement(tx, gameId, picked);
+      const fieldMap: Record<BunkerCardType, "profession" | "health" | "biology" | "skill" | "baggage" | "fact"> = {
+        PROFESSION: "profession",
+        HEALTH: "health",
+        BIOLOGY: "biology",
+        SKILL: "skill",
+        BAGGAGE: "baggage",
+        FACT: "fact"
+      };
+      const field = fieldMap[picked];
+      await tx.bunkerPlayerAttribute.update({
+        where: { playerId: targetId },
+        data: { [field]: newText }
+      });
+      return {
+        applied: "reroll_target_card",
+        targetPlayerId: targetId,
+        cardType: picked,
+        from: attrs[field],
+        to: newText
+      };
+    }
+
     // ─── V2/V3 hali NO-OP ──────────────────────────────────────
     case "STEAL_BAGGAGE":
     case "REDIRECT_VOTES":
     case "INSTANT_EXILE":
-    case "CANCEL_ROUND_VOTES":
     case "REVIVE_SELF":
-    case "FORCE_REVEAL_ALL_OWN":
-    case "REROLL_TARGET_CARD":
     case "STEAL_GOOD_GIVE_BAD":
       return { noop: true, phase: "skeleton" };
 

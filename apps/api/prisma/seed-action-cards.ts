@@ -283,7 +283,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "CANCEL_ROUND_VOTES",
     targetScope: "ALL",
     tier: 3,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "revival",
@@ -315,7 +315,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "FORCE_REVEAL_ALL_OWN",
     targetScope: "SELF",
     tier: 2,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "reroll_card",
@@ -331,7 +331,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "REROLL_TARGET_CARD",
     targetScope: "ANY",
     tier: 3,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "swap_curse",
