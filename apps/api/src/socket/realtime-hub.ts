@@ -252,6 +252,9 @@ export class RealtimeHub {
               titleUz: result.titleUz,
               titleRu: result.titleRu,
               titleEn: result.titleEn,
+              descriptionUz: result.descriptionUz,
+              descriptionRu: result.descriptionRu,
+              descriptionEn: result.descriptionEn,
               targetPlayerId: result.targetPlayerId,
               effect: result.effect
             });
@@ -262,10 +265,27 @@ export class RealtimeHub {
 
       socket.on("start_voting", async (payload: SocketActionPayload) => {
         await this.handleAction(socket, async () => {
-          await this.gameService.startVoting({
+          const result = await this.gameService.startVoting({
             code: payload.roomCode,
             sessionId: payload.sessionId
           });
+          // Maxsus karta sababli hamma immune bo'lsa, voting o'tkazib yuborildi —
+          // xonadagi barchaga sodda system toast.
+          if (result?.skippedAllImmune) {
+            this.io.to(payload.roomCode.toUpperCase()).emit("action_played", {
+              sourcePlayerId: "system",
+              sourcePlayerName: "System",
+              cardKey: "system_all_immune",
+              titleUz: "Barcha daxlsiz — raund o'tkazildi",
+              titleRu: "Все защищены — раунд пропущен",
+              titleEn: "Everyone immune — round skipped",
+              descriptionUz: "Hech kim haydalmadi, keyingi raundga o'tamiz.",
+              descriptionRu: "Никто не исключён, переходим к следующему раунду.",
+              descriptionEn: "No one was eliminated, moving to the next round.",
+              targetPlayerId: null,
+              effect: "ALL_IMMUNE_SKIP"
+            });
+          }
           await this.broadcastRoomState(payload.roomCode);
         });
       });

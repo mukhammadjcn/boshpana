@@ -191,39 +191,6 @@ export function PlayerCard({
                 !
               </span>
             ) : null}
-            {/* Maxsus karta modifierlari — emoji bilan kompakt badge */}
-            {actionModifiers?.immune ? (
-              <span
-                title={t("daxlsiz")}
-                className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-400"
-              >
-                🛡
-              </span>
-            ) : null}
-            {actionModifiers?.doubleVote ? (
-              <span
-                title={t("ikki_ovoz")}
-                className="rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[11px] text-rose-400"
-              >
-                2×
-              </span>
-            ) : null}
-            {actionModifiers?.silenced ? (
-              <span
-                title={t("jim")}
-                className="rounded-full bg-slate-500/20 px-1.5 py-0.5 text-[11px] text-slate-300"
-              >
-                🤐
-              </span>
-            ) : null}
-            {actionModifiers?.skipRound ? (
-              <span
-                title={t("raund_otkazgan")}
-                className="rounded-full bg-slate-500/20 px-1.5 py-0.5 text-[11px] text-slate-300"
-              >
-                ⏭
-              </span>
-            ) : null}
           </div>
           <p
             className={`mt-0.5 text-xs ${
@@ -244,6 +211,48 @@ export function PlayerCard({
                   ? t("count_6_ochiq", { count: entries.length })
                   : t("oyindan_chiqqan")}
           </p>
+          {/* Maxsus karta modifierlari — name'dan alohida, status matni ostida.
+              Bir nechtasi bo'lganda flex-wrap bilan yangi qatorga tushadi. */}
+          {actionModifiers &&
+          (actionModifiers.immune ||
+            actionModifiers.doubleVote ||
+            actionModifiers.silenced ||
+            actionModifiers.skipRound) ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {actionModifiers.immune ? (
+                <span
+                  title={t("daxlsiz")}
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400"
+                >
+                  🛡 {t("daxlsiz")}
+                </span>
+              ) : null}
+              {actionModifiers.doubleVote ? (
+                <span
+                  title={t("ikki_ovoz")}
+                  className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-medium text-rose-400"
+                >
+                  2× {t("ikki_ovoz")}
+                </span>
+              ) : null}
+              {actionModifiers.silenced ? (
+                <span
+                  title={t("jim")}
+                  className="inline-flex items-center gap-1 rounded-full bg-slate-500/20 px-2 py-0.5 text-[10px] font-medium text-slate-300"
+                >
+                  🤐 {t("jim")}
+                </span>
+              ) : null}
+              {actionModifiers.skipRound ? (
+                <span
+                  title={t("raund_otkazgan")}
+                  className="inline-flex items-center gap-1 rounded-full bg-slate-500/20 px-2 py-0.5 text-[10px] font-medium text-slate-300"
+                >
+                  ⏭ {t("raund_otkazgan")}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {canReport ? (

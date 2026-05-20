@@ -459,11 +459,20 @@ export function BunkerExperience({
       titleUz: string;
       titleRu: string;
       titleEn: string;
+      descriptionUz?: string;
+      descriptionRu?: string;
+      descriptionEn?: string;
     }) => {
       setActionToast({
         id: `${payload.sourcePlayerId}-${Date.now()}`,
         playerName: payload.sourcePlayerName,
         title: { uz: payload.titleUz, ru: payload.titleRu, en: payload.titleEn },
+        description: {
+          uz: payload.descriptionUz ?? "",
+          ru: payload.descriptionRu ?? "",
+          en: payload.descriptionEn ?? "",
+        },
+        isSystem: payload.sourcePlayerId === "system",
         receivedAt: Date.now(),
       });
     };
@@ -1553,6 +1562,7 @@ export function BunkerExperience({
         revealedCount={myRevealedCount}
         cards={myCards}
         actionCards={room.actionCardsEnabled ? me.actionCards : undefined}
+        extraBaggage={room.actionCardsEnabled ? me.extraBaggage : undefined}
         canPlayActionCards={
           me.isAlive &&
           game.phase !== "ACTION_INTERRUPT" &&

@@ -8,6 +8,8 @@ export type ActionToastData = {
   id: string;
   playerName: string;
   title: { uz: string; ru: string; en: string };
+  description: { uz: string; ru: string; en: string };
+  isSystem?: boolean;
   receivedAt: number;
 };
 
@@ -19,12 +21,13 @@ type Props = {
 };
 
 /**
- * Birgina kompakt toast — kim qaysi maxsus karta ishlatganini xonadagi
- * barchaga ko'rsatadi. Phase'ga ta'sir qilmaydi; intro/voting modallari
- * va boshqa o'yin holatiga halaqit bermaydi.
+ * Toast/banner — kim qaysi maxsus karta ishlatganini va u nima qila olishini
+ * xonadagi barchaga ko'rsatadi. Phase'ga ta'sir qilmaydi.
+ *
+ * Format: "{kim} ⚡ {karta nomi}" + {tavsifi} — o'yinchilar effektni tushunsin.
  */
-export function BunkerActionToast({ toast, onDismiss, durationMs = 3500 }: Props) {
-  const { language } = useI18n();
+export function BunkerActionToast({ toast, onDismiss, durationMs = 5000 }: Props) {
+  const { t, language } = useI18n();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -35,7 +38,6 @@ export function BunkerActionToast({ toast, onDismiss, durationMs = 3500 }: Props
     setVisible(true);
     const timer = setTimeout(() => {
       setVisible(false);
-      // Animatsiya tugashi uchun biroz kechikish
       setTimeout(onDismiss, 250);
     }, durationMs);
     return () => clearTimeout(timer);
@@ -43,8 +45,11 @@ export function BunkerActionToast({ toast, onDismiss, durationMs = 3500 }: Props
 
   if (!toast) return null;
 
-  const title =
-    language === "ru" ? toast.title.ru : language === "en" ? toast.title.en : toast.title.uz;
+  const pick = (text: { uz: string; ru: string; en: string }) =>
+    language === "ru" ? text.ru : language === "en" ? text.en : text.uz;
+
+  const title = pick(toast.title);
+  const description = pick(toast.description);
 
   return (
     <div
@@ -52,13 +57,30 @@ export function BunkerActionToast({ toast, onDismiss, durationMs = 3500 }: Props
         visible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"
       }`}
     >
-      <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-brand/40 bg-bg-surface/95 px-4 py-2 shadow-lg backdrop-blur">
-        <span className="text-lg">⚡</span>
-        <p className="text-xs">
-          <span className="font-semibold text-brand">{toast.playerName}</span>{" "}
-          <span className="text-ink-secondary">→</span>{" "}
-          <span className="font-medium text-ink-primary">{title}</span>
-        </p>
+      <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-brand/40 bg-bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
+        <div className="flex items-start gap-2">
+          <span className="text-xl leading-none">⚡</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs leading-tight">
+              {!toast.isSystem ? (
+                <>
+                  <span className="font-semibold text-brand">
+                    {toast.playerName}
+                  </span>{" "}
+                  <span className="text-ink-muted">
+                    {t("ishlatdi") ?? "ishlatdi"}:
+                  </span>{" "}
+                </>
+              ) : null}
+              <span className="font-semibold text-ink-primary">{title}</span>
+            </p>
+            {description ? (
+              <p className="mt-0.5 text-[11px] leading-snug text-ink-secondary">
+                {description}
+              </p>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );

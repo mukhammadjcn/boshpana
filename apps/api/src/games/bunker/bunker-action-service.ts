@@ -92,6 +92,10 @@ export type PlayActionCardResult = {
   titleUz: string;
   titleRu: string;
   titleEn: string;
+  // Karta tavsifi (uz/ru/en) — toastda nima ish qilishini ko'rsatish uchun.
+  descriptionUz: string;
+  descriptionRu: string;
+  descriptionEn: string;
   // Maqsadli o'yinchi (SELF effektlarda null).
   targetPlayerId: string | null;
 };
@@ -157,6 +161,9 @@ export async function playActionCard(input: PlayActionCardInput): Promise<PlayAc
         titleUz: instance.actionCard.titleUz,
         titleRu: instance.actionCard.titleRu,
         titleEn: instance.actionCard.titleEn,
+        descriptionUz: instance.actionCard.descriptionUz,
+        descriptionRu: instance.actionCard.descriptionRu,
+        descriptionEn: instance.actionCard.descriptionEn,
         targetPlayerId: input.targetPlayerId ?? null
       };
     });

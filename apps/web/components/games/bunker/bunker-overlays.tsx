@@ -22,6 +22,9 @@ type MyCardsSheetProps = {
     isRevealed: boolean;
   }>;
   actionCards?: BunkerActionCardView[];
+  // EXTRA_BAGGAGE action card orqali olingan qo'shimcha bagaj matnlari.
+  // Asosiy bagaj kartasidan keyin alohida BAGAJ qatorlar sifatida ko'rinadi.
+  extraBaggage?: string[];
   canPlayActionCards?: boolean;
   onPlayActionCard?: (instanceId: string) => void;
   onClose: () => void;
@@ -52,6 +55,7 @@ export function BunkerMyCardsSheet({
   revealedCount,
   cards,
   actionCards,
+  extraBaggage,
   canPlayActionCards = false,
   onPlayActionCard,
   onClose,
@@ -115,6 +119,25 @@ export function BunkerMyCardsSheet({
                 )}
               </div>
               <p className="mt-1.5 text-sm text-ink-primary">{card.value}</p>
+            </div>
+          ))}
+
+          {/* "Yashirin ombor" action card orqali olingan qo'shimcha bagajlar.
+              O'yinchining o'zi ishlatgani uchun avtomatik ochiq holatda. */}
+          {(extraBaggage ?? []).map((text, idx) => (
+            <div
+              key={`extra-baggage-${idx}`}
+              className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">
+                  {t("BAGGAGE") ?? "Bagaj"} +
+                </p>
+                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                  {t("qoshimcha") ?? "Qo'shimcha"}
+                </span>
+              </div>
+              <p className="mt-1.5 text-sm text-ink-primary">{text}</p>
             </div>
           ))}
 

@@ -453,7 +453,26 @@ export class BunkerGameService {
               targetScope: inst.actionCard.targetScope,
               tier: inst.actionCard.tier,
               status: inst.status
-            }))
+            })),
+            extraBaggage: (me.bunkerActionCards ?? [])
+              .filter(
+                (inst) =>
+                  inst.status === "PLAYED" &&
+                  inst.actionCard.effect === "EXTRA_BAGGAGE"
+              )
+              .map((inst) => {
+                const meta = inst.resultMeta;
+                if (
+                  meta &&
+                  typeof meta === "object" &&
+                  !Array.isArray(meta) &&
+                  typeof (meta as Record<string, unknown>).baggage === "string"
+                ) {
+                  return (meta as Record<string, unknown>).baggage as string;
+                }
+                return null;
+              })
+              .filter((s): s is string => !!s)
           }
         : null,
       players: room.players.map((player) => {
@@ -785,6 +804,43 @@ export class BunkerGameService {
       throw new Error("Hozir voting boshlash mumkin emas.");
     }
 
+    // Maxsus karta modifierlari tekshiruvi: agar barcha tirik o'yinchi
+    // shu raundda immune bo'lsa (masalan, "Siyosiy inqiroz" ishlatilgan yoki
+    // hammasi alohida "Daxlsizlik" ishlatgan), ovoz berishning mantiqi yo'q —
+    // to'g'ridan-to'g'ri keyingi raundga o'tkazamiz.
+    const modifiers = parseRoundModifiers(room.bunkerGame.roundModifiers);
+    const immuneSet = new Set(modifiers.immune);
+    const aliveVotable = room.players.filter(
+      (p) => p.isAlive && !immuneSet.has(p.id)
+    );
+    if (aliveVotable.length === 0) {
+      // Keyingi raundga o'tkazamiz, frontendga "all immune" sabab bilan.
+      await prisma.$transaction([
+        prisma.bunkerVote.deleteMany({
+          where: {
+            roomId: room.id,
+            roundNumber: room.bunkerGame.roundNumber
+          }
+        }),
+        prisma.bunkerGame.update({
+          where: { id: room.bunkerGame.id },
+          data: {
+            phase: BunkerPhase.ROUND_COMPLETE,
+            timerEndsAt: null,
+            currentTurnPlayerId: null,
+            tiebreakCandidateIds: [],
+            // Hech kim haydalmadi — UI buni "hamma immune" deb belgilab oladi.
+            lastEliminatedPlayerId: null
+          }
+        })
+      ]);
+      this.stopTimer(room.code);
+      // Frontendga oddiy toast — chat tizimini ishlatmasdan, action_played
+      // formatidagi event'ni yuboramiz: 'system' brand bilan.
+      // Toast'ni reuse qilamiz, lekin sodda matn.
+      return { skippedAllImmune: true };
+    }
+
     const votingEndsAt = new Date(
       Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
     );
@@ -807,6 +863,7 @@ export class BunkerGameService {
     ]);
 
     this.startTimer(room.code, votingEndsAt);
+    return { skippedAllImmune: false };
   }
 
   async skipVoting(input: RoomCodeAction) {

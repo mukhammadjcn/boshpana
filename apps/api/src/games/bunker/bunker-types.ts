@@ -81,6 +81,10 @@ export type BunkerPublicState = {
     // Faqat o'yinchining o'z action kartalari. Boshqalarning kartalari yashirin
     // qoladi — bu Faza 2 da read-only, ishlatish keyingi fazalarda.
     actionCards: BunkerActionCardView[];
+    // EXTRA_BAGGAGE effekti orqali qo'lga kiritilgan qo'shimcha bagaj matnlari.
+    // Asosiy `cards.BAGGAGE`'ga qo'shimcha sifatida UI ko'rsatadi; refresh
+    // qilinsa ham yo'qolmaydi (action instance resultMeta dan o'qiladi).
+    extraBaggage: string[];
   } | null;
   players: Array<{
     id: string;

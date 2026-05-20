@@ -92,6 +92,7 @@ export type BunkerRoomState = {
     cardTags: Record<string, string[]>;
     revealed: BunkerCardType[];
     actionCards: BunkerActionCardView[];
+    extraBaggage: string[];
   } | null;
   players: Array<{
     id: string;
