@@ -135,7 +135,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "REPLACE_OTHER_HEALTH",
     targetScope: "ANY",
     tier: 2,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "psychoanalysis",
@@ -215,7 +215,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "SILENCE_PLAYER",
     targetScope: "OTHER",
     tier: 2,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "smear_campaign",
@@ -231,7 +231,7 @@ export const seedActionCards: SeedActionCard[] = [
     effect: "EXTRA_VOTES_AGAINST",
     targetScope: "OTHER",
     tier: 3,
-    enabled: false,
+    enabled: true,
   },
 
   // ============================================================

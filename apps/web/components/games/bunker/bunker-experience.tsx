@@ -23,6 +23,7 @@ import {
   type SupportedLanguage,
 } from "@/lib/localized-content";
 import { HostControls } from "./bunker-host-controls";
+import { BunkerActionTargetPicker } from "./bunker-action-target-picker";
 import { BunkerActionToast } from "./bunker-action-toast";
 import { PlayerCard } from "./bunker-player-card";
 import { Timer } from "@/components/timer";
@@ -180,6 +181,11 @@ export function BunkerExperience({
     Record<string, { name: string; expiresAt: number }>
   >({});
   const [actionToast, setActionToast] = useState<import("./bunker-action-toast").ActionToastData | null>(null);
+  // Karta SELF emas bo'lsa, "Ishlatish" tugmasi maqsadli o'yinchi tanlash uchun
+  // bu state'ni to'ldiradi; tanlangach socket'ga emit qilamiz.
+  const [pendingActionCard, setPendingActionCard] = useState<
+    import("./bunker-types").BunkerActionCardView | null
+  >(null);
   const [cancelledModalOpen, setCancelledModalOpen] = useState(false);
   const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
@@ -1553,10 +1559,38 @@ export function BunkerExperience({
           game.phase !== "LOBBY" &&
           game.phase !== "FINISHED"
         }
-        onPlayActionCard={(instanceId) =>
-          emit("play_action_card", { instanceId })
-        }
+        onPlayActionCard={(instanceId) => {
+          const card = me.actionCards?.find((c) => c.instanceId === instanceId);
+          if (!card) return;
+          // SELF/ALL effektlar target talab qilmaydi — darhol yuboramiz.
+          if (card.targetScope === "SELF" || card.targetScope === "ALL") {
+            emit("play_action_card", { instanceId });
+            closeMyCards();
+            return;
+          }
+          // OTHER yoki ANY — target picker ochiladi.
+          setPendingActionCard(card);
+          closeMyCards();
+        }}
         onClose={closeMyCards}
+      />
+      <BunkerActionTargetPicker
+        open={!!pendingActionCard}
+        card={pendingActionCard}
+        candidates={alivePlayers.map((p) => ({
+          id: p.id,
+          name: p.name,
+          isMe: p.id === me.id,
+        }))}
+        onCancel={() => setPendingActionCard(null)}
+        onConfirm={(targetPlayerId: string) => {
+          if (!pendingActionCard) return;
+          emit("play_action_card", {
+            instanceId: pendingActionCard.instanceId,
+            targetPlayerId,
+          });
+          setPendingActionCard(null);
+        }}
       />
 
       <BunkerDisasterIntroModal

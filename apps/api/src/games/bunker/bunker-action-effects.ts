@@ -197,14 +197,48 @@ async function runEffect(
       return { applied: "extra_baggage", baggage: newText, note: "schema_extension_pending" };
     }
 
+    // ─── V2 ─────────────────────────────────────────────────────
+    case "REPLACE_OTHER_HEALTH": {
+      const targetId = requireTarget(input.targetPlayerId);
+      const newText = await drawReplacement(tx, gameId, "HEALTH");
+      const prev = await tx.bunkerPlayerAttribute.findUnique({
+        where: { playerId: targetId },
+        select: { health: true }
+      });
+      await tx.bunkerPlayerAttribute.update({
+        where: { playerId: targetId },
+        data: { health: newText }
+      });
+      return {
+        applied: "replace_other_health",
+        targetPlayerId: targetId,
+        from: prev?.health ?? null,
+        to: newText
+      };
+    }
+
+    case "SILENCE_PLAYER": {
+      const targetId = requireTarget(input.targetPlayerId);
+      await mutateRoundModifiers(tx, gameId, (mods) => {
+        if (!mods.silenced.includes(targetId)) mods.silenced.push(targetId);
+      });
+      return { applied: "silence_player", targetPlayerId: targetId };
+    }
+
+    case "EXTRA_VOTES_AGAINST": {
+      const targetId = requireTarget(input.targetPlayerId);
+      await mutateRoundModifiers(tx, gameId, (mods) => {
+        mods.extraVotesAgainst[targetId] =
+          (mods.extraVotesAgainst[targetId] ?? 0) + 2;
+      });
+      return { applied: "extra_votes_against", targetPlayerId: targetId, count: 2 };
+    }
+
     // ─── V2/V3 hali NO-OP ──────────────────────────────────────
-    case "REPLACE_OTHER_HEALTH":
     case "REPLACE_OTHER_FACT":
     case "REPLACE_OTHER_PROFESSION":
     case "STEAL_BAGGAGE":
     case "REVEAL_HIDDEN_CARD":
-    case "SILENCE_PLAYER":
-    case "EXTRA_VOTES_AGAINST":
     case "REDIRECT_VOTES":
     case "INSTANT_EXILE":
     case "CANCEL_ROUND_VOTES":
@@ -219,6 +253,13 @@ async function runEffect(
       throw new Error(`Noma'lum effekt: ${String(_exhaustive)}`);
     }
   }
+}
+
+function requireTarget(targetPlayerId: string | null | undefined): string {
+  if (!targetPlayerId) {
+    throw new Error("Bu karta uchun maqsadli o'yinchi tanlanishi kerak.");
+  }
+  return targetPlayerId;
 }
 
 /**
