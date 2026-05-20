@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
 
@@ -30,6 +30,14 @@ export function BunkerActionToast({ toast, onDismiss, durationMs = 5000 }: Props
   const { t, language } = useI18n();
   const [visible, setVisible] = useState(false);
 
+  // onDismiss inline arrow function — parent har render'da yangi reference
+  // beradi. Effect deps ichida bo'lsa, har socket update'da timer reset
+  // bo'lardi va toast hech qachon yo'qolmas edi. Ref orqali stabilashtiramiz.
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
   useEffect(() => {
     if (!toast) {
       setVisible(false);
@@ -38,10 +46,12 @@ export function BunkerActionToast({ toast, onDismiss, durationMs = 5000 }: Props
     setVisible(true);
     const timer = setTimeout(() => {
       setVisible(false);
-      setTimeout(onDismiss, 250);
+      setTimeout(() => onDismissRef.current(), 250);
     }, durationMs);
     return () => clearTimeout(timer);
-  }, [toast, durationMs, onDismiss]);
+    // Faqat toast.id'ga bog'lanamiz — yangi action kelganda timer qaytadan
+    // boshlanadi, boshqa render'larda tegmaydi.
+  }, [toast?.id, durationMs]);
 
   if (!toast) return null;
 
@@ -53,9 +63,10 @@ export function BunkerActionToast({ toast, onDismiss, durationMs = 5000 }: Props
 
   return (
     <div
-      className={`pointer-events-none fixed inset-x-0 top-safe z-40 flex justify-center px-4 transition-all duration-200 ${
+      className={`pointer-events-none fixed inset-x-0 top-16 z-40 flex justify-center px-4 transition-all duration-200 ${
         visible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"
       }`}
+      style={{ paddingTop: "env(safe-area-inset-top, 0)" }}
     >
       <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-brand/40 bg-bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
         <div className="flex items-start gap-2">

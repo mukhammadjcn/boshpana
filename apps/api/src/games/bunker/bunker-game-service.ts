@@ -1831,7 +1831,6 @@ export class BunkerGameService {
     const doubleVoteSet = new Set(modifiers.doubleVote);
 
     const aliveBeforeVote = room.players.filter((p) => p.isAlive);
-    const isEndgame = aliveBeforeVote.length <= room.winnerTarget + 1;
     const tiebreakActive = room.bunkerGame.tiebreakCandidateIds.length > 0;
 
     // How many players this round is supposed to eliminate. Online rooms get
@@ -1852,31 +1851,29 @@ export class BunkerGameService {
     let eliminatedIds: string[] = [];
 
     if (!currentRoundVotes.length) {
-      // No votes — at endgame we must force progress (2 players refusing to
-      // vote against each other would otherwise loop forever). Otherwise let
-      // the round end without elimination.
-      if (!isEndgame) {
-        const roundResultDelaySeconds = getBunkerRoundResultDurationSeconds(room.mode);
-        const roundResultEndsAt = roundResultDelaySeconds
-          ? new Date(Date.now() + roundResultDelaySeconds * 1000)
-          : null;
-        await prisma.bunkerGame.update({
-          where: { id: room.bunkerGame.id },
-          data: {
-            phase: BunkerPhase.ROUND_COMPLETE,
-            timerEndsAt: roundResultEndsAt,
-            tiebreakCandidateIds: []
-          }
-        });
-        if (roundResultEndsAt) {
-          this.startTimer(room.code, roundResultEndsAt);
-        } else {
-          this.stopTimer(room.code);
+      // Hech kim ovoz bermadi — hech kim haydalmaydi. Raund komplit, davom.
+      // Avval endgame'da tasodifiy haydash bor edi (loop bo'lmasin deb),
+      // lekin bu UX yomon — 3 kishilik o'yinda har raund birovni
+      // sababsiz haydab tashlardi. End-game stuck holatini host'ning
+      // "end_game" taklifi yoki tabiiy o'yin orqali hal qilamiz.
+      const roundResultDelaySeconds = getBunkerRoundResultDurationSeconds(room.mode);
+      const roundResultEndsAt = roundResultDelaySeconds
+        ? new Date(Date.now() + roundResultDelaySeconds * 1000)
+        : null;
+      await prisma.bunkerGame.update({
+        where: { id: room.bunkerGame.id },
+        data: {
+          phase: BunkerPhase.ROUND_COMPLETE,
+          timerEndsAt: roundResultEndsAt,
+          tiebreakCandidateIds: []
         }
-        return;
+      });
+      if (roundResultEndsAt) {
+        this.startTimer(room.code, roundResultEndsAt);
+      } else {
+        this.stopTimer(room.code);
       }
-
-      eliminatedIds = [aliveBeforeVote[randomInt(aliveBeforeVote.length)].id];
+      return;
     } else {
       const score = new Map<string, number>();
       for (const vote of currentRoundVotes) {
@@ -1907,37 +1904,32 @@ export class BunkerGameService {
           .map(([playerId]) => playerId);
 
         if (candidates.length > 1) {
-          const eligibleVoters = aliveBeforeVote.filter(
-            (p) => !candidates.includes(p.id)
+          // Tenglik chiqdi — o'yinchilar o'zlari hal qilsin.
+          // Tasodifiy haydashni olib tashladik: hech kim tasodifan chiqib
+          // ketmasin. Qayta tiebreak fazasi yangi nomzodlar bilan ishga
+          // tushadi va o'yinchilar boshqacha ovoz bermaguncha davom etadi.
+          this.stopTimer(room.code);
+          const tiebreakEndsAt = new Date(
+            Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
           );
-          const allAliveAreTied = candidates.length === aliveBeforeVote.length;
-
-          if (eligibleVoters.length > 0 || (!tiebreakActive && allAliveAreTied)) {
-            this.stopTimer(room.code);
-            const tiebreakEndsAt = new Date(
-              Date.now() + BUNKER_VOTING_DURATION_SECONDS * 1000
-            );
-            await prisma.$transaction([
-              prisma.bunkerVote.deleteMany({
-                where: {
-                  roomId: room.id,
-                  roundNumber: room.bunkerGame.roundNumber
-                }
-              }),
-              prisma.bunkerGame.update({
-                where: { id: room.bunkerGame.id },
-                data: {
-                  phase: BunkerPhase.VOTING,
-                  timerEndsAt: tiebreakEndsAt,
-                  tiebreakCandidateIds: candidates
-                }
-              })
-            ]);
-            this.startTimer(room.code, tiebreakEndsAt);
-            return;
-          }
-
-          eliminatedIds = [candidates[randomInt(candidates.length)]];
+          await prisma.$transaction([
+            prisma.bunkerVote.deleteMany({
+              where: {
+                roomId: room.id,
+                roundNumber: room.bunkerGame.roundNumber
+              }
+            }),
+            prisma.bunkerGame.update({
+              where: { id: room.bunkerGame.id },
+              data: {
+                phase: BunkerPhase.VOTING,
+                timerEndsAt: tiebreakEndsAt,
+                tiebreakCandidateIds: candidates
+              }
+            })
+          ]);
+          this.startTimer(room.code, tiebreakEndsAt);
+          return;
         } else {
           eliminatedIds = [candidates[0]];
         }
