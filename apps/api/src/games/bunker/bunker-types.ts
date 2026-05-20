@@ -98,6 +98,14 @@ export type BunkerPublicState = {
     // player's revealed-card tags against the situation's highlight/weak
     // tags. Pure UI hint — voting stays free-form.
     situationBadge: "green" | "red" | "neutral";
+    // Bu raundga oid maxsus karta modifierlari (ko'rinarli holat uchun).
+    // Raund yakunida tozalanadi.
+    actionModifiers: {
+      immune: boolean;
+      doubleVote: boolean;
+      silenced: boolean;
+      skipRound: boolean;
+    };
   }>;
   votes: {
     total: number;

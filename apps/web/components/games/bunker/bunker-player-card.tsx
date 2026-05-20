@@ -30,6 +30,13 @@ type PlayerCardProps = {
   // Server-computed hint based on this round's situation tags vs the
   // player's revealed-card tags. Pure discussion hint — voting stays free.
   situationBadge?: "green" | "red" | "neutral";
+  // Bu raundga oid maxsus karta modifierlari (badge sifatida).
+  actionModifiers?: {
+    immune: boolean;
+    doubleVote: boolean;
+    silenced: boolean;
+    skipRound: boolean;
+  };
   onKick?: () => void;
   onReport?: () => void;
 };
@@ -47,6 +54,7 @@ export function PlayerCard({
   showPresence = false,
   isReady = false,
   situationBadge = "neutral",
+  actionModifiers,
   onKick,
   onReport
 }: PlayerCardProps) {
@@ -181,6 +189,39 @@ export function PlayerCard({
             {situationBadge === "red" ? (
               <span className="rounded-full bg-bad/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-bad">
                 !
+              </span>
+            ) : null}
+            {/* Maxsus karta modifierlari — emoji bilan kompakt badge */}
+            {actionModifiers?.immune ? (
+              <span
+                title={t("daxlsiz")}
+                className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-400"
+              >
+                🛡
+              </span>
+            ) : null}
+            {actionModifiers?.doubleVote ? (
+              <span
+                title={t("ikki_ovoz")}
+                className="rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[11px] text-rose-400"
+              >
+                2×
+              </span>
+            ) : null}
+            {actionModifiers?.silenced ? (
+              <span
+                title={t("jim")}
+                className="rounded-full bg-slate-500/20 px-1.5 py-0.5 text-[11px] text-slate-300"
+              >
+                🤐
+              </span>
+            ) : null}
+            {actionModifiers?.skipRound ? (
+              <span
+                title={t("raund_otkazgan")}
+                className="rounded-full bg-slate-500/20 px-1.5 py-0.5 text-[11px] text-slate-300"
+              >
+                ⏭
               </span>
             ) : null}
           </div>

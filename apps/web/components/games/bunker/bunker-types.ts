@@ -106,6 +106,12 @@ export type BunkerRoomState = {
     revealedCardTags: Partial<Record<string, string[]>>;
     revealedCount: number;
     situationBadge: "green" | "red" | "neutral";
+    actionModifiers: {
+      immune: boolean;
+      doubleVote: boolean;
+      silenced: boolean;
+      skipRound: boolean;
+    };
   }>;
   votes: {
     total: number;

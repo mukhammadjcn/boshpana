@@ -1395,6 +1395,9 @@ export function BunkerExperience({
                     ? p.situationBadge
                     : "neutral"
                 }
+                actionModifiers={
+                  room.actionCardsEnabled ? p.actionModifiers : undefined
+                }
                 isCurrentTurn={p.id === game.currentTurnPlayerId}
                 gameOver={room.status === "FINISHED"}
                 onReport={

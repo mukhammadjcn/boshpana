@@ -360,6 +360,13 @@ export class BunkerGameService {
     const me = room.players.find((player) => player.sessionId === sessionId) ?? null;
     const remainingSeconds = this.getRemainingSeconds(room.bunkerGame.timerEndsAt);
     const currentRoundNumber = room.bunkerGame.roundNumber;
+    // Action card modifierlari shu raundga oid; har bir o'yinchi uchun
+    // 4 ta bool'ga aylantiramiz.
+    const modifiers = parseRoundModifiers(room.bunkerGame.roundModifiers);
+    const immuneSet = new Set(modifiers.immune);
+    const doubleVoteSet = new Set(modifiers.doubleVote);
+    const silencedSet = new Set(modifiers.silenced);
+    const skipRoundSet = new Set(modifiers.skipRound);
 
     return {
       room: {
@@ -487,7 +494,13 @@ export class BunkerGameService {
           ),
           revealedCardTags: revealedTags,
           revealedCount: player.bunkerAttributes?.revealed.length ?? 0,
-          situationBadge: badge
+          situationBadge: badge,
+          actionModifiers: {
+            immune: immuneSet.has(player.id),
+            doubleVote: doubleVoteSet.has(player.id),
+            silenced: silencedSet.has(player.id),
+            skipRound: skipRoundSet.has(player.id)
+          }
         };
       }),
       votes: {
