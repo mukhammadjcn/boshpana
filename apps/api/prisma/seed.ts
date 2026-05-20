@@ -1,6 +1,7 @@
 import { BunkerCardType, BunkerDifficulty, PrismaClient } from "@prisma/client";
 
 import { seedContent, type SeedContent } from "./seed-content";
+import { seedActionCards } from "./seed-action-cards";
 
 const prisma = new PrismaClient();
 
@@ -149,6 +150,41 @@ async function main() {
         create: situation
       });
     }
+  }
+
+  // Maxsus kartalar (action cards) — `key` bo'yicha upsert.
+  // Idempotent: mavjud yozuv matn/effekt yangilanadi, key o'zgarmaydi.
+  for (const card of seedActionCards) {
+    await prisma.bunkerActionCard.upsert({
+      where: { key: card.key },
+      update: {
+        titleUz: card.titleUz,
+        titleRu: card.titleRu,
+        titleEn: card.titleEn,
+        descriptionUz: card.descriptionUz,
+        descriptionRu: card.descriptionRu,
+        descriptionEn: card.descriptionEn,
+        effect: card.effect,
+        targetScope: card.targetScope,
+        tier: card.tier,
+        isAdult: card.isAdult ?? false,
+        enabled: card.enabled
+      },
+      create: {
+        key: card.key,
+        titleUz: card.titleUz,
+        titleRu: card.titleRu,
+        titleEn: card.titleEn,
+        descriptionUz: card.descriptionUz,
+        descriptionRu: card.descriptionRu,
+        descriptionEn: card.descriptionEn,
+        effect: card.effect,
+        targetScope: card.targetScope,
+        tier: card.tier,
+        isAdult: card.isAdult ?? false,
+        enabled: card.enabled
+      }
+    });
   }
 }
 

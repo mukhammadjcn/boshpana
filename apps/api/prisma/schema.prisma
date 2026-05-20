@@ -50,6 +50,51 @@ enum BunkerCardType {
   FACT
 }
 
+// Maxsus karta effekti — har bir karta aniq bitta effektga ega.
+// V1: o'ziga ta'sir qiluvchi, sodda. V2: boshqaga ta'sir. V3: voting'ni o'zgartiruvchi.
+enum BunkerActionEffect {
+  // V1 — sodda, izolyatsiyalangan
+  IMMUNITY_THIS_ROUND
+  DOUBLE_VOTE_THIS_ROUND
+  EXTRA_BAGGAGE
+  SKIP_THIS_ROUND
+  REPLACE_OWN_HEALTH
+  REPLACE_OWN_BIOLOGY
+
+  // V2 — boshqa o'yinchiga ta'sir
+  REPLACE_OTHER_HEALTH
+  REPLACE_OTHER_FACT
+  REPLACE_OTHER_PROFESSION
+  STEAL_BAGGAGE
+  REVEAL_HIDDEN_CARD
+  SILENCE_PLAYER
+  EXTRA_VOTES_AGAINST
+
+  // V3 — kuchli, voting/state o'zgarishi
+  REDIRECT_VOTES
+  INSTANT_EXILE
+  CANCEL_ROUND_VOTES
+  REVIVE_SELF
+  FORCE_REVEAL_ALL_OWN
+  REROLL_TARGET_CARD
+  STEAL_GOOD_GIVE_BAD
+}
+
+// Maxsus karta target qamrovi
+enum BunkerActionTargetScope {
+  SELF      // faqat o'ziga
+  OTHER     // faqat boshqalarga
+  ANY       // istalgan o'yinchiga (o'zi ham bo'ladi)
+  ALL       // barchaga / fazaga
+}
+
+// Maxsus karta status (instance uchun)
+enum BunkerActionCardStatus {
+  HELD       // o'yinchida, hali ishlatilmagan
+  PLAYED     // ishlatildi
+  DISCARDED  // o'yindan chiqdi (masalan, o'yinchi eliminatsiya qilindi)
+}
+
 enum BunkerDifficulty {
   EASY
   MEDIUM
@@ -132,6 +177,9 @@ model Room {
   winnerTarget  Int         @default(1)
   maxPlayers    Int         @default(10)
   isAdult       Boolean     @default(false)
+  // Bunker'da "Maxsus kartalar" (action cards) yoqilganmi.
+  // Host xona yaratganda tanlaydi; default — o'chiq, eski o'yinlar buzilmaydi.
+  actionCardsEnabled Boolean @default(false)
   round         Int         @default(0)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -165,6 +213,7 @@ model Player {
   readyAt       DateTime?
   updatedAt     DateTime        @updatedAt
   bunkerAttributes BunkerPlayerAttribute?
+  bunkerActionCards BunkerActionCardInstance[]
   bunkerVotesCast     BunkerVote[]      @relation("BunkerVotesCast")
   bunkerVotesReceived BunkerVote[]      @relation("BunkerVotesReceived")
   mafiaRole              MafiaPlayerRole?
@@ -194,9 +243,15 @@ model BunkerGame {
   lastRevealedCardType BunkerCardType?
   lastEliminatedPlayerId String?
   tiebreakCandidateIds String[]       @default([])
+  // Bunker maxsus karta funksiyasi yoqilganmi (xonadan meros).
+  actionCardsEnabled Boolean          @default(false)
+  // Joriy raundga oid vaqtinchalik modifikatorlar (immunitet, double vote, silence va h.k.).
+  // Raund tugaganda tozalanadi. Shakli: { immune: string[], doubleVote: string[], silenced: string[], extraVotesAgainst: Record<string, number>, exiled: string[], skipRound: string[] }
+  roundModifiers     Json             @default("{}")
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   playerAttributes   BunkerPlayerAttribute[]
+  actionCardInstances BunkerActionCardInstance[]
 }
 
 model BunkerPlayerAttribute {
@@ -244,6 +299,57 @@ model BunkerCard {
 
   @@unique([type, text])
   @@index([type, isAdult])
+}
+
+// Maxsus karta katalogi — har bir effekt uchun bitta yoki bir necha karta yozuvi.
+// O'yin paytida tarqatish uchun "qolip". Tarqatilgan nusxa BunkerActionCardInstance.
+model BunkerActionCard {
+  id            String @id @default(cuid())
+  // key — kod ichida murojaat qilish uchun barqaror identifikator (masalan, "heal_self").
+  // Matn o'zgarsa ham, key o'zgarmaydi.
+  key           String @unique
+  titleUz       String
+  titleRu       String
+  titleEn       String
+  descriptionUz String
+  descriptionRu String
+  descriptionEn String
+  effect        BunkerActionEffect
+  targetScope   BunkerActionTargetScope
+  // Karta nechta kuchda? Tarqatishda balans uchun ishlatamiz (1 — sodda, 3 — eng kuchli).
+  tier          Int    @default(1)
+  isAdult       Boolean @default(false)
+  // Faza 4-6 davomida bittadan yoqamiz. Default true — seed paytida birinchi qo'shilganda
+  // ish darajasi mos kelmasa enabled=false bilan keladi.
+  enabled       Boolean @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  instances     BunkerActionCardInstance[]
+
+  @@index([effect, enabled])
+}
+
+// O'yin paytida o'yinchiga tarqatilgan maxsus karta nusxasi.
+// O'yin tugagandan keyin ham analitika uchun saqlanadi (kim qachon nimani ishlatdi).
+model BunkerActionCardInstance {
+  id            String @id @default(cuid())
+  gameId        String
+  game          BunkerGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  playerId      String
+  player        Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  actionCardId  String
+  actionCard    BunkerActionCard @relation(fields: [actionCardId], references: [id], onDelete: Restrict)
+  status        BunkerActionCardStatus @default(HELD)
+  // Karta ishlatilganda kimga qarshi/foydasi uchun. SELF effektlarda null.
+  targetPlayerId String?
+  // Effekt natijasi (yangi karta IDsi, eski qiymat, va h.k.) — audit uchun JSON.
+  resultMeta    Json?
+  dealtAt       DateTime @default(now())
+  playedAt      DateTime?
+
+  @@index([gameId, status])
+  @@index([playerId, status])
 }
 
 model BunkerDisaster {
