@@ -28,7 +28,7 @@ export type BunkerPhase =
 export type BunkerCardType =
   | "PROFESSION"
   | "HEALTH"
-  | "CHARACTER"
+  | "BIOLOGY"
   | "SKILL"
   | "BAGGAGE"
   | "FACT";

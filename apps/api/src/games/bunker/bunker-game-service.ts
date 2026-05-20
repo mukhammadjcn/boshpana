@@ -602,7 +602,7 @@ export class BunkerGameService {
             gameId: game.id,
             profession: deal[BunkerCardType.PROFESSION][index],
             health: deal[BunkerCardType.HEALTH][index],
-            character: deal[BunkerCardType.CHARACTER][index],
+            biology: deal[BunkerCardType.BIOLOGY][index],
             skill: deal[BunkerCardType.SKILL][index],
             baggage: deal[BunkerCardType.BAGGAGE][index],
             fact: deal[BunkerCardType.FACT][index],
@@ -2333,9 +2333,9 @@ export class BunkerGameService {
         bunkerAttributes.health,
         cardTranslations
       ),
-      [BunkerCardType.CHARACTER]: this.localizeCardValue(
-        BunkerCardType.CHARACTER,
-        bunkerAttributes.character,
+      [BunkerCardType.BIOLOGY]: this.localizeCardValue(
+        BunkerCardType.BIOLOGY,
+        bunkerAttributes.biology,
         cardTranslations
       ),
       [BunkerCardType.SKILL]: this.localizeCardValue(
@@ -2382,7 +2382,7 @@ export class BunkerGameService {
     return {
       [BunkerCardType.PROFESSION]: lookup(BunkerCardType.PROFESSION, bunkerAttributes.profession),
       [BunkerCardType.HEALTH]: lookup(BunkerCardType.HEALTH, bunkerAttributes.health),
-      [BunkerCardType.CHARACTER]: lookup(BunkerCardType.CHARACTER, bunkerAttributes.character),
+      [BunkerCardType.BIOLOGY]: lookup(BunkerCardType.BIOLOGY, bunkerAttributes.biology),
       [BunkerCardType.SKILL]: lookup(BunkerCardType.SKILL, bunkerAttributes.skill),
       [BunkerCardType.BAGGAGE]: lookup(BunkerCardType.BAGGAGE, bunkerAttributes.baggage),
       [BunkerCardType.FACT]: lookup(BunkerCardType.FACT, bunkerAttributes.fact)

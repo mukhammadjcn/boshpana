@@ -51,7 +51,7 @@ function buildCardTypeOptions() {
   return [
     { label: "Kasb", value: "PROFESSION" },
     { label: "Sog'liq", value: "HEALTH" },
-    { label: "Xarakter", value: "CHARACTER" },
+    { label: "Biologiya", value: "BIOLOGY" },
     { label: "Skill", value: "SKILL" },
     { label: "Bagaj", value: "BAGGAGE" },
     { label: "Fakt", value: "FACT" },
@@ -1388,8 +1388,8 @@ function formatCardType(type: unknown) {
       return "Kasb";
     case "HEALTH":
       return "Sog‘liq";
-    case "CHARACTER":
-      return "Xarakter";
+    case "BIOLOGY":
+      return "Biologiya";
     case "SKILL":
       return "Skill";
     case "BAGGAGE":

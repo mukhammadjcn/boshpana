@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const cardTypeMap: Record<string, BunkerCardType> = {
   kasb: BunkerCardType.PROFESSION,
   soglik: BunkerCardType.HEALTH,
-  xarakter: BunkerCardType.CHARACTER,
+  biologiya: BunkerCardType.BIOLOGY,
   skill: BunkerCardType.SKILL,
   bagaj: BunkerCardType.BAGGAGE,
   fakt: BunkerCardType.FACT

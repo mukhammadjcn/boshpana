@@ -44,7 +44,7 @@ enum BunkerPhase {
 enum BunkerCardType {
   PROFESSION
   HEALTH
-  CHARACTER
+  BIOLOGY
   SKILL
   BAGGAGE
   FACT
@@ -207,7 +207,7 @@ model BunkerPlayerAttribute {
   game       BunkerGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
   profession String
   health     String
-  character  String
+  biology    String
   skill      String
   baggage    String
   fact       String

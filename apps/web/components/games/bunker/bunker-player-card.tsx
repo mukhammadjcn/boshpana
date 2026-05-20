@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/i18n";
 const cardLabels: Record<string, string> = {
   PROFESSION: "Kasb",
   HEALTH: "Sog‘liq",
-  CHARACTER: "Xarakter",
+  BIOLOGY: "Biologiya",
   SKILL: "Ko‘nikma",
   BAGGAGE: "Bagaj",
   FACT: "Fakt"

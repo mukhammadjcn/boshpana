@@ -88,7 +88,7 @@ const disasterImage: Record<string, string> = {
 const cardLabels: Record<BunkerCardType, string> = {
   PROFESSION: "Kasb",
   HEALTH: "Sog‘liq",
-  CHARACTER: "Xarakter",
+  BIOLOGY: "Biologiya",
   SKILL: "Ko‘nikma",
   BAGGAGE: "Bagaj",
   FACT: "Fakt",
@@ -97,7 +97,7 @@ const cardLabels: Record<BunkerCardType, string> = {
 const cardOrder: BunkerCardType[] = [
   "PROFESSION",
   "HEALTH",
-  "CHARACTER",
+  "BIOLOGY",
   "SKILL",
   "BAGGAGE",
   "FACT",

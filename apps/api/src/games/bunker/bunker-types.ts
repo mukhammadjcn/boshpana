@@ -7,7 +7,7 @@ import type { OnlineGovernanceState } from "../../services/online-governance-ser
 export const CARD_TYPES = [
   BunkerCardType.PROFESSION,
   BunkerCardType.HEALTH,
-  BunkerCardType.CHARACTER,
+  BunkerCardType.BIOLOGY,
   BunkerCardType.SKILL,
   BunkerCardType.BAGGAGE,
   BunkerCardType.FACT

@@ -280,7 +280,7 @@ export const seedContent: SeedContent = {
       card("Kimyogar", "Химик", "Chemist", ["kimyo", "muhandislik", "tibbiyot", "radiatsiya-bilim"]),
 
       // 18+
-      cardA("Seks ishchisi", "Секс-работник", "Sex worker", [
+      cardA("Foxisha", "С*кс-работник", "S*x worker", [
         "foydasiz-ish",
         "ko'paytirish-qobiliyati",
       ]),
@@ -323,22 +323,12 @@ export const seedContent: SeedContent = {
         "jismoniy-kuch",
         "foydasiz-ish",
       ]),
-      cardA("Dating ekspert", "Эксперт по дейтингу", "Dating expert", [
-        "dating-ekspert",
-        "foydasiz-ish",
-        "manipulyator",
-      ]),
       cardA("Soxta psixolog", "Фейковый психолог", "Fake psychologist", [
         "foydasiz-ish",
         "manipulyator",
         "firibgar",
       ]),
       cardA("Pranker", "Пранкер", "Prankster", ["pranker", "foydasiz-ish", "shovqinli", "yosh"]),
-      cardA("Party DJ", "Ди-джей вечеринок", "Party DJ", [
-        "foydasiz-ish",
-        "shovqinli",
-        "tungi-ish",
-      ]),
     ],
     soglik: [
       card("To'liq sog'lom", "Полностью здоров", "Perfectly healthy", [
@@ -398,6 +388,44 @@ export const seedContent: SeedContent = {
         "oyoq-jarohati",
       ]),
       card("Juda baquvvat", "Очень крепкий", "Very strong", ["jismoniy-kuch", "chidamlilik", "sog'lom", "sovuqqa-chidamli", "ko'p-ovqat", "ko'p-suv-ichadi"]),
+
+      // Alohida tibbiy/jismoniy holatlar
+      card("Sun'iy yurakli", "С искусственным сердцем", "Artificial heart", [
+        "surunkali-kasallik",
+        "tibbiy-yordamga-muhtoj",
+        "chidamlilik",
+        "yurak-kasalligi",
+      ]),
+      card("Genetik mutant", "Генетический мутант", "Genetic mutant", [
+        "immunitet-kuchli",
+        "sog'lom",
+        "radiatsiya-bilim",
+        "yashirin-fakt",
+      ]),
+      card("Ikki yurakli (anomaliya)", "С двумя сердцами (аномалия)", "Two hearts (anomaly)", [
+        "chidamlilik",
+        "sog'lom",
+        "immunitet-kuchli",
+        "yashirin-fakt",
+      ]),
+      card("Vampir tabiatli", "С вампирской натурой", "Vampire-natured", [
+        "tungi-ish",
+        "issiqqa-chidamsiz",
+        "immunitet-kuchli",
+        "tashqari-ish-yo'q",
+      ]),
+      card("Kor (ko'rmaydi)", "Слепой", "Blind", [
+        "sekin",
+        "tez-charchaydi",
+        "aql",
+        "tibbiy-yordamga-muhtoj",
+      ]),
+      card("Kar-soqov", "Глухонемой", "Deaf-mute", [
+        "sekin",
+        "signal-yashirish",
+        "intizomli",
+      ]),
+
       // 18+
       cardA("Libido juda yuqori", "Очень высокое либидо", "Very high libido", [
         "ko'paytirish-qobiliyati",
@@ -405,75 +433,134 @@ export const seedContent: SeedContent = {
       cardA("Tez qo'zg'aladi", "Легко возбуждается", "Gets aroused easily", [
         "ko'paytirish-qobiliyati",
       ]),
-      cardA("Seks terroristi", "Секс-террорист", "Sex terrorist", [
-        "ko'paytirish-qobiliyati",
-        "sabrsiz",
-      ]),
       cardA("Oshqozoni yo'q", "Нет желудка", "No stomach", ["surunkali-kasallik", "tibbiy-yordamga-muhtoj", "immunitet-zaif"]),
     ],
-    xarakter: [
-      card("Lider", "Лидер", "Leader", [
-        "lider",
-        "jamoaviy-ish",
-        "aql",
-        "sovuqqonlik",
+    biologiya: [
+      // Jins va asosiy biologik holatlar
+      card("Erkak, 30 yosh", "Мужчина, 30 лет", "Male, 30 y/o", [
+        "jismoniy-kuch",
+        "ko'paytirish-qobiliyati",
       ]),
-      card("Manipulyator", "Манипулятор", "Manipulator", [
-        "manipulyator",
-        "hiylakor",
-        "aql",
+      card("Ayol, 28 yosh", "Женщина, 28 лет", "Female, 28 y/o", [
+        "ko'paytirish-qobiliyati",
       ]),
-      card("Qo'rqoq", "Трус", "Coward", ["qo'rqoq", "foydasiz-ish"]),
-      card("Hazilkash", "Шутник", "Jokester", [
-        "hazilkash",
-        "optimist",
-        "shovqinli",
+      card("Erkak, 45 yosh", "Мужчина, 45 лет", "Male, 45 y/o", [
+        "ko'paytirish-qobiliyati",
       ]),
-      card("Sovuqqon", "Хладнокровный", "Cold-blooded", [
-        "sovuqqonlik",
-        "intizomli",
-        "sabr",
+      card("Ayol, 40 yosh", "Женщина, 40 лет", "Female, 40 y/o", [
+        "ko'paytirish-qobiliyati",
       ]),
-      card("Jahldor", "Вспыльчивый", "Hot-tempered", [
-        "jahldor",
+      card("Semiz erkak (110 kg)", "Полный мужчина (110 кг)", "Overweight man (110 kg)", [
+        "sekin",
+        "tez-charchaydi",
+        "ko'p-ovqat",
+        "ko'p-suv-ichadi",
+      ]),
+      card("Ozg'in ayol (45 kg)", "Худая женщина (45 кг)", "Thin woman (45 kg)", [
+        "sekin",
+        "tez-charchaydi",
+        "immunitet-zaif",
+      ]),
+      card("Past bo'yli (155 sm)", "Низкий рост (155 см)", "Short (155 cm)", [
+        "tezda-harakat",
+      ]),
+      card("Baland bo'yli (195 sm)", "Высокий рост (195 см)", "Tall (195 cm)", [
+        "jismoniy-kuch",
+        "ko'p-ovqat",
+      ]),
+      card("Mitti (130 sm)", "Карлик (130 см)", "Dwarf (130 cm)", [
+        "tezda-harakat",
+        "sekin",
+        "oyoq-jarohati",
+      ]),
+
+      // Bolalar va o'smirlar
+      card("6 yoshli bolakay", "6-летний мальчик", "6-year-old boy", [
+        "yosh",
+        "sekin",
+        "tez-charchaydi",
+        "ko'paytirish-imkoni-yo'q",
+        "tibbiy-yordamga-muhtoj",
+        "immunitet-zaif",
+      ]),
+      card("9 yoshli yetim", "9-летний сирота", "9-year-old orphan", [
+        "yosh",
+        "chidamlilik",
+        "omon-qolish",
+        "ko'paytirish-imkoni-yo'q",
+      ]),
+      card("12 yoshli o'smir", "12-летний подросток", "12-year-old preteen", [
+        "yosh",
         "sabrsiz",
+        "tez-charchaydi",
         "shovqinli",
       ]),
-      card("Mehribon", "Добрый", "Kind", ["mehribon", "jamoaviy-ish"]),
-      card("Egoist", "Эгоист", "Selfish", ["egoist", "manipulyator"]),
-      card("Ishonchli", "Надежный", "Reliable", [
-        "ishonchli",
-        "intizomli",
-        "jamoaviy-ish",
-      ]),
-      card("Dangasa", "Ленивый", "Lazy", ["dangasa", "foydasiz-ish"]),
-      card("Intizomli", "Дисциплинированный", "Disciplined", [
-        "intizomli",
-        "sabr",
-        "jamoaviy-ish",
-      ]),
-      card("Sabrsiz", "Нетерпеливый", "Impatient", [
+      card("15 yoshli o'smir qiz", "15-летняя девочка-подросток", "15-year-old teenage girl", [
+        "yosh",
+        "ko'paytirish-qobiliyati",
         "sabrsiz",
-        "jahldor",
-        "shovqinli",
-      ]),
-      card("Aqlli", "Умный", "Smart", ["aql", "lider"]),
-      card("Hiylakor", "Хитрый", "Cunning", [
-        "hiylakor",
-        "manipulyator",
-        "doim-yolg'on-gapiradi",
-      ]),
-      card("Optimist", "Оптимист", "Optimist", ["optimist", "jamoaviy-ish"]),
-      card("Pessimist", "Пессимист", "Pessimist", ["pessimist", "qo'rqoq"]),
-      card("Jamoaviy", "Командный игрок", "Team player", [
-        "jamoaviy-ish",
-        "ishonchli",
         "mehribon",
       ]),
-      card("Risk qiluvchi", "Любитель риска", "Risk-taker", [
-        "sovuqqonlik",
-        "jang",
-        "tezda-harakat",
+      card("17 yoshli yigit", "17-летний парень", "17-year-old young man", [
+        "yosh",
+        "jismoniy-kuch",
+        "ko'paytirish-qobiliyati",
+        "chidamlilik",
+      ]),
+      card("Egizak 7 yashar bolalar", "Близнецы 7 лет", "Twins, age 7", [
+        "yosh",
+        "sekin",
+        "ko'p-ovqat",
+        "ko'p-suv-ichadi",
+        "ko'paytirish-imkoni-yo'q",
+      ]),
+      card("Homilador (8 oylik)", "Беременная (8 месяцев)", "Pregnant (8 months)", [
+        "ko'paytirish-qobiliyati",
+        "sekin",
+        "tez-charchaydi",
+        "tibbiy-yordamga-muhtoj",
+        "ko'p-ovqat",
+      ]),
+
+      // Keksalar
+      card("65 yoshli pensioner", "65-летний пенсионер", "65-year-old retiree", [
+        "keksa",
+        "sekin",
+        "aql",
+        "sabr",
+        "intizomli",
+      ]),
+      card("75 yoshli buva", "75-летний дед", "75-year-old grandfather", [
+        "keksa",
+        "sekin",
+        "tez-charchaydi",
+        "aql",
+        "eski-uslublar",
+      ]),
+      card("85 yoshli bobo", "85-летний старик", "85-year-old old man", [
+        "keksa",
+        "sekin",
+        "tez-charchaydi",
+        "immunitet-zaif",
+        "ko'paytirish-imkoni-yo'q",
+        "doimiy-og'riq",
+      ]),
+      card("90 yoshli onaxon", "90-летняя бабушка", "90-year-old grandmother", [
+        "keksa",
+        "sekin",
+        "tez-charchaydi",
+        "immunitet-zaif",
+        "ko'paytirish-imkoni-yo'q",
+        "surunkali-kasallik",
+        "tibbiy-yordamga-muhtoj",
+      ]),
+      card("100 yoshli oqsoqol", "100-летний старец", "100-year-old elder", [
+        "keksa",
+        "aql",
+        "lider",
+        "sekin",
+        "tibbiy-yordamga-muhtoj",
+        "eski-uslublar",
       ]),
     ],
     skill: [
@@ -661,15 +748,15 @@ export const seedContent: SeedContent = {
       // card("Hech narsa", "Ничего", "Nothing", ["foydasiz-ish"]),
       // 18+
       cardA("Prezervativlar", "Презервативы", "Condoms", []),
-      cardA("Erkak o'yinchog'i", "Мужская игрушка", "Male toy", [
+      cardA("Erkaklar o'yinchog'i", "Мужская игрушка", "Male's toy", [
         "foydasiz-ish",
       ]),
-      cardA("Ayol o'yinchog'i", "Женская игрушка", "Female toy", [
+      cardA("Ayollar o'yinchog'i", "Женская игрушка", "Female's toy", [
         "foydasiz-ish",
       ]),
       cardA("Spirtli ichimliklar", "Алкоголь", "Alcohol supply", ["kimyo"]),
-      cardA("Anal probka", "Анальная пробка", "Butt plug", ["foydasiz-ish"]),
-      cardA("Seks videolar", "Секс-видео", "Sex videos", ["foydasiz-ish"]),
+      cardA("An*l probka", "Анальная пробка", "Butt plug", ["foydasiz-ish"]),
+      cardA("S*ks videolar", "С*кс-видео", "S*x videos", ["foydasiz-ish"]),
       cardA("Eva Elfie o'zi", "Сама Ева Эльфи", "Eva Elfie herself", [
         "foydasiz-ish",
       ]),
@@ -677,6 +764,127 @@ export const seedContent: SeedContent = {
       cardA("Viagra", "Виагра", "Viagra", ["ko'paytirish-qobiliyati"]),
     ],
     fakt: [
+      // Xarakter — shaxsiyat xususiyatlari (asl Bunker o'yinida Fakt deckiga kiradi)
+      card("Lider", "Лидер", "Leader", [
+        "lider",
+        "jamoaviy-ish",
+        "aql",
+        "sovuqqonlik",
+      ]),
+      card("Manipulyator", "Манипулятор", "Manipulator", [
+        "manipulyator",
+        "hiylakor",
+        "aql",
+      ]),
+      card("Qo'rqoq", "Трус", "Coward", ["qo'rqoq", "foydasiz-ish"]),
+      card("Hazilkash", "Шутник", "Jokester", [
+        "hazilkash",
+        "optimist",
+        "shovqinli",
+      ]),
+      card("Sovuqqon", "Хладнокровный", "Cold-blooded", [
+        "sovuqqonlik",
+        "intizomli",
+        "sabr",
+      ]),
+      card("Jahldor", "Вспыльчивый", "Hot-tempered", [
+        "jahldor",
+        "sabrsiz",
+        "shovqinli",
+      ]),
+      card("Mehribon", "Добрый", "Kind", ["mehribon", "jamoaviy-ish"]),
+      card("Egoist", "Эгоист", "Selfish", ["egoist", "manipulyator"]),
+      card("Ishonchli", "Надежный", "Reliable", [
+        "ishonchli",
+        "intizomli",
+        "jamoaviy-ish",
+      ]),
+      card("Dangasa", "Ленивый", "Lazy", ["dangasa", "foydasiz-ish"]),
+      card("Intizomli", "Дисциплинированный", "Disciplined", [
+        "intizomli",
+        "sabr",
+        "jamoaviy-ish",
+      ]),
+      card("Sabrsiz", "Нетерпеливый", "Impatient", [
+        "sabrsiz",
+        "jahldor",
+        "shovqinli",
+      ]),
+      card("Aqlli", "Умный", "Smart", ["aql", "lider"]),
+      card("Hiylakor", "Хитрый", "Cunning", [
+        "hiylakor",
+        "manipulyator",
+        "doim-yolg'on-gapiradi",
+      ]),
+      card("Optimist", "Оптимист", "Optimist", ["optimist", "jamoaviy-ish"]),
+      card("Pessimist", "Пессимист", "Pessimist", ["pessimist", "qo'rqoq"]),
+      card("Jamoaviy", "Командный игрок", "Team player", [
+        "jamoaviy-ish",
+        "ishonchli",
+        "mehribon",
+      ]),
+      card("Risk qiluvchi", "Любитель риска", "Risk-taker", [
+        "sovuqqonlik",
+        "jang",
+        "tezda-harakat",
+      ]),
+
+      // Fobiyalar — qo'rquvlar (asl o'yinda Fakt deckiga kiradi)
+      card("Klaustrofobiya", "Клаустрофобия", "Claustrophobia", [
+        "qo'rqoq",
+        "sabrsiz",
+      ]),
+      card("Qorong'idan qo'rqadi", "Боится темноты", "Afraid of the dark", [
+        "qo'rqoq",
+      ]),
+      card("Qondan qo'rqadi", "Боится крови", "Afraid of blood", [
+        "qo'rqoq",
+      ]),
+      card("Balandlikdan qo'rqadi", "Боится высоты", "Afraid of heights", [
+        "qo'rqoq",
+      ]),
+      card("O'rgimchakdan qo'rqadi", "Боится пауков", "Afraid of spiders", [
+        "qo'rqoq",
+      ]),
+      card("Ilondan qo'rqadi", "Боится змей", "Afraid of snakes", [
+        "qo'rqoq",
+      ]),
+      card("Suvdan qo'rqadi", "Боится воды", "Afraid of water", [
+        "qo'rqoq",
+      ]),
+      card("Olomondan qo'rqadi", "Боится толпы", "Afraid of crowds", [
+        "qo'rqoq",
+        "jamoaviy-ish",
+      ]),
+      card("Yolg'izlikdan qo'rqadi", "Боится одиночества", "Afraid of being alone", [
+        "qo'rqoq",
+        "jamoaviy-ish",
+      ]),
+      card("Mikrobdan qo'rqadi", "Боится микробов", "Afraid of germs", [
+        "qo'rqoq",
+        "intizomli",
+      ]),
+      card("Shifokordan qo'rqadi", "Боится врачей", "Afraid of doctors", [
+        "qo'rqoq",
+        "tibbiy-yordamga-muhtoj",
+      ]),
+      card("Itlardan qo'rqadi", "Боится собак", "Afraid of dogs", [
+        "qo'rqoq",
+      ]),
+      card("O'lim qo'rquvi (tanofobiya)", "Танофобия (страх смерти)", "Thanatophobia (fear of death)", [
+        "qo'rqoq",
+        "pessimist",
+      ]),
+      cardA("Ayollardan qo'rqadi (gynofobiya)", "Гинофобия (страх женщин)", "Gynophobia (fear of women)", [
+        "qo'rqoq",
+        "ko'paytirish-imkoni-yo'q",
+      ]),
+      cardA("Erkaklardan qo'rqadi (androfobiya)", "Андрофобия (страх мужчин)", "Androphobia (fear of men)", [
+        "qo'rqoq",
+        "ko'paytirish-imkoni-yo'q",
+      ]),
+
+      // Original faktlar
       card("Yashirincha boy", "Тайно богат", "Secretly wealthy", [
         "yashirin-boy",
         "yashirin-fakt",
@@ -747,7 +955,6 @@ export const seedContent: SeedContent = {
       // 18+
       cardA("Gey", "Гей", "Gay", []),
       cardA("Lezbi", "Лесбиянка", "Lesbian", []),
-      cardA("Biseksual", "Бисексуал", "Bisexual", []),
       cardA("Bulbulchasi turmaydi", "Птичка не встаёт", "Can't get it up", [
         "ko'paytirish-imkoni-yo'q",
       ]),
@@ -773,16 +980,6 @@ export const seedContent: SeedContent = {
         "Can't go without kissing",
         [],
       ),
-      cardA(
-        "Guruhni yoqtiradi",
-        "Любит групповое",
-        "Likes group activities",
-        [],
-      ),
-      cardA("Yashirin bigamist", "Тайный бигамист", "Secret bigamist", [
-        "yashirin-fakt",
-        "doim-yolg'on-gapiradi",
-      ]),
       cardA(
         "Pornofilm yulduzi bo'lgan",
         "Снимался в порно",
@@ -972,7 +1169,7 @@ export const seedContent: SeedContent = {
     // YADRO URUSHI (nuclear) — 6 situation
     // ============================================================
     sit({
-      text: ["Bunker shamollatish filtri zaiflashdi — tashqaridagi radiatsion havo asta-asta sizib kira boshladi. Birinchi belgilarni sog'lig'i zaif odamlar sezadi: bosh og'rig'i, nafas qisish, ko'z achishish. Kim eng oldin og'irlashadi?", "Фильтр вентиляции бункера ослаб — радиоактивный воздух снаружи начал постепенно просачиваться. Первые признаки заметят те, у кого слабое здоровье: головная боль, одышка, резь в глазах. Кто пострадает первым?", "The bunker's ventilation filter has weakened — radioactive air from outside is slowly seeping in. The first symptoms will hit those with weak health: headaches, shortness of breath, burning eyes. Who will suffer first?"],
+      text: ["Bunker shamollatish filtri zaiflashdi — tashqaridagi radiatsion havo asta-asta sizib kira boshladi. Birinchi belgilarni sog'lig'i zaif odamlar sezadi: bosh og'rig'i, nafas qisish, ko'z achishish. Kim eng oldin og'irlashadi? Uni topib o'g'riqlardan halos qiling", "Фильтр вентиляции бункера ослаб — радиоактивный воздух снаружи начал постепенно просачиваться. Первые признаки заметят те, у кого слабое здоровье: головная боль, одышка, резь в глазах. Кто пострадает первым?", "The bunker's ventilation filter has weakened — radioactive air from outside is slowly seeping in. The first symptoms will hit those with weak health: headaches, shortness of breath, burning eyes. Who will suffer first?"],
       disasters: ["nuclear"],
       tier: 1,
       highlight: ["sog'lom", "immunitet-kuchli", "jismoniy-kuch"],
@@ -986,7 +1183,7 @@ export const seedContent: SeedContent = {
       reason: ["radiatsion havoga eng chidamsiz", "самый уязвимый к радиоактивному воздуху", "least resistant to radioactive air"],
     }),
     sit({
-      text: ["Generator dizel yoqilg'isi kamayib bormoqda — 1 oydan keyin chiroq ham, isitma ham, suv tozalovchi ham o'chadi. Texnik bilim yoki muqobil energiya manbaini yarata oladigan kishi zarur. Foydasiz kasb bu vaziyatda ortiqcha yuk.", "Дизельное топливо для генератора заканчивается — через месяц погаснет свет, отключится отопление и водоочистка. Нужен человек с техническими знаниями или способный создать альтернативный источник энергии. Бесполезная профессия в этой ситуации — лишний груз.", "The generator's diesel fuel is running low — in a month the lights, heat, and water purifier all shut down. We need someone with technical knowledge or who can build an alternative energy source. A useless profession here is dead weight."],
+      text: ["Generator dizel yoqilg'isi kamayib bormoqda — 1 oydan keyin chiroq ham, isitish ham, suv tozalovchi ham o'chadi. Texnik bilim yoki muqobil energiya manbaini yarata oladigan kishilar zarur. Foydasiz kasb bu vaziyatda ortiqcha yuk.", "Дизельное топливо для генератора заканчивается — через месяц погаснет свет, отключится отопление и водоочистка. Нужен человек с техническими знаниями или способный создать альтернативный источник энергии. Бесполезная профессия в этой ситуации — лишний груз.", "The generator's diesel fuel is running low — in a month the lights, heat, and water purifier all shut down. We need someone with technical knowledge or who can build an alternative energy source. A useless profession here is dead weight."],
       disasters: ["nuclear"],
       tier: 2,
       highlight: ["muhandislik", "texnika", "ta'mirlash", "elektrik"],
@@ -994,7 +1191,7 @@ export const seedContent: SeedContent = {
       reason: ["energiya muammosida hech narsa berolmaydigan", "бесполезен в вопросах энергоснабжения", "contributes nothing to the energy problem"],
     }),
     sit({
-      text: ["Bunker eshigi germetikligi buzilib qoldi — radiatsiya tezroq kira boshladi. Eshikni qayta ta'mirlash uchun kimdir tashqariga chiqishi kerak. Faqat jismonan kuchli, chidamli va texnik bilimi bor odam qaytib keladi. Boshqalarning chiqishi — qaytib kelmaslik.", "Герметичность двери бункера нарушена — радиация поступает быстрее. Чтобы починить дверь, кто-то должен выйти наружу. Вернётся только сильный, выносливый и знающий технику. Для остальных выйти — значит не вернуться.", "The bunker door's seal is broken — radiation is entering faster. Someone has to go outside to fix it. Only a physically strong, durable, and technically skilled person comes back. For anyone else, going out means not returning."],
+      text: ["Bunker eshigi germetikligi buzilib qoldi — radiatsiya tezroq kira boshladi. Eshikni qayta ta'mirlash uchun kimdir tashqariga chiqishi kerak. Faqat jismonan kuchli, chidamli va texnik bilimi bor odam qaytib keladi. Kim bizga bu holatda yordam bera olmaydi toping.", "Герметичность двери бункера нарушена — радиация поступает быстрее. Чтобы починить дверь, кто-то должен выйти наружу. Вернётся только сильный, выносливый и знающий технику. Для остальных выйти — значит не вернуться.", "The bunker door's seal is broken — radiation is entering faster. Someone has to go outside to fix it. Only a physically strong, durable, and technically skilled person comes back. For anyone else, going out means not returning."],
       disasters: ["nuclear"],
       tier: 3,
       highlight: [
@@ -1024,7 +1221,7 @@ export const seedContent: SeedContent = {
     }),
     sit({
       text: [
-        "Tibbiy zaxira tugab bormoqda. Surunkali kasalligi bor odamlarga doimiy dori kerak, lekin dori cheklangan. Dori berilmagan kishi keyingi oyda yashay olmaydi. Eng ko'p tibbiy yordamga muhtoj kishini qoldirish — barchaning hayotini saqlash demak.",
+        "Tibbiy zaxira tugab bormoqda. Surunkali kasalligi bor odamlarga doimiy dori kerak, lekin dori cheklangan. Dori berilmagan kishi keyingi oyda yashay olmaydi. Eng ko'p tibbiy yordamga muhtoj  bo'lmagan kishilarni qoldirish — barchaning hayotini saqlash demak.",
         "Медицинские запасы заканчиваются. Хронически больным нужны постоянные лекарства, но они ограничены. Тот, кто не получит дозу, не проживёт и месяц. Оставить самого нуждающегося в помощи — значит спасти остальных.",
         "Medical supplies are running out. The chronically ill need constant medication, but the stock is limited. Anyone left without doses won't survive the next month. Leaving behind the most dependent saves everyone else.",
       ],
@@ -1062,7 +1259,7 @@ export const seedContent: SeedContent = {
     }),
 
     sit({
-      text: ["Bunker eshigi yaqinidagi radiatsiya o'lchagich noma'lum sababdan ishlamayapti. Qurilmani tekshirib, xavfsizlikni ta'minlay oladigan texnik kishi tezda kerak.", "Дозиметр у двери бункера по неизвестной причине вышел из строя. Срочно нужен технарь, который проверит прибор и обеспечит безопасность.", "The radiation meter by the bunker door has stopped working for unknown reasons. We urgently need a technician who can check the device and confirm safety."],
+      text: ["Bunker eshigi yaqinidagi radiatsiya o'lchagich noma'lum sababdan ishlamayapti. Qurilmani tekshirib, xavfsizlikni ta'minlay oladigan texnik kishi tezda kerak. Bu vaziyatga yordam bera olmaydigon kimnidir qurbon qiling", "Дозиметр у двери бункера по неизвестной причине вышел из строя. Срочно нужен технарь, который проверит прибор и обеспечит безопасность.", "The radiation meter by the bunker door has stopped working for unknown reasons. We urgently need a technician who can check the device and confirm safety."],
       disasters: ["nuclear"],
       tier: 1,
       highlight: ["muhandislik", "elektrik", "kimyo", "texnika"],
