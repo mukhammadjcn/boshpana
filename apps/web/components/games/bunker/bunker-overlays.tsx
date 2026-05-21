@@ -528,6 +528,101 @@ export function BunkerRevealChoiceModal({
   );
 }
 
+type CardReplaceModalProps = {
+  open: boolean;
+  animationKey: string;
+  // Kim almashtirdi (manba).
+  actorName: string;
+  // Kimning kartasi almashtirildi (manba == nishon bo'lsa, "o'zining" varianti chiqadi).
+  targetName: string;
+  isSelf: boolean;
+  cardLabel: string;
+  fromValue: string;
+  toValue: string;
+  onClose: () => void;
+};
+
+export function BunkerCardReplaceModal({
+  open,
+  animationKey,
+  actorName,
+  targetName,
+  isSelf,
+  cardLabel,
+  fromValue,
+  toValue,
+  onClose,
+}: CardReplaceModalProps) {
+  const { t } = useI18n();
+  if (!open) return null;
+
+  // "Asror Hikmatillo'ning Sog'liq kartasini almashtirdi"
+  // "Asror o'zining Sog'liq kartasini almashtirdi"
+  const headline = isSelf
+    ? t("name_ozining_label_kartasini_almashtirdi", {
+        name: actorName,
+        label: cardLabel,
+      }) ?? `${actorName} o'zining ${cardLabel} kartasini almashtirdi`
+    : t("name_targetning_label_kartasini_almashtirdi", {
+        name: actorName,
+        target: targetName,
+        label: cardLabel,
+      }) ??
+      `${actorName} ${targetName}ning ${cardLabel} kartasini almashtirdi`;
+
+  return (
+    <GameModalShell
+      zIndexClassName="z-50"
+      overlayClassName="bg-bg-overlay px-4 backdrop-blur-md"
+      panelClassName="w-full max-w-md rounded-3xl border border-line-strong bg-bg-surface p-5 shadow-pop"
+      stopPanelClick
+    >
+      <p className="text-xs font-medium uppercase tracking-[0.25em] text-amber-400">
+        {t("karta_almashtirildi") ?? "Karta almashtirildi"}
+      </p>
+      <h3 className="mt-1 text-base font-semibold leading-snug text-ink-primary">
+        {headline}
+      </h3>
+
+      <div
+        className="mt-5 grid gap-3"
+        key={animationKey}
+        style={{ perspective: 1200 }}
+      >
+        <div className="rounded-2xl border border-bad/30 bg-bad/5 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-bad">
+            {t("eski") ?? "Eski"} · {cardLabel}
+          </p>
+          <p className="mt-1.5 text-base leading-7 text-ink-secondary line-through decoration-bad/60">
+            {fromValue}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-center text-ink-muted">
+          <span aria-hidden className="text-xl">↓</span>
+        </div>
+
+        <div className="animate-card-flip rounded-2xl border border-ok/40 bg-ok/10 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-ok">
+            {t("yangi") ?? "Yangi"} · {cardLabel}
+          </p>
+          <p className="mt-1.5 text-base font-semibold leading-7 text-ink-primary">
+            {toValue}
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-5 flex h-12 w-full items-center justify-center rounded-2xl bg-brand text-sm font-semibold text-bg-base transition active:scale-[0.98]"
+      >
+        {t("tushundim")}
+      </button>
+    </GameModalShell>
+  );
+}
+
 type CardRevealModalProps = {
   open: boolean;
   animationKey: string;

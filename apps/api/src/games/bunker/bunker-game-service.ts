@@ -119,6 +119,35 @@ const noopRealtime: RealtimePublisher = {
   isSessionOnline: () => true
 };
 
+type ActionCardWithRef = {
+  status: string;
+  resultMeta: Prisma.JsonValue;
+  actionCard: { effect: string };
+};
+
+function extractExtraBaggage(
+  instances: ActionCardWithRef[] | null | undefined
+): string[] {
+  return (instances ?? [])
+    .filter(
+      (inst) =>
+        inst.status === "PLAYED" && inst.actionCard.effect === "EXTRA_BAGGAGE"
+    )
+    .map((inst) => {
+      const meta = inst.resultMeta;
+      if (
+        meta &&
+        typeof meta === "object" &&
+        !Array.isArray(meta) &&
+        typeof (meta as Record<string, unknown>).baggage === "string"
+      ) {
+        return (meta as Record<string, unknown>).baggage as string;
+      }
+      return null;
+    })
+    .filter((s): s is string => !!s);
+}
+
 export class BunkerGameService {
   private realtime: RealtimePublisher = noopRealtime;
 
@@ -454,25 +483,7 @@ export class BunkerGameService {
               tier: inst.actionCard.tier,
               status: inst.status
             })),
-            extraBaggage: (me.bunkerActionCards ?? [])
-              .filter(
-                (inst) =>
-                  inst.status === "PLAYED" &&
-                  inst.actionCard.effect === "EXTRA_BAGGAGE"
-              )
-              .map((inst) => {
-                const meta = inst.resultMeta;
-                if (
-                  meta &&
-                  typeof meta === "object" &&
-                  !Array.isArray(meta) &&
-                  typeof (meta as Record<string, unknown>).baggage === "string"
-                ) {
-                  return (meta as Record<string, unknown>).baggage as string;
-                }
-                return null;
-              })
-              .filter((s): s is string => !!s)
+            extraBaggage: extractExtraBaggage(me.bunkerActionCards)
           }
         : null,
       players: room.players.map((player) => {
@@ -514,6 +525,7 @@ export class BunkerGameService {
           revealedCardTags: revealedTags,
           revealedCount: player.bunkerAttributes?.revealed.length ?? 0,
           situationBadge: badge,
+          extraBaggage: extractExtraBaggage(player.bunkerActionCards),
           actionModifiers: {
             immune: immuneSet.has(player.id),
             doubleVote: doubleVoteSet.has(player.id),

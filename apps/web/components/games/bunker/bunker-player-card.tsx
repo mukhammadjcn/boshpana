@@ -16,6 +16,9 @@ type PlayerCardProps = {
   isHost: boolean;
   isAlive: boolean;
   revealedCards: Partial<Record<string, string>>;
+  // EXTRA_BAGGAGE action card orqali shu o'yinchining hand'iga qo'shilgan
+  // qo'shimcha bagajlar. Public ko'rinadi (asl baggage bilan birga).
+  extraBaggage?: string[];
   isMe?: boolean;
   isCurrentTurn?: boolean;
   variant?: "row" | "tile";
@@ -46,6 +49,7 @@ export function PlayerCard({
   isHost,
   isAlive,
   revealedCards,
+  extraBaggage,
   isMe,
   isCurrentTurn,
   variant = "row",
@@ -285,7 +289,7 @@ export function PlayerCard({
         </div>
       </div>
 
-      {entries.length ? (
+      {entries.length || (extraBaggage && extraBaggage.length) ? (
         <div className="grid gap-1.5 border-t border-line-subtle p-3 pt-2.5">
           {entries.map(([key, value]) => (
             <div key={key} className="flex items-baseline gap-2 text-sm">
@@ -293,6 +297,17 @@ export function PlayerCard({
                 {cardLabels[key] ? t(cardLabels[key]) : key}
               </span>
               <span className="flex-1 text-ink-primary">{value}</span>
+            </div>
+          ))}
+          {(extraBaggage ?? []).map((text, idx) => (
+            <div
+              key={`extra-baggage-${idx}`}
+              className="flex items-baseline gap-2 text-sm"
+            >
+              <span className="w-16 shrink-0 text-[11px] font-medium uppercase tracking-wide text-amber-400">
+                {t(cardLabels.BAGGAGE)} +
+              </span>
+              <span className="flex-1 text-ink-primary">{text}</span>
             </div>
           ))}
         </div>

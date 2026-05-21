@@ -102,6 +102,9 @@ export type BunkerPublicState = {
     // player's revealed-card tags against the situation's highlight/weak
     // tags. Pure UI hint — voting stays free-form.
     situationBadge: "green" | "red" | "neutral";
+    // EXTRA_BAGGAGE effekti orqali qo'lga kiritilgan qo'shimcha bagajlar —
+    // har bir o'yinchining hand'ida public ko'rinadi (asl baggage bilan birga).
+    extraBaggage: string[];
     // Bu raundga oid maxsus karta modifierlari (ko'rinarli holat uchun).
     // Raund yakunida tozalanadi.
     actionModifiers: {

@@ -96,8 +96,9 @@ export type PlayActionCardResult = {
   descriptionUz: string;
   descriptionRu: string;
   descriptionEn: string;
-  // Maqsadli o'yinchi (SELF effektlarda null).
+  // Maqsadli o'yinchi (SELF effektlarda — manba bilan bir xil).
   targetPlayerId: string | null;
+  targetPlayerName: string | null;
 };
 
 /**
@@ -145,11 +146,31 @@ export async function playActionCard(input: PlayActionCardInput): Promise<PlayAc
         targetPlayerId: input.targetPlayerId ?? null
       });
 
+      // Effektdan keyin resultMeta'da yangilangan target bo'lishi mumkin
+      // (masalan SELF REPLACE'da target = source). Shuni ham eslab qolamiz.
+      const metaTargetId =
+        effectResult.resultMeta &&
+        typeof effectResult.resultMeta === "object" &&
+        !Array.isArray(effectResult.resultMeta)
+          ? ((effectResult.resultMeta as Record<string, unknown>)
+              .targetPlayerId as string | undefined)
+          : undefined;
+      const effectiveTargetId =
+        input.targetPlayerId ?? metaTargetId ?? null;
+
       // Karta ma'lumotlarini olamiz — caller broadcast/toast uchun.
-      const instance = await tx.bunkerActionCardInstance.findUnique({
-        where: { id: input.instanceId },
-        include: { actionCard: true }
-      });
+      const [instance, targetPlayer] = await Promise.all([
+        tx.bunkerActionCardInstance.findUnique({
+          where: { id: input.instanceId },
+          include: { actionCard: true }
+        }),
+        effectiveTargetId
+          ? tx.player.findUnique({
+              where: { id: effectiveTargetId },
+              select: { name: true }
+            })
+          : Promise.resolve(null)
+      ]);
       if (!instance) throw new Error("Karta nusxasi yo'qoldi.");
 
       return {
@@ -164,7 +185,8 @@ export async function playActionCard(input: PlayActionCardInput): Promise<PlayAc
         descriptionUz: instance.actionCard.descriptionUz,
         descriptionRu: instance.actionCard.descriptionRu,
         descriptionEn: instance.actionCard.descriptionEn,
-        targetPlayerId: input.targetPlayerId ?? null
+        targetPlayerId: effectiveTargetId,
+        targetPlayerName: targetPlayer?.name ?? null
       };
     });
   });

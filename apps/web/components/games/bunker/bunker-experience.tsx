@@ -58,6 +58,7 @@ import type { RoomVisibility } from "@/lib/types";
 import { BunkerLobby } from "./bunker-lobby";
 import {
   BunkerCardRevealModal,
+  BunkerCardReplaceModal,
   BunkerDisasterIntroModal,
   BunkerEliminationModal,
   BunkerMyCardsSheet,
@@ -207,6 +208,18 @@ export function BunkerExperience({
     newCardType: BunkerCardType;
     newCardValue: string;
     olderCards: Array<{ type: BunkerCardType; value: string }>;
+  } | null>(null);
+  // Action card almashtirish modali — replace-* effektlar ochiq kartaga
+  // tushganda ko'rsatamiz. Yopiq kartaga tushgan replace faqat toast bo'ladi
+  // (chunki kim qiymatni bilmagan, demak hech kim taqqoslay olmaydi).
+  const [replaceModal, setReplaceModal] = useState<{
+    id: string;
+    actorName: string;
+    targetName: string;
+    isSelf: boolean;
+    cardType: BunkerCardType;
+    fromValue: string;
+    toValue: string;
   } | null>(null);
 
   const connectedRef = useRef(false);
@@ -462,7 +475,40 @@ export function BunkerExperience({
       descriptionUz?: string;
       descriptionRu?: string;
       descriptionEn?: string;
+      targetPlayerId?: string | null;
+      targetPlayerName?: string | null;
+      effect?: string;
+      resultMeta?: {
+        cardType?: BunkerCardType;
+        wasRevealed?: boolean;
+        from?: string | null;
+        to?: string | null;
+      } | null;
     }) => {
+      // Replace effekti + nishon kartasi avval ochilgan bo'lsa — toast o'rniga
+      // alohida modal ko'rsatamiz, hammaga taqqoslab ko'rsatish uchun.
+      const meta = payload.resultMeta;
+      const isReplace =
+        meta?.cardType &&
+        meta?.wasRevealed === true &&
+        typeof meta.from === "string" &&
+        typeof meta.to === "string";
+
+      if (isReplace) {
+        setReplaceModal({
+          id: `${payload.sourcePlayerId}-${meta!.cardType}-${Date.now()}`,
+          actorName: payload.sourcePlayerName,
+          targetName: payload.targetPlayerName ?? payload.sourcePlayerName,
+          isSelf:
+            !payload.targetPlayerId ||
+            payload.targetPlayerId === payload.sourcePlayerId,
+          cardType: meta!.cardType as BunkerCardType,
+          fromValue: meta!.from as string,
+          toValue: meta!.to as string,
+        });
+        return;
+      }
+
       setActionToast({
         id: `${payload.sourcePlayerId}-${Date.now()}`,
         playerName: payload.sourcePlayerName,
@@ -1405,6 +1451,9 @@ export function BunkerExperience({
                 isAlive={p.isAlive}
                 isMe={p.id === me.id}
                 revealedCards={p.visibleCards}
+                extraBaggage={
+                  room.actionCardsEnabled ? p.extraBaggage : undefined
+                }
                 situationBadge={
                   game.situation && p.isAlive && p.revealedCount > 0
                     ? p.situationBadge
@@ -1779,6 +1828,18 @@ export function BunkerExperience({
         newCardValue={revealModalContent?.newCardValue ?? ""}
         olderCards={revealModalContent?.olderCards ?? []}
         onClose={() => setRevealModal(null)}
+      />
+
+      <BunkerCardReplaceModal
+        open={!!replaceModal}
+        animationKey={replaceModal?.id ?? ""}
+        actorName={replaceModal?.actorName ?? ""}
+        targetName={replaceModal?.targetName ?? ""}
+        isSelf={!!replaceModal?.isSelf}
+        cardLabel={replaceModal ? t(cardLabels[replaceModal.cardType]) : ""}
+        fromValue={replaceModal?.fromValue ?? ""}
+        toValue={replaceModal?.toValue ?? ""}
+        onClose={() => setReplaceModal(null)}
       />
     </main>
   );

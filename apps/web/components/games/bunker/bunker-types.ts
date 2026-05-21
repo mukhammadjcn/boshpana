@@ -107,6 +107,7 @@ export type BunkerRoomState = {
     revealedCardTags: Partial<Record<string, string[]>>;
     revealedCount: number;
     situationBadge: "green" | "red" | "neutral";
+    extraBaggage: string[];
     actionModifiers: {
       immune: boolean;
       doubleVote: boolean;

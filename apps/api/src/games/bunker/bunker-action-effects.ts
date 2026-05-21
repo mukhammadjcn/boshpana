@@ -160,58 +160,74 @@ async function runEffect(
     }
 
     case "REPLACE_OWN_HEALTH": {
-      const newText = await drawReplacement(tx, gameId, "HEALTH");
       const prev = await tx.bunkerPlayerAttribute.findUnique({
         where: { playerId: sourcePlayerId },
-        select: { health: true }
+        select: { health: true, revealed: true }
       });
+      const wasRevealed = prev?.revealed.includes(BunkerCardType.HEALTH) ?? false;
+      const newText = await drawReplacement(tx, gameId, "HEALTH", prev?.health);
       await tx.bunkerPlayerAttribute.update({
         where: { playerId: sourcePlayerId },
         data: { health: newText }
       });
-      return { applied: "replace_health", from: prev?.health ?? null, to: newText };
+      return {
+        applied: "replace_health",
+        cardType: "HEALTH",
+        targetPlayerId: sourcePlayerId,
+        wasRevealed,
+        from: prev?.health ?? null,
+        to: newText
+      };
     }
 
     case "REPLACE_OWN_BIOLOGY": {
-      const newText = await drawReplacement(tx, gameId, "BIOLOGY");
       const prev = await tx.bunkerPlayerAttribute.findUnique({
         where: { playerId: sourcePlayerId },
-        select: { biology: true }
+        select: { biology: true, revealed: true }
       });
+      const wasRevealed = prev?.revealed.includes(BunkerCardType.BIOLOGY) ?? false;
+      const newText = await drawReplacement(tx, gameId, "BIOLOGY", prev?.biology);
       await tx.bunkerPlayerAttribute.update({
         where: { playerId: sourcePlayerId },
         data: { biology: newText }
       });
-      return { applied: "replace_biology", from: prev?.biology ?? null, to: newText };
+      return {
+        applied: "replace_biology",
+        cardType: "BIOLOGY",
+        targetPlayerId: sourcePlayerId,
+        wasRevealed,
+        from: prev?.biology ?? null,
+        to: newText
+      };
     }
 
     case "EXTRA_BAGGAGE": {
-      // Bagaj ustuni bitta matn — qo'shimcha bagaj uchun ikkinchi slot yo'q.
-      // Hozircha: yangi bagaj kartani torttiramiz va eskisiga ustiga yozamiz
-      // bo'lmaydi — chunki o'yinchi haqiqiy "qo'shimcha bagaj" kutadi.
-      // Faza 5 da BunkerPlayerExtraBaggage jadvali qo'shamiz; hozircha
-      // yangi bagajni reveal qilingan ro'yxatga qo'shib, eski bagajni saqlaymiz.
-      // Vaqtincha yechim: yangi bagaj kartasini tortib, "extraBaggage" sifatida
-      // resultMeta'da qaytaramiz. UI keyinroq alohida ko'rsatadi.
-      const newText = await drawReplacement(tx, gameId, "BAGGAGE");
-      return { applied: "extra_baggage", baggage: newText, note: "schema_extension_pending" };
+      const prev = await tx.bunkerPlayerAttribute.findUnique({
+        where: { playerId: sourcePlayerId },
+        select: { baggage: true }
+      });
+      const newText = await drawReplacement(tx, gameId, "BAGGAGE", prev?.baggage);
+      return { applied: "extra_baggage", baggage: newText };
     }
 
     // ─── V2 ─────────────────────────────────────────────────────
     case "REPLACE_OTHER_HEALTH": {
       const targetId = requireTarget(input.targetPlayerId);
-      const newText = await drawReplacement(tx, gameId, "HEALTH");
       const prev = await tx.bunkerPlayerAttribute.findUnique({
         where: { playerId: targetId },
-        select: { health: true }
+        select: { health: true, revealed: true }
       });
+      const wasRevealed = prev?.revealed.includes(BunkerCardType.HEALTH) ?? false;
+      const newText = await drawReplacement(tx, gameId, "HEALTH", prev?.health);
       await tx.bunkerPlayerAttribute.update({
         where: { playerId: targetId },
         data: { health: newText }
       });
       return {
         applied: "replace_other_health",
+        cardType: "HEALTH",
         targetPlayerId: targetId,
+        wasRevealed,
         from: prev?.health ?? null,
         to: newText
       };
@@ -236,18 +252,21 @@ async function runEffect(
 
     case "REPLACE_OTHER_FACT": {
       const targetId = requireTarget(input.targetPlayerId);
-      const newText = await drawReplacement(tx, gameId, "FACT");
       const prev = await tx.bunkerPlayerAttribute.findUnique({
         where: { playerId: targetId },
-        select: { fact: true }
+        select: { fact: true, revealed: true }
       });
+      const wasRevealed = prev?.revealed.includes(BunkerCardType.FACT) ?? false;
+      const newText = await drawReplacement(tx, gameId, "FACT", prev?.fact);
       await tx.bunkerPlayerAttribute.update({
         where: { playerId: targetId },
         data: { fact: newText }
       });
       return {
         applied: "replace_other_fact",
+        cardType: "FACT",
         targetPlayerId: targetId,
+        wasRevealed,
         from: prev?.fact ?? null,
         to: newText
       };
@@ -255,18 +274,21 @@ async function runEffect(
 
     case "REPLACE_OTHER_PROFESSION": {
       const targetId = requireTarget(input.targetPlayerId);
-      const newText = await drawReplacement(tx, gameId, "PROFESSION");
       const prev = await tx.bunkerPlayerAttribute.findUnique({
         where: { playerId: targetId },
-        select: { profession: true }
+        select: { profession: true, revealed: true }
       });
+      const wasRevealed = prev?.revealed.includes(BunkerCardType.PROFESSION) ?? false;
+      const newText = await drawReplacement(tx, gameId, "PROFESSION", prev?.profession);
       await tx.bunkerPlayerAttribute.update({
         where: { playerId: targetId },
         data: { profession: newText }
       });
       return {
         applied: "replace_other_profession",
+        cardType: "PROFESSION",
         targetPlayerId: targetId,
+        wasRevealed,
         from: prev?.profession ?? null,
         to: newText
       };
@@ -379,7 +401,6 @@ async function runEffect(
         return { applied: "reroll_target_card", targetPlayerId: targetId, note: "no_hidden_cards" };
       }
       const picked = hidden[Math.floor(Math.random() * hidden.length)];
-      const newText = await drawReplacement(tx, gameId, picked);
       const fieldMap: Record<BunkerCardType, "profession" | "health" | "biology" | "skill" | "baggage" | "fact"> = {
         PROFESSION: "profession",
         HEALTH: "health",
@@ -389,6 +410,7 @@ async function runEffect(
         FACT: "fact"
       };
       const field = fieldMap[picked];
+      const newText = await drawReplacement(tx, gameId, picked, attrs[field]);
       await tx.bunkerPlayerAttribute.update({
         where: { playerId: targetId },
         data: { [field]: newText }
@@ -424,15 +446,11 @@ function requireTarget(targetPlayerId: string | null | undefined): string {
   return targetPlayerId;
 }
 
-/**
- * Belgilangan typedan tasodifiy karta tortish — o'yinchining hozirgi
- * kartasi bilan bir xil bo'lmasin (qachondir). Pool kichik bo'lsa,
- * faqat bittasi qolsa, o'sha kartani qaytaradi.
- */
 async function drawReplacement(
   tx: Tx,
   gameId: string,
-  type: "HEALTH" | "BIOLOGY" | "BAGGAGE" | "PROFESSION" | "FACT" | "SKILL"
+  type: "HEALTH" | "BIOLOGY" | "BAGGAGE" | "PROFESSION" | "FACT" | "SKILL",
+  excludeText?: string | null
 ): Promise<string> {
   const game = await tx.bunkerGame.findUnique({
     where: { id: gameId },
@@ -444,5 +462,9 @@ async function drawReplacement(
     select: { text: true }
   });
   if (pool.length === 0) throw new Error(`${type} kartalar hovuzi bo'sh.`);
-  return pool[Math.floor(Math.random() * pool.length)].text;
+  const filtered = excludeText
+    ? pool.filter((c) => c.text !== excludeText)
+    : pool;
+  const choice = filtered.length > 0 ? filtered : pool;
+  return choice[Math.floor(Math.random() * choice.length)].text;
 }

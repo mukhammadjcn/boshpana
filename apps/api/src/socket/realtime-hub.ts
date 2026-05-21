@@ -256,7 +256,9 @@ export class RealtimeHub {
               descriptionRu: result.descriptionRu,
               descriptionEn: result.descriptionEn,
               targetPlayerId: result.targetPlayerId,
-              effect: result.effect
+              targetPlayerName: result.targetPlayerName,
+              effect: result.effect,
+              resultMeta: result.resultMeta
             });
             await this.broadcastRoomState(payload.roomCode);
           });
@@ -283,7 +285,9 @@ export class RealtimeHub {
               descriptionRu: "Никто не исключён, переходим к следующему раунду.",
               descriptionEn: "No one was eliminated, moving to the next round.",
               targetPlayerId: null,
-              effect: "ALL_IMMUNE_SKIP"
+              targetPlayerName: null,
+              effect: "ALL_IMMUNE_SKIP",
+              resultMeta: null
             });
           }
           await this.broadcastRoomState(payload.roomCode);
