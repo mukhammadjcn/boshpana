@@ -11,6 +11,7 @@ import type {
   RoomVisibility,
 } from "@/lib/types";
 import { RoomExpiredState } from "@/components/room-expired-state";
+import { useGameBrandStore } from "@/store/useGameBrandStore";
 
 import { BunkerExperience } from "./bunker/bunker-experience";
 import { MafiaExperience } from "./mafia/mafia-experience";
@@ -57,6 +58,7 @@ export function GameRouter({ roomCode, view }: Props) {
   const { t } = useI18n();
   const [info, setInfo] = useState<RoomInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const setActiveGame = useGameBrandStore((s) => s.setActiveGame);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +73,13 @@ export function GameRouter({ roomCode, view }: Props) {
       cancelled = true;
     };
   }, [roomCode]);
+
+  // Surface the resolved game type to the top safe-area brand strip while
+  // this room is mounted, and clear it when leaving the game.
+  useEffect(() => {
+    setActiveGame(info?.gameType ?? null);
+    return () => setActiveGame(null);
+  }, [info?.gameType, setActiveGame]);
 
   if (error) {
     return <RoomExpiredState roomCode={roomCode} detail={error} />;

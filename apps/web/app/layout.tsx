@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import {
+  IBM_Plex_Mono,
+  Space_Grotesk,
+  Special_Gothic_Expanded_One,
+} from "next/font/google";
 import Script from "next/script";
 
 import { SafeAreaBlur } from "@/components/safe-area-blur";
 import { TelegramBootstrap } from "@/components/telegram-bootstrap";
+import { TelegramGestures } from "@/components/telegram-gestures";
+import { TelegramTopBrand } from "@/components/telegram-top-brand";
 import { ToastViewport } from "@/components/toast-viewport";
 import { I18nProvider } from "@/lib/i18n";
 import {
@@ -25,6 +31,13 @@ const mono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-mono",
+});
+
+// Wide display logotype font for the top safe-area branding (matches dasyor).
+const brand = Special_Gothic_Expanded_One({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-brand",
 });
 
 export const metadata: Metadata = {
@@ -92,7 +105,7 @@ export default function RootLayout({
   return (
     <html
       lang="uz"
-      className={`${display.variable} ${mono.variable}`}
+      className={`${display.variable} ${mono.variable} ${brand.variable}`}
       suppressHydrationWarning
     >
       <body>
@@ -145,8 +158,10 @@ export default function RootLayout({
           })();`}
           </Script>
           <TelegramBootstrap />
+          <TelegramGestures />
           {children}
           <SafeAreaBlur />
+          <TelegramTopBrand />
           <ToastViewport />
         </I18nProvider>
       </body>

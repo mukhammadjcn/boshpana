@@ -86,6 +86,15 @@ export function isInsideTelegram(): boolean {
   return !!wa && !!wa.initData;
 }
 
+// True only on the native mobile Telegram clients (android / ios). Desktop
+// and web Telegram report other platforms — gesture features like
+// pull-to-refresh should be scoped to mobile where touch + safe areas apply.
+export function isTelegramMobilePlatform(): boolean {
+  const wa = getTelegramWebApp();
+  const platform = (wa?.platform || "").toLowerCase();
+  return platform === "android" || platform === "ios";
+}
+
 export async function waitForTelegramWebApp(
   timeoutMs = 5000,
 ): Promise<TgWebApp | null> {
