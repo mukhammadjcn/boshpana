@@ -34,10 +34,14 @@ const mono = IBM_Plex_Mono({
 });
 
 // Wide display logotype font for the top safe-area branding (matches dasyor).
+// adjustFontFallback:false — Next.js has no fallback metric overrides for this
+// newer font, which otherwise fails the production build ("Failed to find font
+// override values"). Disabling the auto-fallback skips that lookup.
 const brand = Special_Gothic_Expanded_One({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-brand",
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {

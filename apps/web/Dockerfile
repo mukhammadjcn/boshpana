@@ -1,5 +1,9 @@
+# syntax=docker/dockerfile:1
 FROM node:22-alpine AS builder
 WORKDIR /app
+
+# Persisted yarn cache (survives layer-cache misses) — speeds up installs.
+ENV YARN_CACHE_FOLDER=/root/.yarn-cache
 
 # Public URLs are inlined into the Next.js client bundle at build time.
 ARG NEXT_PUBLIC_API_URL
@@ -18,10 +22,14 @@ ENV NEXT_PUBLIC_ENABLE_DEV_AUTH=$NEXT_PUBLIC_ENABLE_DEV_AUTH
 COPY package.json yarn.lock tsconfig.base.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/api/package.json apps/api/package.json
-RUN yarn install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.yarn-cache,sharing=locked \
+    yarn install --frozen-lockfile
 
 COPY . .
-RUN yarn workspace web build
+# Persist Next.js' incremental compile cache so only changed files recompile
+# (cold build ~176s → seconds-to-tens-of-seconds on small diffs).
+RUN --mount=type=cache,target=/app/apps/web/.next/cache \
+    yarn workspace web build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
